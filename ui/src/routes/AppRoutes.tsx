@@ -26,9 +26,8 @@ const AppRoutes = () => {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/clients" element={<ClientsPage />} />
-          <Route path="/users" element={<UsersPage />} />
-
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="/users" element={<UsersPage />} />
             <Route path="/roles" element={<RolesPage />} />
           </Route>
         </Route>
