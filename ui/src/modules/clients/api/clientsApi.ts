@@ -14,8 +14,10 @@ export type ClientItem = {
 }
 
 type ClientsListResponse = {
-  data?: unknown[] | { data?: unknown[]; clients?: unknown[] }
+  data?: unknown[] | { data?: unknown[]; clients?: unknown[]; list?: unknown[]; rows?: unknown[] }
   clients?: unknown[]
+  list?: unknown[]
+  rows?: unknown[]
 }
 
 export type ClientPayload = {
@@ -39,14 +41,14 @@ const normalizeBillingType = (value: unknown): BillingType => {
 }
 
 const normalizeClient = (raw: Record<string, unknown>): ClientItem => ({
-  id: Number(raw.id ?? 0),
-  name: String(raw.name ?? '').trim(),
-  company_name: String(raw.company_name ?? '').trim(),
-  mobile: String(raw.mobile ?? '').trim(),
-  address: String(raw.address ?? '').trim(),
-  gst: String(raw.gst ?? '').trim(),
+  id: Number(raw.id ?? raw.client_id ?? 0),
+  name: String(raw.name ?? raw.client_name ?? raw.customer_name ?? '').trim(),
+  company_name: String(raw.company_name ?? raw.company ?? raw.organization_name ?? '').trim(),
+  mobile: String(raw.mobile ?? raw.phone ?? raw.contact_no ?? '').trim(),
+  address: String(raw.address ?? raw.billing_address ?? '').trim(),
+  gst: String(raw.gst ?? raw.gst_no ?? raw.gstin ?? '').trim(),
   billing_type: normalizeBillingType(raw.billing_type),
-  status: isActive(raw.status) ? 'Active' : 'Inactive',
+  status: isActive(raw.status ?? raw.is_active ?? raw.active) ? 'Active' : 'Inactive',
 })
 
 export const getClients = async () => {
@@ -55,8 +57,8 @@ export const getClients = async () => {
     Array.isArray(response.data)
       ? response.data
       : response.data && typeof response.data === 'object'
-        ? (response.data.data ?? response.data.clients ?? [])
-        : response.clients ?? []
+        ? (response.data.data ?? response.data.clients ?? response.data.list ?? response.data.rows ?? [])
+        : (response.clients ?? response.list ?? response.rows ?? [])
 
   const clients = Array.isArray(dataPayload) ? dataPayload : []
 
