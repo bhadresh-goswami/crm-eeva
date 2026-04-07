@@ -140,24 +140,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [clearAuthState, token])
 
   const breakIn = useCallback(async () => {
-    setSessionStatus('logged_in')
-    localStorage.setItem(SESSION_STATUS_STORAGE_KEY, 'logged_in')
-
     try {
       await apiRequest('/break-in', { method: 'POST' })
-    } catch {
-      console.info('breakIn placeholder called: /break-in is unavailable.')
+      setSessionStatus('logged_in')
+      localStorage.setItem(SESSION_STATUS_STORAGE_KEY, 'logged_in')
+    } catch (error) {
+      console.error('breakIn failed', error)
+      throw error
     }
   }, [])
 
   const breakOut = useCallback(async () => {
-    setSessionStatus('break')
-    localStorage.setItem(SESSION_STATUS_STORAGE_KEY, 'break')
-
     try {
       await apiRequest('/break-out', { method: 'POST' })
-    } catch {
-      console.info('breakOut placeholder called: /break-out is unavailable.')
+      setSessionStatus('break')
+      localStorage.setItem(SESSION_STATUS_STORAGE_KEY, 'break')
+    } catch (error) {
+      console.error('breakOut failed', error)
+      throw error
     }
   }, [])
 
