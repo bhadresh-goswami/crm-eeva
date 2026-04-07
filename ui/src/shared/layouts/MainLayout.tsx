@@ -5,9 +5,9 @@ import Sidebar from '../components/Sidebar'
 const MainLayout = () => {
   return (
     <div className="app-shell">
-      <Sidebar />
-      <div className="app-shell__body">
-        <Header />
+      <Header />
+      <div className="app-shell__main">
+        <Sidebar />
         <main className="main-content">
           <Outlet />
         </main>

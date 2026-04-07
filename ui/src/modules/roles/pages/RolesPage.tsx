@@ -12,6 +12,10 @@ import {
 import RoleForm from '../components/RoleForm'
 import RolesTable from '../components/RolesTable'
 
+type StatusFilter = 'all' | 'active' | 'inactive'
+
+const PAGE_SIZE = 5
+
 const RolesPage = () => {
   const { user } = useAuth()
 
@@ -22,6 +26,10 @@ const RolesPage = () => {
   const [editingRole, setEditingRole] = useState<Role | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [actionRoleId, setActionRoleId] = useState<number | null>(null)
+
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const loadRoles = useCallback(async () => {
     setIsLoading(true)
@@ -116,6 +124,44 @@ const RolesPage = () => {
     [editingRole?.id, roles],
   )
 
+  const filteredRoles = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase()
+
+    return roles.filter((role) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        role.name.toLowerCase().includes(normalizedSearch) ||
+        String(role.id).includes(normalizedSearch)
+
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && role.isActive) ||
+        (statusFilter === 'inactive' && !role.isActive)
+
+      return matchesSearch && matchesStatus
+    })
+  }, [roles, searchTerm, statusFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredRoles.length / PAGE_SIZE))
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  const paginatedRoles = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE
+    return filteredRoles.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [currentPage, filteredRoles])
+
+  const startItem = filteredRoles.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const endItem = Math.min(currentPage * PAGE_SIZE, filteredRoles.length)
+
   if (!user) {
     return <Navigate replace to="/login" />
   }
@@ -142,14 +188,68 @@ const RolesPage = () => {
         <div>
           {pageError ? <p className="auth-card__error roles-feedback">{pageError}</p> : null}
           {successMessage ? <p className="roles-success roles-feedback">{successMessage}</p> : null}
+
+          <div className="card roles-controls">
+            <label className="auth-card__field" htmlFor="roleSearch">
+              Search
+              <input
+                id="roleSearch"
+                placeholder="Search by role name or ID"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </label>
+
+            <label className="auth-card__field" htmlFor="roleStatusFilter">
+              Filter by status
+              <select
+                id="roleStatusFilter"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                className="roles-controls__select"
+              >
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+          </div>
+
           <RolesTable
-            roles={roles}
+            roles={paginatedRoles}
             isLoading={isLoading}
             actionRoleId={actionRoleId}
             onEdit={setEditingRole}
             onDelete={handleDelete}
             onToggle={handleToggle}
           />
+
+          {!isLoading ? (
+            <div className="roles-pagination">
+              <p className="card-text">
+                Showing {startItem}-{endItem} of {filteredRoles.length} roles
+              </p>
+              <div className="roles-pagination__actions">
+                <button
+                  className="button"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                <span className="roles-pagination__text">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  className="button"
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage === totalPages || filteredRoles.length === 0}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
