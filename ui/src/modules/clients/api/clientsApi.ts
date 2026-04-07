@@ -2,6 +2,15 @@ import { apiRequest } from '../../../api/client'
 
 export type BillingType = 'gst' | 'tds' | 'personal' | 'usa' | 'cash'
 
+export type PocItem = {
+  id: number
+  client_id: number
+  name: string
+  email: string
+  mobile: string
+  status: 'Active' | 'Inactive'
+}
+
 export type ClientItem = {
   id: number
   name: string
@@ -11,6 +20,7 @@ export type ClientItem = {
   gst: string
   billing_type: BillingType
   status: 'Active' | 'Inactive'
+  pocs: PocItem[]
 }
 
 type ClientsListResponse = {
@@ -49,6 +59,7 @@ const normalizeClient = (raw: Record<string, unknown>): ClientItem => ({
   gst: String(raw.gst ?? raw.gst_no ?? raw.gstin ?? '').trim(),
   billing_type: normalizeBillingType(raw.billing_type),
   status: isActive(raw.status ?? raw.is_active ?? raw.active) ? 'Active' : 'Inactive',
+  pocs: [],
 })
 
 export const getClients = async () => {
