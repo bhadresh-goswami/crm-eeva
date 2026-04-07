@@ -14,7 +14,8 @@ export type ClientItem = {
 }
 
 type ClientsListResponse = {
-  data?: unknown[]
+  data?: unknown[] | { data?: unknown[]; clients?: unknown[] }
+  clients?: unknown[]
 }
 
 export type ClientPayload = {
@@ -50,7 +51,14 @@ const normalizeClient = (raw: Record<string, unknown>): ClientItem => ({
 
 export const getClients = async () => {
   const response = await apiRequest<ClientsListResponse>('/clients/list')
-  const clients = response.data ?? []
+  const dataPayload =
+    Array.isArray(response.data)
+      ? response.data
+      : response.data && typeof response.data === 'object'
+        ? (response.data.data ?? response.data.clients ?? [])
+        : response.clients ?? []
+
+  const clients = Array.isArray(dataPayload) ? dataPayload : []
 
   return clients
     .map((item) => (item && typeof item === 'object' ? normalizeClient(item as Record<string, unknown>) : null))
