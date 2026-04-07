@@ -32,10 +32,10 @@ const UsersPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [actionUserId, setActionUserId] = useState<number | null>(null)
 
-  const showSuccess = (message: string) => {
+  const showSuccess = useCallback((message: string) => {
     setSuccessMessage(message)
     setTimeout(() => setSuccessMessage(null), 2500)
-  }
+  }, [])
 
   const loadPageData = useCallback(async () => {
     setIsLoading(true)
@@ -57,21 +57,21 @@ const UsersPage = () => {
     void loadPageData()
   }, [loadPageData])
 
-  const openCreateModal = () => {
+  const openCreateModal = useCallback(() => {
     setFormMode('create')
     setSelectedUser(null)
     setModalError(null)
     setIsFormOpen(true)
-  }
+  }, [])
 
-  const openEditModal = (target: UserItem) => {
+  const openEditModal = useCallback((target: UserItem) => {
     setFormMode('edit')
     setSelectedUser(target)
     setModalError(null)
     setIsFormOpen(true)
-  }
+  }, [])
 
-  const handleSubmitUser = async (payload: {
+  const handleSubmitUser = useCallback(async (payload: {
     id?: number
     name: string
     email: string
@@ -117,9 +117,9 @@ const UsersPage = () => {
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [formMode, loadPageData, showSuccess])
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!deleteTarget) {
       return
     }
@@ -138,9 +138,9 @@ const UsersPage = () => {
     } finally {
       setActionUserId(null)
     }
-  }
+  }, [deleteTarget, loadPageData, showSuccess])
 
-  const handleToggle = async (target: UserItem) => {
+  const handleToggle = useCallback(async (target: UserItem) => {
     setActionUserId(target.id)
     setPageError(null)
 
@@ -154,9 +154,9 @@ const UsersPage = () => {
     } finally {
       setActionUserId(null)
     }
-  }
+  }, [loadPageData, showSuccess])
 
-  const handlePasswordUpdate = async ({ password }: { password: string }) => {
+  const handlePasswordUpdate = useCallback(async ({ password }: { password: string }) => {
     if (!passwordTarget) {
       return
     }
@@ -170,7 +170,7 @@ const UsersPage = () => {
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [passwordTarget, showSuccess])
 
   const existingEmails = useMemo(() => {
     const editingId = formMode === 'edit' ? selectedUser?.id : null
