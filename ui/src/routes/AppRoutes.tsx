@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from '../modules/auth/pages/LoginPage'
 import ClientsPage from '../modules/clients/pages/ClientsPage'
 import DashboardPage from '../modules/dashboard/pages/DashboardPage'
+import RolesPage from '../modules/roles/pages/RolesPage'
 import TasksPage from '../modules/tasks/pages/TasksPage'
 import UsersPage from '../modules/users/pages/UsersPage'
 import { useAuth } from '../context/AuthContext'
@@ -26,6 +27,10 @@ const AppRoutes = () => {
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/users" element={<UsersPage />} />
+
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="/roles" element={<RolesPage />} />
+          </Route>
         </Route>
       </Route>
 
