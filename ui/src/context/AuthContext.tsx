@@ -97,9 +97,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [])
 
   const login = useCallback(async ({ email, password }: LoginPayload) => {
+    if (!email.trim() || !password.trim()) {
+      throw new Error('Email and password are required.')
+    }
+
+    const body = JSON.stringify({
+      email,
+      password,
+    })
+
+    console.info('[login] Request URL:', 'https://support.bsquareg-developers.com/api/login')
+    console.info('[login] Request Body:', body)
+
     const response = await apiRequest<LoginResponse>('/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body,
     })
 
     const nextAuthState: StoredAuthState = {
