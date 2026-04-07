@@ -1,7 +1,7 @@
 let unauthorizedHandler: (() => void) | undefined
 
 const AUTH_STORAGE_KEY = 'crm_auth'
-const API_BASE_URL = 'http://support.bsquareg-developers.com/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 const getStoredToken = () => {
   const raw = localStorage.getItem(AUTH_STORAGE_KEY)
