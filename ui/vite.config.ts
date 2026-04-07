@@ -10,4 +10,12 @@ export default defineConfig({
       'react-router-dom': resolve(__dirname, 'src/router/react-router-dom.tsx'),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://support.bsquareg-developers.com',
+        changeOrigin: true,
+      },
+    },
+  },
 })
