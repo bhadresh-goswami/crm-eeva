@@ -6,7 +6,9 @@ const Header = () => {
   return (
     <header className="header">
       <h1 className="header__title">CRM Frontend</h1>
-      <p className="header__meta">Role: {user.role}</p>
+      <p className="header__meta">
+        {user ? `Role: ${user.role} · ${user.name}` : 'Guest'}
+      </p>
     </header>
   )
 }

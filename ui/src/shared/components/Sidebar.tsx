@@ -39,6 +39,10 @@ const roleNavigation: Record<UserRole, SidebarItem[]> = {
 const Sidebar = () => {
   const { user } = useAuth()
 
+  if (!user) {
+    return null
+  }
+
   return (
     <aside className="sidebar" aria-label="Role navigation">
       <h2 className="sidebar__title">CRM</h2>
