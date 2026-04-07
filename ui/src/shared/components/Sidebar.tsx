@@ -14,6 +14,7 @@ const roleNavigation: Record<UserRole, SidebarItem[]> = {
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'Users', to: '/users' },
     { label: 'Client CRM', to: '/clients' },
+    { label: 'Candidates', to: '/candidates' },
     { label: 'POCs', to: '/pocs' },
     { label: 'Roles', to: '/roles' },
   ],
@@ -21,12 +22,14 @@ const roleNavigation: Record<UserRole, SidebarItem[]> = {
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'Tasks', to: '/tasks' },
     { label: 'Client CRM', to: '/clients' },
+    { label: 'Candidates', to: '/candidates' },
     { label: 'POCs', to: '/pocs' },
   ],
   coordinator: [
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'Tasks', to: '/tasks' },
     { label: 'Client CRM', to: '/clients' },
+    { label: 'Candidates', to: '/candidates' },
     { label: 'POCs', to: '/pocs' },
   ],
   expert: [
