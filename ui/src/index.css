@@ -4,10 +4,6 @@
   font-weight: 400;
   color: #1f2937;
   background-color: #f4f6f8;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -36,6 +32,12 @@ p {
   min-height: 100vh;
 }
 
+.app-shell__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .sidebar {
   width: 240px;
   padding: 1.5rem 1rem;
@@ -44,7 +46,7 @@ p {
 }
 
 .sidebar__title {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 700;
   margin-bottom: 1.5rem;
 }
@@ -75,6 +77,26 @@ p {
   color: #3730a3;
 }
 
+.header {
+  height: 72px;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.header__meta {
+  color: #6b7280;
+  text-transform: capitalize;
+}
+
 .main-content {
   flex: 1;
   padding: 2rem;
@@ -93,7 +115,7 @@ p {
 .cards-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .card {
@@ -104,33 +126,10 @@ p {
 }
 
 .card h3 {
-  font-size: 0.95rem;
-  color: #4b5563;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
 }
 
-.card-value {
-  margin-top: 0.5rem;
-  font-size: 1.6rem;
-  font-weight: 700;
-}
-
-.tasks-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.tasks-table th,
-.tasks-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.tasks-table th {
-  color: #374151;
-  font-size: 0.9rem;
-}
-
-.tasks-table td {
-  color: #4b5563;
+.card-text {
+  color: #6b7280;
 }
