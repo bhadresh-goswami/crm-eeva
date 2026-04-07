@@ -53,12 +53,39 @@ const normalizeClient = (raw: Record<string, unknown>): ClientItem => ({
 
 export const getClients = async () => {
   const response = await apiRequest<ClientsListResponse>('/clients/list')
-  const dataPayload =
-    Array.isArray(response.data)
-      ? response.data
-      : response.data && typeof response.data === 'object'
-        ? (response.data.data ?? response.data.clients ?? response.data.list ?? response.data.rows ?? [])
-        : (response.clients ?? response.list ?? response.rows ?? [])
+  const extractArrayPayload = (value: unknown): unknown[] => {
+    if (Array.isArray(value)) {
+      return value
+    }
+
+    if (!value || typeof value !== 'object') {
+      return []
+    }
+
+    const source = value as Record<string, unknown>
+    const directKeys = ['data', 'clients', 'list', 'rows', 'items', 'result', 'payload']
+
+    for (const key of directKeys) {
+      const found = source[key]
+      if (Array.isArray(found)) {
+        return found
+      }
+    }
+
+    for (const key of directKeys) {
+      const found = source[key]
+      if (found && typeof found === 'object') {
+        const nested = extractArrayPayload(found)
+        if (nested.length > 0) {
+          return nested
+        }
+      }
+    }
+
+    return []
+  }
+
+  const dataPayload = extractArrayPayload(response)
 
   const clients = Array.isArray(dataPayload) ? dataPayload : []
 
