@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
-import type { ClientItem, PocItem } from '../api/clientsApi'
+import type { ClientItem } from '../api/clientsApi'
+import type { PocItem } from '../../pocs/api/pocApi'
 
 type ClientPocFormModalProps = {
   isOpen: boolean
@@ -20,6 +21,8 @@ type ClientPocFormModalProps = {
   }) => Promise<void>
 }
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const ClientPocFormModal = ({
   isOpen,
   mode,
@@ -34,9 +37,7 @@ const ClientPocFormModal = ({
   const [name, setName] = useState(mode.includes('client') ? selectedClient?.name ?? '' : selectedPoc?.name ?? '')
   const [email, setEmail] = useState(selectedPoc?.email ?? '')
   const [mobile, setMobile] = useState(selectedPoc?.mobile ?? '')
-  const [clientId, setClientId] = useState(
-    String(selectedPoc?.client_id ?? selectedClient?.id ?? clients[0]?.id ?? ''),
-  )
+  const [clientId, setClientId] = useState(String(selectedPoc?.client_id ?? selectedClient?.id ?? clients[0]?.id ?? ''))
   const [localError, setLocalError] = useState<string | null>(null)
 
   if (!isOpen) {
@@ -55,13 +56,23 @@ const ClientPocFormModal = ({
     }
 
     if (!isClientMode) {
+      if (!clientId) {
+        setLocalError('Please select client.')
+        return
+      }
+
       if (!email.trim()) {
         setLocalError('POC email is required.')
         return
       }
 
-      if (!clientId) {
-        setLocalError('Please select client.')
+      if (!emailRegex.test(email.trim())) {
+        setLocalError('Please enter a valid email address.')
+        return
+      }
+
+      if (!mobile.trim()) {
+        setLocalError('POC mobile is required.')
         return
       }
     }
@@ -89,12 +100,8 @@ const ClientPocFormModal = ({
         {!isClientMode ? (
           <label className="auth-card__field" htmlFor="pocClientSelect">
             Client
-            <select
-              id="pocClientSelect"
-              value={clientId}
-              onChange={(event) => setClientId(event.target.value)}
-              disabled={isSubmitting || mode === 'poc-edit'}
-            >
+            <select id="pocClientSelect" value={clientId} onChange={(event) => setClientId(event.target.value)} disabled={isSubmitting}>
+              <option value="">Select client</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.name}
@@ -106,34 +113,18 @@ const ClientPocFormModal = ({
 
         <label className="auth-card__field" htmlFor="entityName">
           {isClientMode ? 'Client name' : 'POC name'}
-          <input
-            id="entityName"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            disabled={isSubmitting}
-          />
+          <input id="entityName" value={name} onChange={(event) => setName(event.target.value)} disabled={isSubmitting} />
         </label>
 
         {!isClientMode ? (
           <>
             <label className="auth-card__field" htmlFor="entityEmail">
               Email
-              <input
-                id="entityEmail"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                disabled={isSubmitting}
-              />
+              <input id="entityEmail" type="email" value={email} onChange={(event) => setEmail(event.target.value)} disabled={isSubmitting} />
             </label>
             <label className="auth-card__field" htmlFor="entityMobile">
               Mobile
-              <input
-                id="entityMobile"
-                value={mobile}
-                onChange={(event) => setMobile(event.target.value)}
-                disabled={isSubmitting}
-              />
+              <input id="entityMobile" value={mobile} onChange={(event) => setMobile(event.target.value)} disabled={isSubmitting} />
             </label>
           </>
         ) : null}
