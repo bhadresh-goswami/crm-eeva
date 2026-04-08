@@ -65,8 +65,36 @@ const normalizeCandidate = (raw: Record<string, unknown>): CandidateItem => ({
 })
 
 export const getCandidates = async () => {
-  const response = await apiRequest<CandidatesListResponse>('/candidates/list')
-  const records = extractArrayPayload(response)
+  const loadWithMethod = (method: 'GET' | 'POST') =>
+    apiRequest<CandidatesListResponse | string>('/candidates/list', method === 'GET'
+      ? undefined
+      : {
+          method: 'POST',
+          body: JSON.stringify({}),
+        })
+
+  let response: CandidatesListResponse | string
+
+  try {
+    response = await loadWithMethod('GET')
+  } catch (error) {
+    try {
+      response = await loadWithMethod('POST')
+    } catch {
+      throw error
+    }
+  }
+
+  let records = extractArrayPayload(response)
+
+  if (records.length === 0 && typeof response === 'string') {
+    try {
+      const fallbackResponse = await loadWithMethod('POST')
+      records = extractArrayPayload(fallbackResponse)
+    } catch {
+      // Keep empty records if fallback fails.
+    }
+  }
 
   return records
     .map((item) => (item && typeof item === 'object' ? normalizeCandidate(item as Record<string, unknown>) : null))

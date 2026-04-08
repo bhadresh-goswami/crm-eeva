@@ -13,6 +13,21 @@ import CandidateFormModal from '../components/CandidateFormModal'
 import CandidatesTable from '../components/CandidatesTable'
 import ConfirmDialog from '../components/ConfirmDialog'
 
+const normalizeErrorMessage = (error: unknown, fallback: string) => {
+  const message = error instanceof Error ? error.message : fallback
+  const trimmed = message.trim()
+
+  if (!trimmed || trimmed.startsWith('<')) {
+    return fallback
+  }
+
+  if (trimmed.toLowerCase().includes('unexpected token')) {
+    return fallback
+  }
+
+  return trimmed
+}
+
 const CandidatesPage = () => {
   const { user } = useAuth()
   const [candidates, setCandidates] = useState<CandidateItem[]>([])
@@ -48,8 +63,7 @@ const CandidatesPage = () => {
       )
       setClients(clientsData)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load candidates data.'
-      setPageError(message)
+      setPageError(normalizeErrorMessage(error, 'Failed to load candidates data.'))
     } finally {
       setIsLoading(false)
     }
@@ -61,13 +75,13 @@ const CandidatesPage = () => {
 
   const isDuplicateCandidate = useCallback((payload: {
     id?: number
-    client_id?: number
+    client_id: number
     name: string
     contact_number: string
   }) => {
     const normalizedName = payload.name.trim().toLowerCase()
     const normalizedContact = payload.contact_number.trim().toLowerCase()
-    const normalizedClientId = payload.client_id ?? null
+    const normalizedClientId = payload.client_id ?? 0
 
     return candidates.some((item) => {
       if (payload.id && item.id === payload.id) {
@@ -77,14 +91,14 @@ const CandidatesPage = () => {
       return (
         item.name.trim().toLowerCase() === normalizedName &&
         item.contact_number.trim().toLowerCase() === normalizedContact &&
-        (item.client_id ?? null) === normalizedClientId
+        (item.client_id ?? 0) === normalizedClientId
       )
     })
   }, [candidates])
 
   const handleSubmit = useCallback(async (payload: {
     id?: number
-    client_id?: number
+    client_id: number
     name: string
     contact_number: string
     email?: string
@@ -99,7 +113,12 @@ const CandidatesPage = () => {
       }
 
       if (formMode === 'create') {
-        await createCandidate(payload)
+        await createCandidate({
+          client_id: payload.client_id,
+          name: payload.name,
+          contact_number: payload.contact_number,
+          email: payload.email,
+        })
         showSuccess('Candidate created successfully.')
       } else {
         await updateCandidate({
@@ -116,8 +135,7 @@ const CandidatesPage = () => {
       setSelectedCandidate(null)
       await loadPageData()
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to save candidate.'
-      setModalError(message)
+      setModalError(normalizeErrorMessage(error, 'Failed to save candidate.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -137,8 +155,7 @@ const CandidatesPage = () => {
       showSuccess('Candidate deleted successfully.')
       await loadPageData()
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to delete candidate.'
-      setPageError(message)
+      setPageError(normalizeErrorMessage(error, 'Failed to delete candidate.'))
     } finally {
       setActionCandidateId(null)
     }
