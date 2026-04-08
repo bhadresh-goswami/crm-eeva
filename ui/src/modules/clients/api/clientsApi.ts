@@ -9,6 +9,7 @@ export type PocItem = {
   email: string
   mobile: string
   status: 'Active' | 'Inactive'
+  client_name?: string
 }
 
 export type ClientItem = {
@@ -59,7 +60,25 @@ const normalizeClient = (raw: Record<string, unknown>): ClientItem => ({
   gst: String(raw.gst ?? raw.gst_no ?? raw.gstin ?? '').trim(),
   billing_type: normalizeBillingType(raw.billing_type),
   status: isActive(raw.status ?? raw.is_active ?? raw.active) ? 'Active' : 'Inactive',
-  pocs: [],
+  pocs: Array.isArray(raw.pocs)
+    ? raw.pocs
+        .map((item) => {
+          if (!item || typeof item !== 'object') {
+            return null
+          }
+          const poc = item as Record<string, unknown>
+          return {
+            id: Number(poc.id ?? 0),
+            client_id: Number(poc.client_id ?? raw.id ?? raw.client_id ?? 0),
+            name: String(poc.name ?? poc.poc_name ?? '').trim(),
+            email: String(poc.email ?? '').trim(),
+            mobile: String(poc.mobile ?? poc.phone ?? '').trim(),
+            status: isActive(poc.status ?? poc.is_active ?? poc.active) ? 'Active' : 'Inactive',
+            client_name: String(raw.name ?? raw.client_name ?? '').trim(),
+          } as PocItem
+        })
+        .filter((item): item is PocItem => Boolean(item?.id && item.name))
+    : [],
 })
 
 export const getClients = async () => {
@@ -125,6 +144,41 @@ export const deleteClient = async (id: number) =>
 
 export const toggleClientStatus = async (id: number) =>
   apiRequest('/clients/toggleStatus', {
+    method: 'POST',
+    body: JSON.stringify({ id }),
+  })
+
+export const createPoc = async (payload: {
+  client_id: number
+  name: string
+  email: string
+  mobile: string
+}) =>
+  apiRequest('/pocs/create', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const updatePoc = async (payload: {
+  id: number
+  client_id: number
+  name: string
+  email: string
+  mobile: string
+}) =>
+  apiRequest('/pocs/update', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const deletePoc = async (id: number) =>
+  apiRequest('/pocs/delete', {
+    method: 'POST',
+    body: JSON.stringify({ id }),
+  })
+
+export const togglePocStatus = async (id: number) =>
+  apiRequest('/pocs/toggle', {
     method: 'POST',
     body: JSON.stringify({ id }),
   })
