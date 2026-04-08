@@ -1,4 +1,5 @@
 import { apiRequest } from '../../../api/client'
+const FILE_BASE_URL = 'https://support.bsquareg-developers.com/supporting-document'
 
 export type TaskRecord = {
   id: number
@@ -122,7 +123,12 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   status: String(raw.status ?? 'pending').trim().toLowerCase(),
   assigned_to_id: asNullableNumber(raw.assigned_to_id ?? raw.expert_id),
   assigned_to_name: String(raw.assigned_to_name ?? raw.assigned_to ?? raw.expert_name ?? '').trim(),
-  file_url: String(raw.file ?? raw.file_url ?? raw.attachment ?? raw.attachment_url ?? raw.uploaded_file ?? '').trim(),
+  file_url: (() => {
+    const value = String(raw.file ?? raw.file_url ?? raw.attachment ?? raw.attachment_url ?? raw.uploaded_file ?? '').trim()
+    if (!value) return ''
+    if (value.startsWith('http://') || value.startsWith('https://')) return value
+    return `${FILE_BASE_URL}/${value}`
+  })(),
   can_assign: raw.can_assign === undefined ? true : Boolean(raw.can_assign),
 })
 
@@ -144,7 +150,7 @@ export const updateTask = async (payload: TaskPayload & { id: number }) => {
 
 const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: TaskPayload & { id?: number }) => {
   const formData = new FormData()
-  if (payload.id) formData.append('id', String(payload.id))
+  if (payload.id) formData.append('task_id', String(payload.id))
   formData.append('client_id', String(payload.client_id))
   formData.append('poc_id', String(payload.poc_id))
   formData.append('candidate_id', String(payload.candidate_id))
@@ -158,7 +164,7 @@ const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: Task
   formData.append('total_amount', String(payload.total_amount))
   formData.append('payment_mode', payload.payment_mode)
   if (payload.attachment) {
-    formData.append('attachment', payload.attachment)
+    formData.append('files[]', payload.attachment)
   }
 
   try {
@@ -168,7 +174,7 @@ const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: Task
     })
   } catch {
     const fallback = {
-      ...(payload.id ? { id: payload.id } : {}),
+      ...(payload.id ? { task_id: payload.id } : {}),
       client_id: payload.client_id,
       poc_id: payload.poc_id,
       candidate_id: payload.candidate_id,
@@ -191,7 +197,7 @@ const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: Task
 
 export const uploadTaskAttachment = async (file: File) => {
   const formData = new FormData()
-  formData.append('file', file)
+  formData.append('files[]', file)
   const response = await apiRequest<Record<string, unknown>>('/tasks/upload', {
     method: 'POST',
     body: formData,
@@ -227,7 +233,7 @@ export const getExperts = async () => {
     .filter((item): item is ExpertRecord => Boolean(item?.id && item.name))
 }
 
-export const assignTask = async (payload: { task_id: number; expert_id: number; reason?: string }) => {
+export const assignTask = async (payload: { task_id: number; user_id: number; reason?: string }) => {
   await apiRequest('/tasks/assign', {
     method: 'POST',
     body: JSON.stringify(payload),

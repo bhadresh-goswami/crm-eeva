@@ -161,6 +161,7 @@ const formatDisplayDate = (value: string) => {
 }
 
 const todayString = () => new Date().toISOString().slice(0, 10)
+const formatTime = (value: string) => (value ? value.slice(0, 5) : '—')
 
 const normalizeError = (error: unknown, fallback: string) => {
   const message = error instanceof Error ? error.message.trim() : fallback
@@ -463,7 +464,7 @@ const TasksPage = () => {
     try {
       await assignTask({
         task_id: assignTarget.id,
-        expert_id: selectedExpertId,
+        user_id: selectedExpertId,
         reason: assignTarget.assigned_to_id ? reassignReason.trim() : undefined,
       })
       setAssignTarget(null)
@@ -544,9 +545,15 @@ const TasksPage = () => {
                   <td>{task.client || '—'}</td>
                   <td><span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : ''}`}>{task.status}</span></td>
                   <td>{task.assigned_to_name || '—'}</td>
-                  <td>{task.time_start || '—'}</td>
-                  <td>{task.time_end || '—'}</td>
-                  <td>{task.file_url ? <a href={task.file_url}>View</a> : '—'}</td>
+                  <td>{formatTime(task.time_start)}</td>
+                  <td>{formatTime(task.time_end)}</td>
+                  <td>
+                    {task.file_url ? (
+                      <button className="button users-icon-btn" type="button" title="Open uploaded file" onClick={() => window.open(task.file_url, '_blank', 'noopener,noreferrer')}>
+                        📎
+                      </button>
+                    ) : '—'}
+                  </td>
                   <td>
                     {task.description ? (
                       <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
