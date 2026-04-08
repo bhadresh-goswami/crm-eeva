@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth, type UserRole } from '../context/AuthContext'
+import { getRoleDashboardPath } from './roleDashboard'
 
 type ProtectedRouteProps = {
   allowedRoles?: UserRole[]
@@ -13,7 +14,7 @@ const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate replace to="/dashboard" />
+    return <Navigate replace to={getRoleDashboardPath(user.role)} />
   }
 
   return <Outlet />

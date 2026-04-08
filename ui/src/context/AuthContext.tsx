@@ -27,7 +27,11 @@ type LoginPayload = {
 
 type LoginResponse = {
   token: string
-  user: AuthUser
+  user: {
+    id: string
+    name: string
+    role: string
+  }
 }
 
 type AuthContextValue = {
@@ -55,6 +59,25 @@ type StoredAuthState = {
   user: AuthUser
 }
 
+const normalizeRole = (role: string | undefined): UserRole => {
+  const normalized = role?.trim().toLowerCase().replaceAll(' ', '').replaceAll('-', '')
+
+  if (normalized === 'admin') return 'admin'
+  if (normalized === 'manager') return 'manager'
+  if (normalized === 'coordinator' || normalized === 'technicalcoordinator') return 'coordinator'
+  if (normalized === 'expertlead' || normalized === 'teamlead' || normalized === 'technicallead') {
+    return 'expertlead'
+  }
+
+  return 'expert'
+}
+
+const normalizeUser = (user: { id: string; name: string; role: string }): AuthUser => ({
+  id: user.id,
+  name: user.name,
+  role: normalizeRole(user.role),
+})
+
 const getStoredAuthState = (): StoredAuthState | null => {
   const raw = localStorage.getItem(AUTH_STORAGE_KEY)
 
@@ -63,7 +86,16 @@ const getStoredAuthState = (): StoredAuthState | null => {
   }
 
   try {
-    return JSON.parse(raw) as StoredAuthState
+    const parsed = JSON.parse(raw) as { token?: string; user?: { id: string; name: string; role: string } }
+
+    if (!parsed.token || !parsed.user) {
+      return null
+    }
+
+    return {
+      token: parsed.token,
+      user: normalizeUser(parsed.user),
+    }
   } catch {
     localStorage.removeItem(AUTH_STORAGE_KEY)
     return null
@@ -101,26 +133,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       throw new Error('Email and password are required.')
     }
 
-    const body = JSON.stringify({
-      email,
-      password,
-    })
-
-    console.info('[login] Request URL:', 'https://support.bsquareg-developers.com/api/login')
-    console.info('[login] Request Body:', body)
-
     const response = await apiRequest<LoginResponse>('/login', {
       method: 'POST',
-      body,
+      body: JSON.stringify({ email, password }),
     })
+
+    const nextUser = normalizeUser(response.user)
 
     const nextAuthState: StoredAuthState = {
       token: response.token,
-      user: response.user,
+      user: nextUser,
     }
 
     setToken(response.token)
-    setUser(response.user)
+    setUser(nextUser)
     setSessionStatus('logged_in')
 
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuthState))
