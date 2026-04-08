@@ -196,6 +196,11 @@ p {
   font-size: 0.9rem;
 }
 
+.field-error {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 1px #dc2626 inset;
+}
+
 .button {
   border: 1px solid #d1d5db;
   border-radius: 0.5rem;
@@ -524,6 +529,14 @@ p {
   margin-bottom: 1rem;
 }
 
+.candidates-controls {
+  margin-bottom: 0.75rem;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(240px, 1.4fr) 220px auto;
+  align-items: end;
+}
+
 .clients-controls {
   margin-bottom: 0.75rem;
   display: grid;
@@ -608,6 +621,7 @@ p {
 }
 
 @media (max-width: 960px) {
+  .candidates-controls,
   .clients-controls {
     grid-template-columns: 1fr;
   }
