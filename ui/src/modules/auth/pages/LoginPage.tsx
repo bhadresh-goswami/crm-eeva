@@ -12,7 +12,6 @@ const LoginPage = () => {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [shouldRedirect, setShouldRedirect] = useState(false)
 
   const validationError = useMemo(() => {
     if (!email || !password) {
@@ -26,8 +25,8 @@ const LoginPage = () => {
     return null
   }, [email, password])
 
-  if (isAuthenticated || shouldRedirect) {
-    return <Navigate replace to={getRoleDashboardPath(user?.role)} />
+  if (isAuthenticated && user) {
+    return <Navigate replace to={getRoleDashboardPath(user.role)} />
   }
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -42,7 +41,6 @@ const LoginPage = () => {
       setSubmitting(true)
       setError(null)
       await login({ email, password })
-      setShouldRedirect(true)
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'Login failed. Please retry.')
     } finally {
