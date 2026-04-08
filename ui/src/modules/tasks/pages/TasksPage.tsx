@@ -136,6 +136,7 @@ type TaskFormState = {
   total_amount: string
   payment_mode: string
   attachment: File | null
+  file_path: string
 }
 
 const defaultForm: TaskFormState = {
@@ -152,6 +153,7 @@ const defaultForm: TaskFormState = {
   total_amount: '',
   payment_mode: 'UPI',
   attachment: null,
+  file_path: '',
 }
 
 const formatDisplayDate = (value: string) => {
@@ -195,6 +197,7 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
   total_amount: Number(state.total_amount),
   payment_mode: state.payment_mode.trim() || 'UPI',
   attachment: state.attachment,
+  file_path: state.file_path,
 })
 
 const TasksPage = () => {
@@ -340,6 +343,7 @@ const TasksPage = () => {
       total_amount: String(task.total_amount || ''),
       payment_mode: task.payment_mode || 'UPI',
       attachment: null,
+      file_path: task.file_url || '',
     }
 
     setFormState(state)
@@ -549,14 +553,9 @@ const TasksPage = () => {
                   <td>{task.file_url ? <a href={task.file_url}>View</a> : '—'}</td>
                   <td>
                     {task.description ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
-                          {task.description.replace(/<[^>]*>/g, '')}
-                        </span>
-                        <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
-                          👁
-                        </button>
-                      </div>
+                      <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
+                        👁
+                      </button>
                     ) : '—'}
                   </td>
                   <td>
@@ -696,10 +695,16 @@ const TasksPage = () => {
                   type="file"
                   onChange={(event) => {
                     const file = event.target.files?.[0] ?? null
-                    setFormState((prev) => ({ ...prev, attachment: file }))
+                    setFormState((prev) => ({ ...prev, attachment: file, file_path: file ? '' : prev.file_path }))
                   }}
                 />
-                <small className="card-text">{formState.attachment ? `Selected: ${formState.attachment.name}` : 'No file selected'}</small>
+                <small className="card-text">
+                  {formState.attachment
+                    ? `Selected: ${formState.attachment.name}`
+                    : formState.file_path
+                      ? `Existing: ${formState.file_path}`
+                      : 'No file selected'}
+                </small>
               </label>
             </div>
             {formError ? <p className="auth-card__error">{formError}</p> : null}
