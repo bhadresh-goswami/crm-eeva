@@ -268,7 +268,7 @@ const ClientsPage = () => {
 
       <div className="roles-pagination__actions" style={{ marginBottom: '0.75rem' }}>
         <button className={isPocTab ? 'button' : 'button button--primary'} onClick={() => navigateTab('/clients')}>Clients</button>
-        <button className={isPocTab ? 'button button--primary' : 'button'} onClick={() => navigateTab('/clients?tab=poc')}>POC</button>
+        
       </div>
 
       <div className="cards-grid clients-kpi-grid">

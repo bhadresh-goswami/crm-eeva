@@ -13,15 +13,15 @@ const roleNavigation: Record<UserRole, SidebarItem[]> = {
   admin: [
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'Users', to: '/users' },
-    { label: 'Client', to: '/clients' },
-    { label: 'POC', to: '/poc' },
     { label: 'Roles', to: '/roles' },
+    { label: 'Client', to: '/clients' },
+    { label: 'POC', to: '/pocs' },
   ],
   manager: [
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'Tasks', to: '/tasks' },
     { label: 'Client', to: '/clients' },
-    { label: 'POC', to: '/poc' },
+    { label: 'POC', to: '/pocs' },
   ],
   coordinator: [
     { label: 'Dashboard', to: '/dashboard' },
