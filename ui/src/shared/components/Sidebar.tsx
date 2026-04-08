@@ -40,7 +40,6 @@ const roleNavigation: Record<UserRole, SidebarItem[]> = {
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'My Tasks', to: '/tasks' },
     { label: 'Client CRM', to: '/clients' },
-    { label: 'POCs', to: '/pocs' },
   ],
 }
 
