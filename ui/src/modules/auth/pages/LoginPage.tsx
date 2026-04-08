@@ -1,11 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
+import { getRoleDashboardPath } from '../../../routes/roleDashboard'
 import { useAuth } from '../../../context/AuthContext'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const LoginPage = () => {
-  const { isAuthenticated, login } = useAuth()
+  const { isAuthenticated, login, user } = useAuth()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -26,7 +27,7 @@ const LoginPage = () => {
   }, [email, password])
 
   if (isAuthenticated || shouldRedirect) {
-    return <Navigate replace to="/dashboard" />
+    return <Navigate replace to={getRoleDashboardPath(user?.role)} />
   }
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
