@@ -159,7 +159,7 @@ const PocsPage = () => {
       />
 
       <PocFormModal
-        key={`${formMode}-${selectedPoc?.id ?? 'new'}-${isFormOpen ? 'open' : 'closed'}`}
+        key={`poc-form-${formMode}-${selectedPoc?.id ?? 'new'}-${isFormOpen ? 'open' : 'closed'}`}
         isOpen={isFormOpen}
         mode={formMode}
         poc={selectedPoc}

@@ -316,7 +316,7 @@ const ClientsPage = () => {
       )}
 
       <ClientFormModal
-        key={`${formMode}-${selectedClient?.id ?? 'new'}-${isFormOpen ? 'open' : 'closed'}`}
+        key={`client-form-${formMode}-${selectedClient?.id ?? 'new'}-${isFormOpen ? 'open' : 'closed'}`}
         isOpen={isFormOpen}
         mode={formMode}
         client={selectedClient}
