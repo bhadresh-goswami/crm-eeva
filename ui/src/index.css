@@ -201,6 +201,11 @@ p {
   font-size: 0.9rem;
 }
 
+.field-error {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 1px #dc2626 inset;
+}
+
 .button {
   border: 1px solid #d1d5db;
   border-radius: 0.5rem;
