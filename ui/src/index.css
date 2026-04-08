@@ -709,3 +709,13 @@ p {
     background-position: -100% 0;
   }
 }
+
+
+.dashboard-notice {
+  color: #9a3412;
+  background: #ffedd5;
+  border: 1px solid #fed7aa;
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.9rem;
+}
