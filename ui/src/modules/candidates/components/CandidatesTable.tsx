@@ -4,12 +4,17 @@ import type { CandidateItem } from '../api/candidatesApi'
 type SortField = 'name' | 'contact_number'
 type SortOrder = 'asc' | 'desc'
 
+type CandidateTableItem = CandidateItem & {
+  client_company_name: string
+  client_display_name: string
+}
+
 type CandidatesTableProps = {
-  candidates: CandidateItem[]
+  candidates: CandidateTableItem[]
   isLoading: boolean
   activeCandidateId: number | null
-  onEdit: (candidate: CandidateItem) => void
-  onDelete: (candidate: CandidateItem) => void
+  onEdit: (candidate: CandidateTableItem) => void
+  onDelete: (candidate: CandidateTableItem) => void
 }
 
 const PAGE_SIZE = 10
@@ -21,32 +26,35 @@ const CandidatesTable = ({ candidates, isLoading, activeCandidateId, onEdit, onD
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const clientOptions = useMemo(
-    () => [...new Set(candidates.map((item) => item.client_name).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [candidates],
-  )
+  const clientOptions = useMemo(() => {
+    return [...new Set(candidates.map((item) => item.client_display_name).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+  }, [candidates])
 
-  const filteredAndSorted = useMemo(() => {
+  const filteredCandidates = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase()
 
-    const filtered = candidates.filter((candidate) => {
+    return candidates.filter((candidate) => {
       const matchesSearch =
         !normalizedSearch ||
         candidate.name.toLowerCase().includes(normalizedSearch) ||
-        candidate.contact_number.toLowerCase().includes(normalizedSearch)
+        candidate.contact_number.toLowerCase().includes(normalizedSearch) ||
+        candidate.client_name.toLowerCase().includes(normalizedSearch) ||
+        candidate.client_company_name.toLowerCase().includes(normalizedSearch)
 
-      const matchesClient = clientFilter === 'all' || candidate.client_name === clientFilter
+      const matchesClient = clientFilter === 'all' || candidate.client_display_name === clientFilter
 
       return matchesSearch && matchesClient
     })
+  }, [candidates, clientFilter, searchTerm])
 
-    return [...filtered].sort((left, right) => {
+  const filteredAndSorted = useMemo(() => {
+    return [...filteredCandidates].sort((left, right) => {
       const leftValue = String(left[sortField] ?? '').toLowerCase()
       const rightValue = String(right[sortField] ?? '').toLowerCase()
       const compared = leftValue.localeCompare(rightValue)
       return sortOrder === 'asc' ? compared : -compared
     })
-  }, [candidates, clientFilter, searchTerm, sortField, sortOrder])
+  }, [filteredCandidates, sortField, sortOrder])
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / PAGE_SIZE))
   const effectivePage = Math.min(currentPage, totalPages)
@@ -165,7 +173,7 @@ const CandidatesTable = ({ candidates, isLoading, activeCandidateId, onEdit, onD
                   <td>{candidate.name}</td>
                   <td>{candidate.contact_number}</td>
                   <td>{candidate.email || '-'}</td>
-                  <td>{candidate.client_name || '-'}</td>
+                  <td>{candidate.client_display_name || '-'}</td>
                   <td>
                     <div className="roles-table__actions users-actions">
                       <button

@@ -54,13 +54,7 @@ const CandidatesPage = () => {
 
     try {
       const [candidatesData, clientsData] = await Promise.all([getCandidates(), getClients()])
-      const clientsById = new Map(clientsData.map((client) => [client.id, client.name]))
-      setCandidates(
-        candidatesData.map((candidate) => ({
-          ...candidate,
-          client_name: candidate.client_name || (candidate.client_id ? clientsById.get(candidate.client_id) ?? '' : ''),
-        })),
-      )
+      setCandidates(candidatesData)
       setClients(clientsData)
     } catch (error) {
       setPageError(normalizeErrorMessage(error, 'Failed to load candidates data.'))
@@ -162,6 +156,25 @@ const CandidatesPage = () => {
   }, [deleteTarget, loadPageData, showSuccess])
 
   const linkedCandidates = useMemo(() => candidates.filter((candidate) => candidate.client_id).length, [candidates])
+  const mergedCandidates = useMemo(() => {
+    const clientsById = new Map(clients.map((client) => [client.id, client]))
+
+    return candidates.map((candidate) => {
+      const linkedClient = candidate.client_id ? clientsById.get(candidate.client_id) : undefined
+      const resolvedClientName = linkedClient?.name || candidate.client_name
+      const resolvedCompanyName = linkedClient?.company_name ?? ''
+      const clientDisplayName = resolvedCompanyName
+        ? `${resolvedClientName} (${resolvedCompanyName})`
+        : resolvedClientName
+
+      return {
+        ...candidate,
+        client_name: resolvedClientName,
+        client_company_name: resolvedCompanyName,
+        client_display_name: clientDisplayName,
+      }
+    })
+  }, [candidates, clients])
 
   if (!user) {
     return <Navigate replace to="/login" />
@@ -206,7 +219,7 @@ const CandidatesPage = () => {
       {successMessage ? <p className="roles-success roles-feedback">{successMessage}</p> : null}
 
       <CandidatesTable
-        candidates={candidates}
+        candidates={mergedCandidates}
         isLoading={isLoading}
         activeCandidateId={actionCandidateId}
         onEdit={(candidate) => {
