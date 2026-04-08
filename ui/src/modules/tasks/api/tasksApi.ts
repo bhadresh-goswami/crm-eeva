@@ -5,7 +5,9 @@ export type TaskRecord = {
   client_id: number | null
   client: string
   candidate: string
+  candidate_id: number | null
   poc: string
+  poc_id: number | null
   task_type_id: number | null
   task_type: string
   title: string
@@ -13,8 +15,10 @@ export type TaskRecord = {
   due_date: string
   time_start: string
   time_end: string
+  duration: number
   total_amount: number
   payment_mode: string
+  payment_status: string
   status: string
   assigned_to_id: number | null
   assigned_to_name: string
@@ -25,19 +29,35 @@ export type TaskRecord = {
 export type TaskPayload = {
   id?: number
   client_id: number
-  candidate: string
-  poc: string
+  poc_id: number
+  candidate_id: number
   task_type_id: number
   title: string
   description: string
   due_date: string
-  time_start: string
-  time_end: string
+  start_time: string
+  end_time: string
+  duration: number
   total_amount: number
   payment_mode: string
 }
 
 export type ExpertRecord = {
+  id: number
+  name: string
+}
+
+export type CandidateOption = {
+  id: number
+  name: string
+}
+
+export type PocOption = {
+  id: number
+  name: string
+}
+
+export type TaskTypeOption = {
   id: number
   name: string
 }
@@ -49,7 +69,7 @@ const getList = (value: unknown): unknown[] => {
   if (!value || typeof value !== 'object') return []
 
   const payload = value as UnknownMap
-  const keys = ['data', 'tasks', 'list', 'rows', 'items', 'payload', 'result', 'experts']
+  const keys = ['data', 'tasks', 'list', 'rows', 'items', 'payload', 'result', 'experts', 'pocs', 'candidates', 'task_types']
 
   for (const key of keys) {
     if (Array.isArray(payload[key])) {
@@ -84,7 +104,9 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   client_id: asNullableNumber(raw.client_id),
   client: String(raw.client ?? raw.client_name ?? raw.company ?? '').trim(),
   candidate: String(raw.candidate ?? raw.candidate_name ?? '').trim(),
-  poc: String(raw.poc ?? raw.point_of_contact ?? '').trim(),
+  candidate_id: asNullableNumber(raw.candidate_id),
+  poc: String(raw.poc ?? raw.point_of_contact ?? raw.poc_name ?? '').trim(),
+  poc_id: asNullableNumber(raw.poc_id),
   task_type_id: asNullableNumber(raw.task_type_id),
   task_type: String(raw.task_type ?? raw.task_type_name ?? '').trim(),
   title: String(raw.title ?? raw.task_title ?? '').trim(),
@@ -92,8 +114,10 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   due_date: String(raw.due_date ?? raw.date ?? '').trim(),
   time_start: String(raw.time_start ?? raw.start_time ?? '').trim(),
   time_end: String(raw.time_end ?? raw.end_time ?? '').trim(),
+  duration: asNumber(raw.duration),
   total_amount: asNumber(raw.total_amount ?? raw.amount),
   payment_mode: String(raw.payment_mode ?? '').trim(),
+  payment_status: String(raw.payment_status ?? 'pending').trim().toLowerCase(),
   status: String(raw.status ?? 'pending').trim().toLowerCase(),
   assigned_to_id: asNullableNumber(raw.assigned_to_id ?? raw.expert_id),
   assigned_to_name: String(raw.assigned_to_name ?? raw.assigned_to ?? raw.expert_name ?? '').trim(),
@@ -148,4 +172,45 @@ export const assignTask = async (payload: { task_id: number; expert_id: number; 
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+const normalizeCandidate = (raw: UnknownMap): CandidateOption => ({
+  id: asNumber(raw.id ?? raw.candidate_id),
+  name: String(raw.name ?? raw.candidate_name ?? '').trim(),
+})
+
+export const getCandidatesByClient = async (clientId: number) => {
+  const response = await apiRequest<unknown>(`/candidates?client_id=${clientId}`)
+  return getList(response)
+    .map((item) => (item && typeof item === 'object' ? normalizeCandidate(item as UnknownMap) : null))
+    .filter((item): item is CandidateOption => Boolean(item?.id && item.name))
+}
+
+const normalizePoc = (raw: UnknownMap): PocOption => ({
+  id: asNumber(raw.id ?? raw.poc_id),
+  name: String(raw.name ?? raw.poc_name ?? '').trim(),
+})
+
+export const getPocsByClient = async (clientId: number) => {
+  const response = await apiRequest<unknown>(`/pocs?client_id=${clientId}`)
+  return getList(response)
+    .map((item) => (item && typeof item === 'object' ? normalizePoc(item as UnknownMap) : null))
+    .filter((item): item is PocOption => Boolean(item?.id && item.name))
+}
+
+const normalizeTaskType = (raw: UnknownMap): TaskTypeOption | null => {
+  const status = String(raw.status ?? raw.is_active ?? '').trim().toLowerCase()
+  const isActive = status === '' || status === '1' || status === 'active' || status === 'true'
+  if (!isActive) return null
+
+  const id = asNumber(raw.id ?? raw.task_type_id)
+  const name = String(raw.name ?? raw.task_type ?? raw.title ?? '').trim()
+  return id && name ? { id, name } : null
+}
+
+export const getTaskTypes = async () => {
+  const response = await apiRequest<unknown>('/task-types/list')
+  return getList(response)
+    .map((item) => (item && typeof item === 'object' ? normalizeTaskType(item as UnknownMap) : null))
+    .filter((item): item is TaskTypeOption => Boolean(item))
 }

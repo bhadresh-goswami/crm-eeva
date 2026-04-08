@@ -1,51 +1,164 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { useAuth } from '../../../context/AuthContext'
 import {
   assignTask,
   createTask,
   deleteTask,
+  getCandidatesByClient,
   getExperts,
+  getPocsByClient,
+  getTaskTypes,
   getTasks,
   updateTask,
+  type CandidateOption,
   type ExpertRecord,
+  type PocOption,
   type TaskPayload,
   type TaskRecord,
+  type TaskTypeOption,
 } from '../api/tasksApi'
 
+type Option = { id: number; label: string }
+
+type SearchableSelectProps = {
+  label: string
+  required?: boolean
+  disabled?: boolean
+  loading?: boolean
+  value: number | null
+  placeholder: string
+  options: Option[]
+  emptyText?: string
+  error?: string
+  onChange: (value: number | null) => void
+}
+
+const SearchableSelect = ({
+  label,
+  required,
+  disabled,
+  loading,
+  value,
+  placeholder,
+  options,
+  emptyText = 'No data found',
+  error,
+  onChange,
+}: SearchableSelectProps) => {
+  const [query, setQuery] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+
+  const selectedOption = options.find((option) => option.id === value)
+
+  useEffect(() => {
+    setQuery(selectedOption?.label ?? '')
+  }, [selectedOption?.label])
+
+  const filtered = options.filter((option) => option.label.toLowerCase().includes(query.toLowerCase()))
+
+  return (
+    <label className="auth-card__field" style={{ position: 'relative' }}>
+      {label} {required ? <span className="auth-card__error">*</span> : null}
+      <input
+        value={query}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={error ? 'field-error' : ''}
+        onFocus={() => setIsOpen(true)}
+        onChange={(event) => {
+          setQuery(event.target.value)
+          setIsOpen(true)
+          if (!event.target.value.trim()) onChange(null)
+        }}
+        onBlur={() => {
+          setTimeout(() => {
+            setIsOpen(false)
+            if (!options.some((option) => option.id === value)) {
+              setQuery('')
+            }
+          }, 120)
+        }}
+      />
+      {isOpen ? (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            maxHeight: 180,
+            overflowY: 'auto',
+            border: '1px solid #d1d5db',
+            borderRadius: 8,
+            background: '#fff',
+            zIndex: 30,
+            marginTop: 4,
+          }}
+        >
+          {loading ? <div style={{ padding: 10 }}>Loading...</div> : null}
+          {!loading && filtered.length === 0 ? <div style={{ padding: 10 }}>{emptyText}</div> : null}
+          {!loading
+            ? filtered.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className="button"
+                  style={{ width: '100%', textAlign: 'left', border: 0, borderRadius: 0 }}
+                  onMouseDown={() => {
+                    onChange(option.id)
+                    setQuery(option.label)
+                    setIsOpen(false)
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))
+            : null}
+        </div>
+      ) : null}
+      {error ? <small className="auth-card__error">{error}</small> : null}
+    </label>
+  )
+}
+
 type TaskFormState = {
-  client_id: string
-  candidate: string
-  poc: string
-  task_type_id: string
-  title: string
-  description: string
+  client_id: number | null
+  poc_id: number | null
+  candidate_id: number | null
   due_date: string
-  time_start: string
-  time_end: string
+  start_time: string
+  end_time: string
+  task_type_id: number | null
+  title: string
+  duration: number
+  description: string
   total_amount: string
   payment_mode: string
 }
 
 const defaultForm: TaskFormState = {
-  client_id: '',
-  candidate: '',
-  poc: '',
-  task_type_id: '',
-  title: '',
-  description: '',
+  client_id: null,
+  poc_id: null,
+  candidate_id: null,
   due_date: '',
-  time_start: '',
-  time_end: '',
-  total_amount: '0',
-  payment_mode: '',
+  start_time: '',
+  end_time: '',
+  task_type_id: null,
+  title: '',
+  duration: 30,
+  description: '',
+  total_amount: '',
+  payment_mode: 'UPI',
 }
 
-const toLocalDateTimeInput = (value: string) => {
-  if (!value) return ''
+const formatDisplayDate = (value: string) => {
+  if (!value) return '—'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString()
 }
+
+const todayString = () => new Date().toISOString().slice(0, 10)
 
 const normalizeError = (error: unknown, fallback: string) => {
   const message = error instanceof Error ? error.message.trim() : fallback
@@ -55,16 +168,45 @@ const normalizeError = (error: unknown, fallback: string) => {
   return message
 }
 
-const formatDisplayDate = (value: string) => {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString()
+const calcEndTime = (start: string, duration: number) => {
+  if (!start || duration <= 0) return ''
+  const [hour, minute] = start.split(':').map(Number)
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return ''
+  const startMinutes = hour * 60 + minute
+  const total = startMinutes + duration
+  const nextHour = Math.floor((total % (24 * 60)) / 60)
+  const nextMinute = total % 60
+  return `${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`
 }
+
+const toApiPayload = (state: TaskFormState): TaskPayload => ({
+  client_id: state.client_id ?? 0,
+  poc_id: state.poc_id ?? 0,
+  candidate_id: state.candidate_id ?? 0,
+  task_type_id: state.task_type_id ?? 0,
+  title: state.title.trim(),
+  description: state.description,
+  due_date: state.due_date,
+  start_time: state.start_time,
+  end_time: state.end_time,
+  duration: state.duration,
+  total_amount: Number(state.total_amount),
+  payment_mode: state.payment_mode.trim() || 'UPI',
+})
 
 const TasksPage = () => {
   const { user } = useAuth()
+  const editorRef = useRef<HTMLDivElement | null>(null)
+  const canManage = user?.role === 'manager' || user?.role === 'coordinator'
+
   const [tasks, setTasks] = useState<TaskRecord[]>([])
+  const [clients, setClients] = useState<ClientItem[]>([])
+  const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([])
+  const [pocs, setPocs] = useState<PocOption[]>([])
+  const [candidates, setCandidates] = useState<CandidateOption[]>([])
+  const [loadingPocs, setLoadingPocs] = useState(false)
+  const [loadingCandidates, setLoadingCandidates] = useState(false)
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -77,6 +219,7 @@ const TasksPage = () => {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
   const [formState, setFormState] = useState<TaskFormState>(defaultForm)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [activeTask, setActiveTask] = useState<TaskRecord | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -91,19 +234,19 @@ const TasksPage = () => {
   const [selectedExpertId, setSelectedExpertId] = useState<number | null>(null)
   const [reassignReason, setReassignReason] = useState('')
 
-  const canManage = user?.role === 'manager' || user?.role === 'coordinator'
-
   const showSuccess = useCallback((message: string) => {
     setSuccess(message)
     setTimeout(() => setSuccess(null), 2500)
   }, [])
 
-  const loadTasks = useCallback(async () => {
+  const loadPage = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await getTasks()
-      setTasks(data)
+      const [tasksData, clientsData, taskTypeData] = await Promise.all([getTasks(), getClients(), getTaskTypes()])
+      setTasks(tasksData)
+      setClients(clientsData)
+      setTaskTypes(taskTypeData)
     } catch (err) {
       setError(normalizeError(err, 'Failed to load tasks.'))
     } finally {
@@ -112,25 +255,13 @@ const TasksPage = () => {
   }, [])
 
   useEffect(() => {
-    void loadTasks()
-  }, [loadTasks])
+    void loadPage()
+  }, [loadPage])
 
-  const clientOptions = useMemo(
-    () => [...new Set(tasks.map((task) => task.client).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [tasks],
-  )
-  const taskTypeOptions = useMemo(
-    () =>
-      [...new Map(tasks.filter((task) => task.task_type_id).map((task) => [task.task_type_id as number, task.task_type]))]
-        .map(([id, name]) => ({ id, name: name || `Type ${id}` }))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [tasks],
-  )
-
-  const assigneeOptions = useMemo(
-    () => [...new Set(tasks.map((task) => task.assigned_to_name).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [tasks],
-  )
+  useEffect(() => {
+    const nextEnd = calcEndTime(formState.start_time, formState.duration)
+    setFormState((prev) => ({ ...prev, end_time: nextEnd }))
+  }, [formState.start_time, formState.duration])
 
   const filteredTasks = useMemo(
     () =>
@@ -144,78 +275,111 @@ const TasksPage = () => {
     [assigneeFilter, candidateFilter, companyFilter, statusFilter, tasks],
   )
 
-  const buildPayload = (state: TaskFormState): TaskPayload => ({
-    client_id: Number(state.client_id),
-    candidate: state.candidate.trim(),
-    poc: state.poc.trim(),
-    task_type_id: Number(state.task_type_id),
-    title: state.title.trim(),
-    description: state.description.trim(),
-    due_date: new Date(state.due_date).toISOString(),
-    time_start: state.time_start,
-    time_end: state.time_end,
-    total_amount: Number(state.total_amount),
-    payment_mode: state.payment_mode.trim(),
-  })
+  const clientOptions = useMemo(
+    () => clients.map((client) => ({ id: client.id, label: client.company_name || client.name })).sort((a, b) => a.label.localeCompare(b.label)),
+    [clients],
+  )
 
-  const validateForm = (state: TaskFormState) => {
-    if (!state.client_id) return 'Client is required.'
-    if (!state.task_type_id) return 'Task type is required.'
-    if (!state.title.trim()) return 'Title is required.'
+  const pocOptions = useMemo(() => pocs.map((poc) => ({ id: poc.id, label: poc.name })), [pocs])
+  const candidateOptions = useMemo(() => candidates.map((item) => ({ id: item.id, label: item.name })), [candidates])
+  const taskTypeOptions = useMemo(() => taskTypes.map((item) => ({ id: item.id, label: item.name })), [taskTypes])
 
-    const dueDate = new Date(state.due_date)
-    if (!state.due_date || Number.isNaN(dueDate.getTime())) return 'Due date is required.'
-    if (dueDate.getTime() <= Date.now()) return 'Due date must be in the future.'
+  const assigneeOptions = useMemo(
+    () => [...new Set(tasks.map((task) => task.assigned_to_name).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [tasks],
+  )
 
-    if (!state.time_start || !state.time_end) return 'Start and end times are required.'
-    if (state.time_start >= state.time_end) return 'Time start must be before time end.'
-
-    const amount = Number(state.total_amount)
-    if (Number.isNaN(amount) || amount < 0) return 'Total amount must be greater than or equal to 0.'
-
-    return null
-  }
+  const loadClientDependentOptions = useCallback(async (clientId: number) => {
+    setLoadingPocs(true)
+    setLoadingCandidates(true)
+    try {
+      const [pocData, candidateData] = await Promise.all([getPocsByClient(clientId), getCandidatesByClient(clientId)])
+      setPocs(pocData)
+      setCandidates(candidateData)
+    } catch (err) {
+      setFormError(normalizeError(err, 'Failed to load POC/Candidate for selected client.'))
+    } finally {
+      setLoadingPocs(false)
+      setLoadingCandidates(false)
+    }
+  }, [])
 
   const openCreate = () => {
     setFormMode('create')
+    setActiveTask(null)
     setFormState(defaultForm)
     setFormError(null)
-    setActiveTask(null)
+    setFormErrors({})
+    setPocs([])
+    setCandidates([])
     setIsFormOpen(true)
+    if (editorRef.current) editorRef.current.innerHTML = ''
   }
 
-  const openEdit = (task: TaskRecord) => {
+  const openEdit = async (task: TaskRecord) => {
     setFormMode('edit')
     setActiveTask(task)
     setFormError(null)
-    setFormState({
-      client_id: String(task.client_id ?? ''),
-      candidate: task.candidate,
-      poc: task.poc,
-      task_type_id: String(task.task_type_id ?? ''),
+    setFormErrors({})
+
+    const state: TaskFormState = {
+      client_id: task.client_id,
+      poc_id: task.poc_id,
+      candidate_id: task.candidate_id,
+      due_date: task.due_date.slice(0, 10),
+      start_time: task.time_start,
+      end_time: task.time_end,
+      task_type_id: task.task_type_id,
       title: task.title,
+      duration: task.duration || 30,
       description: task.description,
-      due_date: toLocalDateTimeInput(task.due_date),
-      time_start: task.time_start,
-      time_end: task.time_end,
-      total_amount: String(task.total_amount),
-      payment_mode: task.payment_mode,
-    })
+      total_amount: String(task.total_amount || ''),
+      payment_mode: task.payment_mode || 'UPI',
+    }
+
+    setFormState(state)
     setIsFormOpen(true)
+    if (editorRef.current) editorRef.current.innerHTML = state.description
+
+    if (state.client_id) {
+      await loadClientDependentOptions(state.client_id)
+    }
+  }
+
+  const validateForm = (state: TaskFormState) => {
+    const nextErrors: Record<string, string> = {}
+    if (!state.client_id) nextErrors.client_id = 'Client is required.'
+    if (!state.poc_id) nextErrors.poc_id = 'POC is required.'
+    if (!state.candidate_id) nextErrors.candidate_id = 'Candidate is required.'
+    if (!state.task_type_id) nextErrors.task_type_id = 'Task type is required.'
+    if (!state.title.trim()) nextErrors.title = 'Subject line is required.'
+    if (state.title.trim().length > 255) nextErrors.title = 'Max 255 characters allowed.'
+    if (!state.due_date) nextErrors.due_date = 'Due date is required.'
+    if (state.due_date && state.due_date < todayString()) nextErrors.due_date = 'Due date must be today or future.'
+    if (!state.start_time) nextErrors.start_time = 'Start time is required.'
+    if (state.duration < 1 || state.duration > 500) nextErrors.duration = 'Duration must be between 1 and 500.'
+
+    const amount = Number(state.total_amount)
+    if (!state.total_amount.trim()) nextErrors.total_amount = 'Amount is required.'
+    if (Number.isNaN(amount) || amount < 0) nextErrors.total_amount = 'Amount must be positive.'
+
+    if (!state.description.trim()) nextErrors.description = 'Description is required.'
+
+    return nextErrors
   }
 
   const handleSave = async () => {
-    const validation = validateForm(formState)
-    if (validation) {
-      setFormError(validation)
-      return
-    }
+    const description = editorRef.current?.innerHTML?.trim() ?? formState.description
+    const nextState = { ...formState, description }
+    const errorsFound = validateForm(nextState)
+    setFormErrors(errorsFound)
+    if (Object.keys(errorsFound).length > 0) return
 
     setIsSubmitting(true)
     setFormError(null)
 
     try {
-      const payload = buildPayload(formState)
+      const payload = toApiPayload(nextState)
       if (formMode === 'create') {
         await createTask(payload)
         showSuccess('Task created successfully.')
@@ -224,7 +388,7 @@ const TasksPage = () => {
         showSuccess('Task updated successfully.')
       }
       setIsFormOpen(false)
-      await loadTasks()
+      await loadPage()
     } catch (err) {
       setFormError(normalizeError(err, 'Failed to save task.'))
     } finally {
@@ -240,7 +404,7 @@ const TasksPage = () => {
       await deleteTask(deleteTarget.id)
       setDeleteTarget(null)
       showSuccess('Task deleted successfully.')
-      await loadTasks()
+      await loadPage()
     } catch (err) {
       setError(normalizeError(err, 'Failed to delete task.'))
     } finally {
@@ -255,11 +419,10 @@ const TasksPage = () => {
         (task) =>
           task.id !== assignTarget.id &&
           task.assigned_to_id === expertId &&
-          new Date(task.due_date).toDateString() === new Date(assignTarget.due_date).toDateString() &&
+          task.due_date.slice(0, 10) === assignTarget.due_date.slice(0, 10) &&
           task.time_start === assignTarget.time_start &&
           task.time_end === assignTarget.time_end,
       )
-
       return blockingTask ? 'busy' : 'available'
     },
     [assignTarget, tasks],
@@ -272,8 +435,7 @@ const TasksPage = () => {
     setAssignError(null)
     setAssignLoading(true)
     try {
-      const allExperts = await getExperts()
-      setExperts(allExperts)
+      setExperts(await getExperts())
     } catch (err) {
       setAssignError(normalizeError(err, 'Failed to load experts.'))
     } finally {
@@ -283,10 +445,9 @@ const TasksPage = () => {
 
   const handleAssign = async () => {
     if (!assignTarget || !selectedExpertId) {
-      setAssignError('Please select an expert.')
+      setAssignError('Please select an available expert.')
       return
     }
-
     if (assignTarget.assigned_to_id && !reassignReason.trim()) {
       setAssignError('Reassign reason is required.')
       return
@@ -294,7 +455,6 @@ const TasksPage = () => {
 
     setAssignError(null)
     setActionTaskId(assignTarget.id)
-
     try {
       await assignTask({
         task_id: assignTarget.id,
@@ -303,12 +463,18 @@ const TasksPage = () => {
       })
       setAssignTarget(null)
       showSuccess(assignTarget.assigned_to_id ? 'Task reassigned successfully.' : 'Task assigned successfully.')
-      await loadTasks()
+      await loadPage()
     } catch (err) {
       setAssignError(normalizeError(err, 'Failed to assign task.'))
     } finally {
       setActionTaskId(null)
     }
+  }
+
+  const execEditorCommand = (command: string, value?: string) => {
+    editorRef.current?.focus()
+    document.execCommand(command, false, value)
+    setFormState((prev) => ({ ...prev, description: editorRef.current?.innerHTML ?? '' }))
   }
 
   return (
@@ -334,10 +500,8 @@ const TasksPage = () => {
           Company
           <select value={companyFilter} onChange={(event) => setCompanyFilter(event.target.value)}>
             <option value="">All</option>
-            {clientOptions.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
+            {[...new Set(tasks.map((task) => task.client).filter(Boolean))].map((name) => (
+              <option key={name} value={name}>{name}</option>
             ))}
           </select>
         </label>
@@ -346,9 +510,7 @@ const TasksPage = () => {
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="">All</option>
             {['pending', 'assigned', 'in_progress', 'completed', 'cancelled'].map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
+              <option key={status} value={status}>{status}</option>
             ))}
           </select>
         </label>
@@ -357,264 +519,180 @@ const TasksPage = () => {
           <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)}>
             <option value="">All</option>
             {assigneeOptions.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
+              <option key={name} value={name}>{name}</option>
             ))}
           </select>
         </label>
       </div>
 
       <div className="card clients-table__wrapper">
-        {loading ? (
-          <p className="users-loader">Loading tasks...</p>
-        ) : filteredTasks.length === 0 ? (
-          <p className="users-empty">No tasks found.</p>
-        ) : (
+        {loading ? <p className="users-loader">Loading tasks...</p> : null}
+        {!loading && filteredTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
+        {!loading && filteredTasks.length > 0 ? (
           <table className="roles-table users-table" style={{ minWidth: 1500 }}>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Candidate</th>
-                <th>Company</th>
-                <th>Status</th>
-                <th>Assign To</th>
-                <th>Time Start</th>
-                <th>Time End</th>
-                <th>File</th>
-                <th>Description</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Date</th><th>Candidate</th><th>Company</th><th>Status</th><th>Assign To</th><th>Time Start</th><th>Time End</th><th>File</th><th>Description</th><th>Actions</th></tr></thead>
             <tbody>
-              {filteredTasks.map((task) => {
-                const overdue = new Date(task.due_date).getTime() < Date.now() && task.status !== 'completed'
-                return (
-                  <tr key={task.id} style={overdue ? { backgroundColor: '#fff7ed' } : undefined}>
-                    <td>{formatDisplayDate(task.due_date)}</td>
-                    <td>{task.candidate || '—'}</td>
-                    <td>{task.client || '—'}</td>
-                    <td>
-                      <span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : ''}`}>
-                        {task.status}
-                      </span>
-                    </td>
-                    <td>{task.assigned_to_name || '—'}</td>
-                    <td>{task.time_start || '—'}</td>
-                    <td>{task.time_end || '—'}</td>
-                    <td>{task.file_url ? <a href={task.file_url}>View</a> : '—'}</td>
-                    <td>{task.description || '—'}</td>
-                    <td>
-                      <div className="roles-table__actions users-actions">
-                        <button className="button" onClick={() => window.alert(JSON.stringify(task, null, 2))}>
-                          View
-                        </button>
-                        <button className="button" disabled={!canManage} onClick={() => openEdit(task)}>
-                          Edit
-                        </button>
-                        <button className="button button--danger" disabled={!canManage} onClick={() => setDeleteTarget(task)}>
-                          Delete
-                        </button>
-                        <button className="button" disabled={!task.can_assign} onClick={() => void openAssign(task)}>
-                          {task.assigned_to_id ? 'Reassign' : 'Assign'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
+              {filteredTasks.map((task) => (
+                <tr key={task.id}>
+                  <td>{formatDisplayDate(task.due_date)}</td>
+                  <td>{task.candidate || '—'}</td>
+                  <td>{task.client || '—'}</td>
+                  <td><span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : ''}`}>{task.status}</span></td>
+                  <td>{task.assigned_to_name || '—'}</td>
+                  <td>{task.time_start || '—'}</td>
+                  <td>{task.time_end || '—'}</td>
+                  <td>{task.file_url ? <a href={task.file_url}>View</a> : '—'}</td>
+                  <td>{task.description ? <span dangerouslySetInnerHTML={{ __html: task.description }} /> : '—'}</td>
+                  <td>
+                    <div className="roles-table__actions users-actions">
+                      <button className="button" onClick={() => void openEdit(task)}>View</button>
+                      <button className="button" disabled={!canManage} onClick={() => void openEdit(task)}>Edit</button>
+                      <button className="button button--danger" disabled={!canManage} onClick={() => setDeleteTarget(task)}>Delete</button>
+                      <button className="button" disabled={!task.can_assign} onClick={() => void openAssign(task)}>{task.assigned_to_id ? 'Reassign' : 'Assign'}</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
-        )}
+        ) : null}
       </div>
 
       {isFormOpen ? (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ width: 'min(760px, 100%)' }}>
-            <h3 className="modal-title">{formMode === 'create' ? 'Add Task' : 'Edit Task'}</h3>
+          <div className="modal-card" style={{ width: 'min(980px, 100%)' }}>
+            <h3 className="modal-title">{formMode === 'create' ? 'Create New Task' : 'Edit Task'}</h3>
             <div className="modal-form" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <SearchableSelect
+                label="Client"
+                required
+                value={formState.client_id}
+                placeholder="Select Client Company"
+                options={clientOptions}
+                error={formErrors.client_id}
+                onChange={(selectedId) => {
+                  setFormState((prev) => ({ ...prev, client_id: selectedId, poc_id: null, candidate_id: null }))
+                  setPocs([])
+                  setCandidates([])
+                  if (selectedId) void loadClientDependentOptions(selectedId)
+                }}
+              />
+              <SearchableSelect
+                label="Point of contact"
+                required
+                disabled={!formState.client_id}
+                loading={loadingPocs}
+                value={formState.poc_id}
+                placeholder="Select Point of Contact"
+                options={pocOptions}
+                error={formErrors.poc_id}
+                onChange={(selectedId) => setFormState((prev) => ({ ...prev, poc_id: selectedId }))}
+              />
+              <SearchableSelect
+                label="Candidate Name"
+                required
+                disabled={!formState.client_id}
+                loading={loadingCandidates}
+                value={formState.candidate_id}
+                placeholder="Select Candidate"
+                options={candidateOptions}
+                error={formErrors.candidate_id}
+                onChange={(selectedId) => setFormState((prev) => ({ ...prev, candidate_id: selectedId }))}
+              />
               <label className="auth-card__field">
-                Client
-                <select
-                  value={formState.client_id}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, client_id: event.target.value }))}
-                >
-                  <option value="">Select client</option>
-                  {tasks
-                    .filter((task) => task.client_id)
-                    .map((task) => ({ id: task.client_id as number, name: task.client || `Client ${task.client_id}` }))
-                    .filter((item, index, array) => array.findIndex((x) => x.id === item.id) === index)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
+                Due Date <span className="auth-card__error">*</span>
+                <input className={formErrors.due_date ? 'field-error' : ''} type="date" min={todayString()} value={formState.due_date} onChange={(event) => setFormState((prev) => ({ ...prev, due_date: event.target.value }))} />
+                {formErrors.due_date ? <small className="auth-card__error">{formErrors.due_date}</small> : null}
               </label>
               <label className="auth-card__field">
-                Candidate
-                <input
-                  value={formState.candidate}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, candidate: event.target.value }))}
-                />
+                Start Time <span className="auth-card__error">*</span>
+                <input className={formErrors.start_time ? 'field-error' : ''} type="time" value={formState.start_time} onChange={(event) => setFormState((prev) => ({ ...prev, start_time: event.target.value }))} />
+                {formErrors.start_time ? <small className="auth-card__error">{formErrors.start_time}</small> : null}
               </label>
               <label className="auth-card__field">
-                POC
-                <input value={formState.poc} onChange={(event) => setFormState((prev) => ({ ...prev, poc: event.target.value }))} />
+                End Time (AUTO)
+                <input type="time" readOnly value={formState.end_time} />
+              </label>
+              <SearchableSelect
+                label="Task Type"
+                required
+                value={formState.task_type_id}
+                placeholder="Select Task Type"
+                options={taskTypeOptions}
+                error={formErrors.task_type_id}
+                onChange={(selectedId) => setFormState((prev) => ({ ...prev, task_type_id: selectedId }))}
+              />
+              <label className="auth-card__field">
+                Status
+                <input value="Pending" readOnly />
               </label>
               <label className="auth-card__field">
-                Task Type
-                <select
-                  value={formState.task_type_id}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, task_type_id: event.target.value }))}
-                >
-                  <option value="">Select type</option>
-                  {taskTypeOptions.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
+                Subject Line <span className="auth-card__error">*</span>
+                <input maxLength={255} className={formErrors.title ? 'field-error' : ''} value={formState.title} onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))} />
+                {formErrors.title ? <small className="auth-card__error">{formErrors.title}</small> : null}
               </label>
               <label className="auth-card__field">
-                Title
-                <input value={formState.title} onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))} />
+                Duration <span className="auth-card__error">*</span> (mins)
+                <input className={formErrors.duration ? 'field-error' : ''} type="number" min={1} max={500} value={formState.duration} onChange={(event) => setFormState((prev) => ({ ...prev, duration: Number(event.target.value) }))} />
+                {formErrors.duration ? <small className="auth-card__error">{formErrors.duration}</small> : null}
+              </label>
+
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="auth-card__field">
+                  Task Description <span className="auth-card__error">*</span>
+                </label>
+                <div className="card" style={{ padding: 0 }}>
+                  <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid #e5e7eb', padding: 8, flexWrap: 'wrap' }}>
+                    <button className="button" type="button" onClick={() => execEditorCommand('bold')}>B</button>
+                    <button className="button" type="button" onClick={() => execEditorCommand('italic')}>I</button>
+                    <button className="button" type="button" onClick={() => execEditorCommand('insertUnorderedList')}>• List</button>
+                    <button className="button" type="button" onClick={() => execEditorCommand('insertOrderedList')}>1. List</button>
+                    <button className="button" type="button" onClick={() => execEditorCommand('createLink', window.prompt('Enter URL') ?? '')}>Link</button>
+                  </div>
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={() => setFormState((prev) => ({ ...prev, description: editorRef.current?.innerHTML ?? '' }))}
+                    style={{ minHeight: 140, padding: 10, outline: 'none' }}
+                  />
+                </div>
+                {formErrors.description ? <small className="auth-card__error">{formErrors.description}</small> : null}
+              </div>
+
+              <label className="auth-card__field">
+                Decided Amt INR <span className="auth-card__error">*</span>
+                <input type="number" min={0} className={formErrors.total_amount ? 'field-error' : ''} value={formState.total_amount} onChange={(event) => setFormState((prev) => ({ ...prev, total_amount: event.target.value }))} placeholder="Enter amount" />
+                {formErrors.total_amount ? <small className="auth-card__error">{formErrors.total_amount}</small> : null}
               </label>
               <label className="auth-card__field">
-                Description
-                <input
-                  value={formState.description}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
-                />
-              </label>
-              <label className="auth-card__field">
-                Due Date
-                <input
-                  type="datetime-local"
-                  value={formState.due_date}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, due_date: event.target.value }))}
-                />
-              </label>
-              <label className="auth-card__field">
-                Time Start
-                <input
-                  type="time"
-                  value={formState.time_start}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, time_start: event.target.value }))}
-                />
-              </label>
-              <label className="auth-card__field">
-                Time End
-                <input
-                  type="time"
-                  value={formState.time_end}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, time_end: event.target.value }))}
-                />
-              </label>
-              <label className="auth-card__field">
-                Total Amount
-                <input
-                  type="number"
-                  min={0}
-                  value={formState.total_amount}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, total_amount: event.target.value }))}
-                />
-              </label>
-              <label className="auth-card__field" style={{ gridColumn: '1 / -1' }}>
-                Payment Mode
-                <input
-                  value={formState.payment_mode}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, payment_mode: event.target.value }))}
-                />
+                Payment Status
+                <input value="Pending" readOnly />
               </label>
             </div>
             {formError ? <p className="auth-card__error">{formError}</p> : null}
             <div className="modal-actions">
-              <button className="button" onClick={() => setIsFormOpen(false)}>
-                Cancel
-              </button>
-              <button className="button button--primary" disabled={isSubmitting} onClick={() => void handleSave()}>
-                {isSubmitting ? 'Saving...' : 'Save'}
-              </button>
+              <button className="button" onClick={() => setIsFormOpen(false)}>Cancel</button>
+              <button className="button button--primary" disabled={isSubmitting} onClick={() => void handleSave()}>{isSubmitting ? 'Saving...' : 'Submit'}</button>
             </div>
           </div>
         </div>
       ) : null}
 
       {deleteTarget ? (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <h3 className="modal-title">Delete Task</h3>
-            <p className="card-text">Are you sure you want to delete this task?</p>
-            <div className="modal-actions">
-              <button className="button" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </button>
-              <button className="button button--danger" onClick={() => void handleDelete()} disabled={actionTaskId === deleteTarget.id}>
-                {actionTaskId === deleteTarget.id ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <div className="modal-overlay"><div className="modal-card"><h3 className="modal-title">Delete Task</h3><p className="card-text">Are you sure you want to delete this task?</p><div className="modal-actions"><button className="button" onClick={() => setDeleteTarget(null)}>Cancel</button><button className="button button--danger" onClick={() => void handleDelete()} disabled={actionTaskId === deleteTarget.id}>{actionTaskId === deleteTarget.id ? 'Deleting...' : 'Delete'}</button></div></div></div>
       ) : null}
 
       {assignTarget ? (
         <div className="modal-overlay">
           <div className="modal-card" style={{ width: 'min(700px, 100%)' }}>
             <h3 className="modal-title">{assignTarget.assigned_to_id ? 'Reassign Task' : 'Assign Task'}</h3>
-            {assignTarget.assigned_to_id ? (
-              <label className="auth-card__field" style={{ marginBottom: '0.75rem' }}>
-                Reassign reason (required)
-                <input value={reassignReason} onChange={(event) => setReassignReason(event.target.value)} />
-              </label>
-            ) : null}
-            {assignLoading ? (
-              <p className="card-text">Loading experts...</p>
-            ) : (
-              <table className="roles-table">
-                <thead>
-                  <tr>
-                    <th>Expert Name</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {experts.map((expert) => {
-                    const availability = checkAvailability(expert.id)
-                    return (
-                      <tr key={expert.id}>
-                        <td>{expert.name}</td>
-                        <td>
-                          <span className={`status-pill ${availability === 'available' ? 'status-pill--active' : 'status-pill--inactive'}`}>
-                            {availability}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            className="button"
-                            disabled={availability === 'busy'}
-                            onClick={() => setSelectedExpertId(expert.id)}
-                            style={selectedExpertId === expert.id ? { borderColor: '#111827', fontWeight: 700 } : undefined}
-                          >
-                            Select
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+            {assignTarget.assigned_to_id ? <label className="auth-card__field" style={{ marginBottom: 8 }}>Reassign reason (required)<input value={reassignReason} onChange={(event) => setReassignReason(event.target.value)} /></label> : null}
+            {assignLoading ? <p className="card-text">Loading experts...</p> : (
+              <table className="roles-table"><thead><tr><th>Expert Name</th><th>Status</th><th>Action</th></tr></thead><tbody>{experts.map((expert) => { const availability = checkAvailability(expert.id); return <tr key={expert.id}><td>{expert.name}</td><td><span className={`status-pill ${availability === 'available' ? 'status-pill--active' : 'status-pill--inactive'}`}>{availability}</span></td><td><button className="button" disabled={availability === 'busy'} onClick={() => setSelectedExpertId(expert.id)}>{selectedExpertId === expert.id ? 'Selected' : 'Select'}</button></td></tr> })}</tbody></table>
             )}
             {assignError ? <p className="auth-card__error">{assignError}</p> : null}
-            <div className="modal-actions">
-              <button className="button" onClick={() => setAssignTarget(null)}>
-                Cancel
-              </button>
-              <button className="button button--primary" onClick={() => void handleAssign()} disabled={actionTaskId === assignTarget.id}>
-                {actionTaskId === assignTarget.id ? 'Submitting...' : assignTarget.assigned_to_id ? 'Reassign' : 'Assign'}
-              </button>
-            </div>
+            <div className="modal-actions"><button className="button" onClick={() => setAssignTarget(null)}>Cancel</button><button className="button button--primary" onClick={() => void handleAssign()} disabled={actionTaskId === assignTarget.id}>{actionTaskId === assignTarget.id ? 'Submitting...' : assignTarget.assigned_to_id ? 'Reassign' : 'Assign'}</button></div>
           </div>
         </div>
       ) : null}
