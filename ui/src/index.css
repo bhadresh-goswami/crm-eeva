@@ -643,3 +643,79 @@ p {
     grid-template-columns: 1fr;
   }
 }
+
+.dashboard-cards {
+  margin-bottom: 1rem;
+}
+
+.dashboard-card__label {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.dashboard-card__value {
+  font-size: 1.55rem;
+  margin-top: 0.35rem;
+}
+
+.skeleton-card {
+  min-height: 98px;
+  background: linear-gradient(90deg, #f3f4f6, #e5e7eb, #f3f4f6);
+  background-size: 200% 100%;
+  animation: pulse 1.3s infinite;
+}
+
+.dashboard-tabs {
+  display: inline-flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.dashboard-tab {
+  border: 0;
+  padding: 0.55rem 1rem;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dashboard-tab--active {
+  background: #111827;
+  color: #fff;
+}
+
+.dashboard-table-wrap {
+  background: #fff;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+}
+
+.dashboard-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.dashboard-empty {
+  text-align: center;
+  color: #6b7280;
+}
+
+@keyframes pulse {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+
+.dashboard-notice {
+  color: #9a3412;
+  background: #ffedd5;
+  border: 1px solid #fed7aa;
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.9rem;
+}
