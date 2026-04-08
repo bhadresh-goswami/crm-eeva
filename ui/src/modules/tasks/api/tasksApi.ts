@@ -41,7 +41,6 @@ export type TaskPayload = {
   total_amount: number
   payment_mode: string
   attachment?: File | null
-  file_path?: string
 }
 
 export type ExpertRecord = {
@@ -136,136 +135,61 @@ export const getTasks = async () => {
 }
 
 export const createTask = async (payload: TaskPayload) => {
-  const basePayload = {
-    client_id: payload.client_id,
-    poc_id: payload.poc_id,
-    candidate_id: payload.candidate_id,
-    task_type_id: payload.task_type_id,
-    title: payload.title,
-    description: payload.description,
-    due_date: payload.due_date,
-    start_time: payload.start_time,
-    end_time: payload.end_time,
-    duration: payload.duration,
-    total_amount: payload.total_amount,
-    payment_mode: payload.payment_mode,
-    file_path: payload.file_path ?? '',
-  }
-
-  if (!payload.attachment) {
-    await apiRequest('/tasks/create', {
-      method: 'POST',
-      body: JSON.stringify(basePayload),
-    })
-    return
-  }
-
-  const formData = new FormData()
-  Object.entries(basePayload).forEach(([key, value]) => formData.append(key, String(value)))
-  formData.append('attachment', payload.attachment)
-
-  try {
-    const uploadedPath = await uploadTaskAttachment(payload.attachment)
-    await apiRequest('/tasks/create', {
-      method: 'POST',
-      body: JSON.stringify({
-        ...basePayload,
-        file_path: uploadedPath,
-      }),
-    })
-  } catch {
-    try {
-      await apiRequest('/tasks/create', {
-        method: 'POST',
-        body: formData,
-      })
-    } catch {
-      const encoded = await fileToBase64(payload.attachment)
-      await apiRequest('/tasks/create', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...basePayload,
-          attachment_name: payload.attachment.name,
-          attachment_type: payload.attachment.type,
-          attachment_base64: encoded,
-        }),
-      })
-    }
-  }
+  await submitTask('/tasks/create', payload)
 }
 
 export const updateTask = async (payload: TaskPayload & { id: number }) => {
-  const basePayload = {
-    id: payload.id,
-    client_id: payload.client_id,
-    poc_id: payload.poc_id,
-    candidate_id: payload.candidate_id,
-    task_type_id: payload.task_type_id,
-    title: payload.title,
-    description: payload.description,
-    due_date: payload.due_date,
-    start_time: payload.start_time,
-    end_time: payload.end_time,
-    duration: payload.duration,
-    total_amount: payload.total_amount,
-    payment_mode: payload.payment_mode,
-    file_path: payload.file_path ?? '',
-  }
+  await submitTask('/tasks/update', payload)
+}
 
-  if (!payload.attachment) {
-    await apiRequest('/tasks/update', {
-      method: 'POST',
-      body: JSON.stringify(basePayload),
-    })
-    return
-  }
-
+const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: TaskPayload & { id?: number }) => {
   const formData = new FormData()
-  Object.entries(basePayload).forEach(([key, value]) => formData.append(key, String(value)))
-  formData.append('attachment', payload.attachment)
+  if (payload.id) formData.append('id', String(payload.id))
+  formData.append('client_id', String(payload.client_id))
+  formData.append('poc_id', String(payload.poc_id))
+  formData.append('candidate_id', String(payload.candidate_id))
+  formData.append('task_type_id', String(payload.task_type_id))
+  formData.append('title', payload.title)
+  formData.append('description', payload.description)
+  formData.append('due_date', payload.due_date)
+  formData.append('start_time', payload.start_time)
+  formData.append('end_time', payload.end_time)
+  formData.append('duration', String(payload.duration))
+  formData.append('total_amount', String(payload.total_amount))
+  formData.append('payment_mode', payload.payment_mode)
+  if (payload.attachment) {
+    formData.append('attachment', payload.attachment)
+  }
 
   try {
-    const uploadedPath = await uploadTaskAttachment(payload.attachment)
-    await apiRequest('/tasks/update', {
+    await apiRequest(path, {
       method: 'POST',
-      body: JSON.stringify({
-        ...basePayload,
-        file_path: uploadedPath,
-      }),
+      body: formData,
     })
   } catch {
-    try {
-      await apiRequest('/tasks/update', {
-        method: 'POST',
-        body: formData,
-      })
-    } catch {
-      const encoded = await fileToBase64(payload.attachment)
-      await apiRequest('/tasks/update', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...basePayload,
-          attachment_name: payload.attachment.name,
-          attachment_type: payload.attachment.type,
-          attachment_base64: encoded,
-        }),
-      })
+    const fallback = {
+      ...(payload.id ? { id: payload.id } : {}),
+      client_id: payload.client_id,
+      poc_id: payload.poc_id,
+      candidate_id: payload.candidate_id,
+      task_type_id: payload.task_type_id,
+      title: payload.title,
+      description: payload.description,
+      due_date: payload.due_date,
+      start_time: payload.start_time,
+      end_time: payload.end_time,
+      duration: payload.duration,
+      total_amount: payload.total_amount,
+      payment_mode: payload.payment_mode,
     }
+    await apiRequest(path, {
+      method: 'POST',
+      body: JSON.stringify(fallback),
+    })
   }
 }
 
-const fileToBase64 = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const data = String(reader.result ?? '')
-      resolve(data.includes(',') ? data.split(',')[1] : data)
-    }
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
-
-const uploadTaskAttachment = async (file: File) => {
+export const uploadTaskAttachment = async (file: File) => {
   const formData = new FormData()
   formData.append('file', file)
   const response = await apiRequest<Record<string, unknown>>('/tasks/upload', {

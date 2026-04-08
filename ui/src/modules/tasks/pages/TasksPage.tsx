@@ -136,7 +136,6 @@ type TaskFormState = {
   total_amount: string
   payment_mode: string
   attachment: File | null
-  file_path: string
 }
 
 const defaultForm: TaskFormState = {
@@ -153,7 +152,6 @@ const defaultForm: TaskFormState = {
   total_amount: '',
   payment_mode: 'UPI',
   attachment: null,
-  file_path: '',
 }
 
 const formatDisplayDate = (value: string) => {
@@ -197,13 +195,12 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
   total_amount: Number(state.total_amount),
   payment_mode: state.payment_mode.trim() || 'UPI',
   attachment: state.attachment,
-  file_path: state.file_path,
 })
 
 const TasksPage = () => {
   const { user } = useAuth()
   const editorRef = useRef<HTMLDivElement | null>(null)
-  const canManage = user?.role === 'manager' || user?.role === 'coordinator'
+  const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
 
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [clients, setClients] = useState<ClientItem[]>([])
@@ -343,7 +340,6 @@ const TasksPage = () => {
       total_amount: String(task.total_amount || ''),
       payment_mode: task.payment_mode || 'UPI',
       attachment: null,
-      file_path: task.file_url || '',
     }
 
     setFormState(state)
@@ -563,7 +559,7 @@ const TasksPage = () => {
                       <button className="button" onClick={() => void openEdit(task)}>View</button>
                       <button className="button" disabled={!canManage} onClick={() => void openEdit(task)}>Edit</button>
                       <button className="button button--danger" disabled={!canManage} onClick={() => setDeleteTarget(task)}>Delete</button>
-                      <button className="button" disabled={!task.can_assign} onClick={() => void openAssign(task)}>{task.assigned_to_id ? 'Reassign' : 'Assign'}</button>
+                      <button className="button" disabled={!task.can_assign || !canManage} onClick={() => void openAssign(task)}>{task.assigned_to_id ? 'Reassign' : 'Assign'}</button>
                     </div>
                   </td>
                 </tr>
@@ -695,15 +691,13 @@ const TasksPage = () => {
                   type="file"
                   onChange={(event) => {
                     const file = event.target.files?.[0] ?? null
-                    setFormState((prev) => ({ ...prev, attachment: file, file_path: file ? '' : prev.file_path }))
+                    setFormState((prev) => ({ ...prev, attachment: file }))
                   }}
                 />
                 <small className="card-text">
                   {formState.attachment
                     ? `Selected: ${formState.attachment.name}`
-                    : formState.file_path
-                      ? `Existing: ${formState.file_path}`
-                      : 'No file selected'}
+                    : 'No file selected'}
                 </small>
               </label>
             </div>
