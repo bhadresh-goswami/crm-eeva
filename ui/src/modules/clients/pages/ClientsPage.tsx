@@ -131,6 +131,14 @@ const ClientsPage = () => {
     [clients],
   )
 
+  const existingCompanyNames = useMemo(() => {
+    const editingId = formMode === 'edit' ? selectedClient?.id : null
+    return clients
+      .filter((item) => item.id !== editingId)
+      .map((item) => item.company_name)
+      .filter((item) => item.trim().length > 0)
+  }, [clients, formMode, selectedClient?.id])
+
   return (
     <section>
       <div className="users-page__header">
@@ -184,6 +192,7 @@ const ClientsPage = () => {
         isOpen={isFormOpen}
         mode={formMode}
         client={selectedClient}
+        existingCompanyNames={existingCompanyNames}
         apiError={modalError}
         isSubmitting={isSubmitting}
         onClose={() => {

@@ -191,6 +191,11 @@ p {
   background: #ffffff;
 }
 
+.auth-input--error {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
+}
+
 .auth-card__error {
   color: #b91c1c;
   font-size: 0.9rem;
@@ -529,14 +534,6 @@ p {
   margin-bottom: 1rem;
 }
 
-.candidates-controls {
-  margin-bottom: 0.75rem;
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: minmax(240px, 1.4fr) 220px auto;
-  align-items: end;
-}
-
 .clients-controls {
   margin-bottom: 0.75rem;
   display: grid;
@@ -621,7 +618,6 @@ p {
 }
 
 @media (max-width: 960px) {
-  .candidates-controls,
   .clients-controls {
     grid-template-columns: 1fr;
   }
