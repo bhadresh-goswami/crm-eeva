@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../../context/AuthContext'
-import { getDashboardByRole } from '../utils/getDashboardByRole'
+import { getRoleDashboardPath } from '../../../routes/roleDashboard'
 
 const DashboardPage = () => {
   const { user } = useAuth()
@@ -9,7 +9,7 @@ const DashboardPage = () => {
     return <Navigate replace to="/login" />
   }
 
-  return getDashboardByRole(user.role)
+  return <Navigate replace to={getRoleDashboardPath(user.role)} />
 }
 
 export default DashboardPage

@@ -47,11 +47,6 @@ export const apiRequest = async <TResponse = unknown>(
   }
 
   const requestUrl = buildApiUrl(path)
-  console.info('[apiRequest] URL:', requestUrl)
-  if (init.body) {
-    console.info('[apiRequest] Body:', init.body)
-  }
-
   const response = await fetch(requestUrl, {
     ...init,
     headers,
