@@ -135,6 +135,7 @@ type TaskFormState = {
   description: string
   total_amount: string
   payment_mode: string
+  attachment: File | null
 }
 
 const defaultForm: TaskFormState = {
@@ -150,6 +151,7 @@ const defaultForm: TaskFormState = {
   description: '',
   total_amount: '',
   payment_mode: 'UPI',
+  attachment: null,
 }
 
 const formatDisplayDate = (value: string) => {
@@ -192,6 +194,7 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
   duration: state.duration,
   total_amount: Number(state.total_amount),
   payment_mode: state.payment_mode.trim() || 'UPI',
+  attachment: state.attachment,
 })
 
 const TasksPage = () => {
@@ -223,6 +226,7 @@ const TasksPage = () => {
   const [formError, setFormError] = useState<string | null>(null)
   const [activeTask, setActiveTask] = useState<TaskRecord | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [descriptionPreview, setDescriptionPreview] = useState<string | null>(null)
 
   const [deleteTarget, setDeleteTarget] = useState<TaskRecord | null>(null)
   const [actionTaskId, setActionTaskId] = useState<number | null>(null)
@@ -335,6 +339,7 @@ const TasksPage = () => {
       description: task.description,
       total_amount: String(task.total_amount || ''),
       payment_mode: task.payment_mode || 'UPI',
+      attachment: null,
     }
 
     setFormState(state)
@@ -542,7 +547,18 @@ const TasksPage = () => {
                   <td>{task.time_start || '—'}</td>
                   <td>{task.time_end || '—'}</td>
                   <td>{task.file_url ? <a href={task.file_url}>View</a> : '—'}</td>
-                  <td>{task.description ? <span dangerouslySetInnerHTML={{ __html: task.description }} /> : '—'}</td>
+                  <td>
+                    {task.description ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block' }}>
+                          {task.description.replace(/<[^>]*>/g, '')}
+                        </span>
+                        <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
+                          👁
+                        </button>
+                      </div>
+                    ) : '—'}
+                  </td>
                   <td>
                     <div className="roles-table__actions users-actions">
                       <button className="button" onClick={() => void openEdit(task)}>View</button>
@@ -674,6 +690,17 @@ const TasksPage = () => {
                 Payment Status
                 <input value="Pending" readOnly />
               </label>
+              <label className="auth-card__field" style={{ gridColumn: '1 / -1' }}>
+                File Upload (Optional)
+                <input
+                  type="file"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null
+                    setFormState((prev) => ({ ...prev, attachment: file }))
+                  }}
+                />
+                <small className="card-text">{formState.attachment ? `Selected: ${formState.attachment.name}` : 'No file selected'}</small>
+              </label>
             </div>
             {formError ? <p className="auth-card__error">{formError}</p> : null}
             <div className="modal-actions">
@@ -698,6 +725,18 @@ const TasksPage = () => {
             )}
             {assignError ? <p className="auth-card__error">{assignError}</p> : null}
             <div className="modal-actions"><button className="button" onClick={() => setAssignTarget(null)}>Cancel</button><button className="button button--primary" onClick={() => void handleAssign()} disabled={actionTaskId === assignTarget.id}>{actionTaskId === assignTarget.id ? 'Submitting...' : assignTarget.assigned_to_id ? 'Reassign' : 'Assign'}</button></div>
+          </div>
+        </div>
+      ) : null}
+
+      {descriptionPreview ? (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ width: 'min(680px, 100%)', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <h3 className="modal-title" style={{ marginBottom: 0 }}>Task Description</h3>
+              <button className="button" type="button" onClick={() => setDescriptionPreview(null)}>✕</button>
+            </div>
+            <div className="card" dangerouslySetInnerHTML={{ __html: descriptionPreview }} />
           </div>
         </div>
       ) : null}

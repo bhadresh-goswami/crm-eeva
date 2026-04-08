@@ -40,6 +40,7 @@ export type TaskPayload = {
   duration: number
   total_amount: number
   payment_mode: string
+  attachment?: File | null
 }
 
 export type ExpertRecord = {
@@ -134,16 +135,51 @@ export const getTasks = async () => {
 }
 
 export const createTask = async (payload: TaskPayload) => {
+  const formData = new FormData()
+  formData.append('client_id', String(payload.client_id))
+  formData.append('poc_id', String(payload.poc_id))
+  formData.append('candidate_id', String(payload.candidate_id))
+  formData.append('task_type_id', String(payload.task_type_id))
+  formData.append('title', payload.title)
+  formData.append('description', payload.description)
+  formData.append('due_date', payload.due_date)
+  formData.append('start_time', payload.start_time)
+  formData.append('end_time', payload.end_time)
+  formData.append('duration', String(payload.duration))
+  formData.append('total_amount', String(payload.total_amount))
+  formData.append('payment_mode', payload.payment_mode)
+  if (payload.attachment) {
+    formData.append('attachment', payload.attachment)
+  }
+
   await apiRequest('/tasks/create', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: formData,
   })
 }
 
 export const updateTask = async (payload: TaskPayload & { id: number }) => {
+  const formData = new FormData()
+  formData.append('id', String(payload.id))
+  formData.append('client_id', String(payload.client_id))
+  formData.append('poc_id', String(payload.poc_id))
+  formData.append('candidate_id', String(payload.candidate_id))
+  formData.append('task_type_id', String(payload.task_type_id))
+  formData.append('title', payload.title)
+  formData.append('description', payload.description)
+  formData.append('due_date', payload.due_date)
+  formData.append('start_time', payload.start_time)
+  formData.append('end_time', payload.end_time)
+  formData.append('duration', String(payload.duration))
+  formData.append('total_amount', String(payload.total_amount))
+  formData.append('payment_mode', payload.payment_mode)
+  if (payload.attachment) {
+    formData.append('attachment', payload.attachment)
+  }
+
   await apiRequest('/tasks/update', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: formData,
   })
 }
 
