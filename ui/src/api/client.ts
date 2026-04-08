@@ -70,5 +70,15 @@ export const apiRequest = async <TResponse = unknown>(
     return undefined as TResponse
   }
 
-  return (await response.json()) as TResponse
+  const rawBody = await response.text()
+
+  if (!rawBody) {
+    return undefined as TResponse
+  }
+
+  try {
+    return JSON.parse(rawBody) as TResponse
+  } catch {
+    return rawBody as TResponse
+  }
 }

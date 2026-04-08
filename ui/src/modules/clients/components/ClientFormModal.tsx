@@ -5,6 +5,7 @@ type ClientFormModalProps = {
   isOpen: boolean
   mode: 'create' | 'edit'
   client: ClientItem | null
+  existingCompanyNames: string[]
   isSubmitting: boolean
   apiError: string | null
   onClose: () => void
@@ -21,7 +22,16 @@ type ClientFormModalProps = {
 
 const billingOptions: BillingType[] = ['gst', 'tds', 'personal', 'usa', 'cash']
 
-const ClientFormModal = ({ isOpen, mode, client, isSubmitting, apiError, onClose, onSubmit }: ClientFormModalProps) => {
+const ClientFormModal = ({
+  isOpen,
+  mode,
+  client,
+  existingCompanyNames,
+  isSubmitting,
+  apiError,
+  onClose,
+  onSubmit,
+}: ClientFormModalProps) => {
   const [name, setName] = useState(client?.name ?? '')
   const [companyName, setCompanyName] = useState(client?.company_name ?? '')
   const [mobile, setMobile] = useState(client?.mobile ?? '')
@@ -29,6 +39,7 @@ const ClientFormModal = ({ isOpen, mode, client, isSubmitting, apiError, onClose
   const [gst, setGst] = useState(client?.gst ?? '')
   const [billingType, setBillingType] = useState<BillingType>(client?.billing_type ?? 'personal')
   const [localError, setLocalError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   if (!isOpen) {
     return null
@@ -37,9 +48,19 @@ const ClientFormModal = ({ isOpen, mode, client, isSubmitting, apiError, onClose
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     setLocalError(null)
+    setFieldErrors({})
 
     if (!name.trim()) {
       setLocalError('Name is required.')
+      return
+    }
+
+    const normalizedCompanyName = companyName.trim().toLowerCase()
+    const hasDuplicateCompany =
+      normalizedCompanyName.length > 0 && existingCompanyNames.map((item) => item.trim().toLowerCase()).includes(normalizedCompanyName)
+
+    if (hasDuplicateCompany) {
+      setFieldErrors({ company_name: 'Client company already exists' })
       return
     }
 
@@ -71,10 +92,12 @@ const ClientFormModal = ({ isOpen, mode, client, isSubmitting, apiError, onClose
             Company Name
             <input
               id="clientCompanyName"
+              className={fieldErrors.company_name ? 'auth-input--error' : ''}
               value={companyName}
               onChange={(event) => setCompanyName(event.target.value)}
               disabled={isSubmitting}
             />
+            {fieldErrors.company_name ? <span className="auth-card__error">{fieldErrors.company_name}</span> : null}
           </label>
 
           <label className="auth-card__field" htmlFor="clientMobile">

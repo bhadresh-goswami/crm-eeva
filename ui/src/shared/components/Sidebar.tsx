@@ -14,6 +14,7 @@ const roleNavigation: Record<UserRole, SidebarItem[]> = {
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'Users', to: '/users' },
     { label: 'Client CRM', to: '/clients' },
+    { label: 'POC', to: '/clients?tab=poc' },
     { label: 'Roles', to: '/roles' },
   ],
   manager: [
