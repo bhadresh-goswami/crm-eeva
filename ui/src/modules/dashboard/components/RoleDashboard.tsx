@@ -5,6 +5,7 @@ import {
   getDashboardExperts,
   getDashboardSummary,
   getDashboardTasksByPaths,
+  updateDashboardTaskStatus,
   type DashboardExpert,
   type DashboardSummary,
   type DashboardTask,
@@ -28,102 +29,12 @@ const defaultSummary: DashboardSummary = {
 }
 
 const taskPathsByMode: Record<DashboardMode, string[]> = {
-  admin: [],
-  manager: ['/dashboard/tasks', '/dashboard/team-tasks', '/dashboard/my-tasks'],
-  coordinator: ['/dashboard/tasks', '/dashboard/team-tasks', '/dashboard/my-tasks'],
-  expertlead: ['/dashboard/team-tasks', '/dashboard/tasks', '/dashboard/my-tasks'],
-  expert: ['/dashboard/my-tasks', '/dashboard/tasks', '/dashboard/team-tasks'],
+  admin: ['/dashboard/tasks'],
+  manager: ['/dashboard/tasks'],
+  coordinator: ['/dashboard/tasks'],
+  expertlead: ['/dashboard/team-tasks'],
+  expert: ['/dashboard/my-tasks'],
 }
-
-const demoTasksByMode: Record<DashboardMode, DashboardTask[]> = {
-  admin: [],
-  manager: [
-    {
-      id: 'demo-manager-1',
-      title: 'React Interview - Frontend Engineer',
-      client: 'Bedge Tech Inc',
-      candidate: 'Rakesh Sharma',
-      scheduleTime: '2026-04-09 10:30 AM',
-      status: 'pending',
-      expertId: null,
-    },
-    {
-      id: 'demo-manager-2',
-      title: 'Node.js Round - Full Stack Engineer',
-      client: 'Bsquare',
-      candidate: 'Priya Nair',
-      scheduleTime: '2026-04-09 02:00 PM',
-      status: 'assigned',
-      expertId: 'demo-expert-1',
-    },
-  ],
-  coordinator: [
-    {
-      id: 'demo-coord-1',
-      title: 'Java L2 Interview',
-      client: 'Bedge Tech Inc',
-      candidate: 'Naveen Kumar',
-      scheduleTime: '2026-04-10 11:00 AM',
-      status: 'pending',
-      expertId: null,
-    },
-    {
-      id: 'demo-coord-2',
-      title: 'Python API Interview',
-      client: 'Bsquare',
-      candidate: 'Megha Singh',
-      scheduleTime: '2026-04-10 03:30 PM',
-      status: 'assigned',
-      expertId: 'demo-expert-2',
-    },
-  ],
-  expertlead: [
-    {
-      id: 'demo-lead-1',
-      title: 'Architecture Review Round',
-      client: 'Bedge Tech Inc',
-      candidate: 'Sarthak Jain',
-      scheduleTime: '2026-04-11 09:30 AM',
-      status: 'pending',
-      expertId: null,
-    },
-    {
-      id: 'demo-lead-2',
-      title: 'Microservices Deep Dive',
-      client: 'Bsquare',
-      candidate: 'Anita Das',
-      scheduleTime: '2026-04-11 01:00 PM',
-      status: 'assigned',
-      expertId: 'demo-expert-1',
-    },
-  ],
-  expert: [
-    {
-      id: 'demo-expert-task-1',
-      title: 'Technical Expert Round - React',
-      client: 'Bedge Tech Inc',
-      candidate: 'Aman Verma',
-      scheduleTime: '2026-04-09 12:00 PM',
-      status: 'pending',
-      expertId: 'self',
-    },
-    {
-      id: 'demo-expert-task-2',
-      title: 'System Design Round',
-      client: 'Bsquare',
-      candidate: 'Divya Rao',
-      scheduleTime: '2026-04-10 04:00 PM',
-      status: 'completed',
-      expertId: 'self',
-    },
-  ],
-}
-
-const demoExperts: DashboardExpert[] = [
-  { id: 'demo-expert-1', name: 'expert1', isPresent: true },
-  { id: 'demo-expert-2', name: 'expert2', isPresent: true },
-  { id: 'demo-expert-3', name: 'Kishan Parekh', isPresent: false },
-]
 
 const summaryFromTasks = (tasks: DashboardTask[], includeClients: boolean): DashboardSummary => {
   const pending = tasks.filter((task) => task.status.includes('pending')).length
@@ -136,8 +47,8 @@ const summaryFromTasks = (tasks: DashboardTask[], includeClients: boolean): Dash
     assignedTasks: assigned,
     completedTasks: completed,
     totalClients: includeClients ? new Set(tasks.map((task) => task.client)).size : 0,
-    expertsPresent: demoExperts.filter((expert) => expert.isPresent).length,
-    expertsTotal: demoExperts.length,
+    expertsPresent: 0,
+    expertsTotal: 0,
   }
 }
 
@@ -151,8 +62,10 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
   const [assigningTask, setAssigningTask] = useState<DashboardTask | null>(null)
   const [selectedExpertId, setSelectedExpertId] = useState('')
   const [isAssigning, setIsAssigning] = useState(false)
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null)
 
   const allowAssign = mode === 'manager' || mode === 'coordinator'
+  const allowStatusUpdate = mode === 'expert' || mode === 'expertlead'
 
   useEffect(() => {
     let mounted = true
@@ -162,38 +75,36 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
         setLoading(true)
         setError(null)
 
-        const summaryPromise = getDashboardSummary().catch(() => null)
-        const tasksPromise =
-          mode === 'admin' ? Promise.resolve([]) : getDashboardTasksByPaths(taskPathsByMode[mode]).catch(() => [])
-        const expertsPromise = allowAssign ? getDashboardExperts().catch(() => []) : Promise.resolve([])
-
         const [summaryData, scopedTasks, expertList] = await Promise.all([
-          summaryPromise,
-          tasksPromise,
-          expertsPromise,
+          getDashboardSummary().catch(() => null),
+          getDashboardTasksByPaths(taskPathsByMode[mode]).catch(() => []),
+          allowAssign ? getDashboardExperts().catch(() => []) : Promise.resolve([]),
         ])
 
         if (!mounted) {
           return
         }
 
-        const hasLiveData = Boolean(summaryData) || scopedTasks.length > 0 || expertList.length > 0
+        const computedSummary = summaryFromTasks(scopedTasks, mode === 'admin' || mode === 'manager')
 
-        if (!hasLiveData) {
-          const fallbackTasks = demoTasksByMode[mode]
-          const fallbackExperts = allowAssign ? demoExperts : []
-          const fallbackSummary = summaryFromTasks(fallbackTasks, mode === 'manager' || mode === 'admin')
-
-          setSummary(fallbackSummary)
-          setTasks(fallbackTasks)
-          setExperts(fallbackExperts)
-          setError('Live dashboard API is restricted. Showing demo dashboard data.')
-          return
-        }
-
-        setSummary(summaryData ?? summaryFromTasks(scopedTasks, mode === 'manager' || mode === 'admin'))
+        setSummary(
+          summaryData
+            ? {
+                ...computedSummary,
+                ...summaryData,
+                totalTasks: summaryData.totalTasks || computedSummary.totalTasks,
+                pendingTasks: summaryData.pendingTasks || computedSummary.pendingTasks,
+                assignedTasks: summaryData.assignedTasks || computedSummary.assignedTasks,
+                completedTasks: summaryData.completedTasks || computedSummary.completedTasks,
+              }
+            : computedSummary,
+        )
         setTasks(scopedTasks)
         setExperts(expertList)
+
+        if (!summaryData && scopedTasks.length === 0) {
+          setError('Unable to load dashboard data from live API.')
+        }
       } finally {
         if (mounted) {
           setLoading(false)
@@ -238,40 +149,28 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
 
     if (mode === 'expert') {
       return [
-        { label: 'Total Tasks', value: summary.totalTasks || tasks.length },
-        { label: 'Pending', value: summary.pendingTasks || tasks.filter((task) => task.status === 'pending').length },
-        {
-          label: 'Completed',
-          value: summary.completedTasks || tasks.filter((task) => task.status.includes('complete')).length,
-        },
+        { label: 'Total Tasks', value: summary.totalTasks },
+        { label: 'Pending', value: summary.pendingTasks },
+        { label: 'Completed', value: summary.completedTasks },
       ]
     }
 
     if (mode === 'expertlead') {
       return [
-        { label: 'Total Tasks', value: summary.totalTasks || tasks.length },
+        { label: 'Total Tasks', value: summary.totalTasks },
         { label: 'Pending', value: summary.pendingTasks },
         { label: 'Assigned', value: summary.assignedTasks },
       ]
     }
 
     return [
-      { label: 'Total Tasks', value: summary.totalTasks || tasks.length },
-      {
-        label: 'Pending Tasks',
-        value: summary.pendingTasks || tasks.filter((task) => task.status.includes('pending')).length,
-      },
-      {
-        label: 'Assigned Tasks',
-        value: summary.assignedTasks || tasks.filter((task) => task.status.includes('assign')).length,
-      },
+      { label: 'Total Tasks', value: summary.totalTasks },
+      { label: 'Pending Tasks', value: summary.pendingTasks },
+      { label: 'Assigned Tasks', value: summary.assignedTasks },
       ...(mode === 'manager' ? [{ label: 'Total Clients', value: summary.totalClients }] : []),
-      {
-        label: 'Experts',
-        value: `${summary.expertsPresent || experts.filter((expert) => expert.isPresent).length}/${summary.expertsTotal || experts.length}`,
-      },
+      { label: 'Experts', value: `${summary.expertsPresent}/${summary.expertsTotal}` },
     ]
-  }, [mode, summary, tasks, experts])
+  }, [mode, summary])
 
   const onAssign = async () => {
     if (!assigningTask || !selectedExpertId) {
@@ -288,17 +187,22 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
       )
       setAssigningTask(null)
       setSelectedExpertId('')
-    } catch {
-      setTasks((previous) =>
-        previous.map((task) =>
-          task.id === assigningTask.id ? { ...task, status: 'assigned', expertId: selectedExpertId } : task,
-        ),
-      )
-      setAssigningTask(null)
-      setSelectedExpertId('')
-      setError('Assignment saved in demo mode. API assignment endpoint is currently restricted.')
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to assign task.')
     } finally {
       setIsAssigning(false)
+    }
+  }
+
+  const onStatusUpdate = async (task: DashboardTask, status: string) => {
+    try {
+      setUpdatingTaskId(task.id)
+      await updateDashboardTaskStatus(task.id, status)
+      setTasks((previous) => previous.map((item) => (item.id === task.id ? { ...item, status } : item)))
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Unable to update task status.')
+    } finally {
+      setUpdatingTaskId(null)
     }
   }
 
@@ -353,19 +257,20 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
                   <th>Candidate</th>
                   <th>Schedule time</th>
                   <th>Status</th>
+                  {allowStatusUpdate ? <th>Update</th> : null}
                   {allowAssign ? <th>Action</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={allowAssign ? 6 : 5} className="dashboard-empty">
+                    <td colSpan={allowAssign || allowStatusUpdate ? 7 : 5} className="dashboard-empty">
                       Loading tasks...
                     </td>
                   </tr>
                 ) : filteredTasks.length === 0 ? (
                   <tr>
-                    <td colSpan={allowAssign ? 6 : 5} className="dashboard-empty">
+                    <td colSpan={allowAssign || allowStatusUpdate ? 7 : 5} className="dashboard-empty">
                       No tasks found for this view.
                     </td>
                   </tr>
@@ -379,6 +284,20 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
                       <td>
                         <span className="status-pill">{task.status}</span>
                       </td>
+                      {allowStatusUpdate ? (
+                        <td>
+                          <select
+                            className="dashboard-status-select"
+                            value={task.status}
+                            disabled={updatingTaskId === task.id}
+                            onChange={(event) => onStatusUpdate(task, event.target.value)}
+                          >
+                            <option value="pending">pending</option>
+                            <option value="assigned">assigned</option>
+                            <option value="completed">completed</option>
+                          </select>
+                        </td>
+                      ) : null}
                       {allowAssign ? (
                         <td>
                           <button

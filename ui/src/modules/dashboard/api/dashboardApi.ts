@@ -114,3 +114,11 @@ export const assignDashboardTask = async (taskId: string, expertId: string) => {
     body: JSON.stringify({ taskId, expertId }),
   })
 }
+
+
+export const updateDashboardTaskStatus = async (taskId: string, status: string) => {
+  await apiRequest('/dashboard/update-status', {
+    method: 'POST',
+    body: JSON.stringify({ taskId, status }),
+  })
+}

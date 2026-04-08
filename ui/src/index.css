@@ -719,3 +719,12 @@ p {
   padding: 0.6rem 0.75rem;
   margin-bottom: 0.9rem;
 }
+
+
+.dashboard-status-select {
+  border: 1px solid #d1d5db;
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.45rem;
+  font: inherit;
+  background: #fff;
+}

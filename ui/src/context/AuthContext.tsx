@@ -60,11 +60,12 @@ type StoredAuthState = {
 }
 
 const normalizeRole = (role: string | undefined): UserRole => {
-  const normalized = role?.trim().toLowerCase().replaceAll(' ', '').replaceAll('-', '')
+  const normalized = role?.trim().toLowerCase().replaceAll(' ', '').replaceAll('-', '').replaceAll('_', '')
 
   if (normalized === 'admin') return 'admin'
   if (normalized === 'manager') return 'manager'
   if (normalized === 'coordinator' || normalized === 'technicalcoordinator') return 'coordinator'
+  if (normalized === 'technicalexpert' || normalized === 'expert') return 'expert'
   if (normalized === 'expertlead' || normalized === 'teamlead' || normalized === 'technicallead') {
     return 'expertlead'
   }
