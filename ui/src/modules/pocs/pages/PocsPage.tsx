@@ -71,6 +71,27 @@ const PocsPage = () => {
     setModalError(null)
 
     try {
+      const normalizedEmail = payload.email.trim().toLowerCase()
+      const normalizedMobile = payload.mobile.trim()
+      const duplicate = pocs.find((item) => {
+        if (formMode === 'edit' && item.id === payload.id) {
+          return false
+        }
+
+        if (item.client_id !== payload.client_id) {
+          return false
+        }
+
+        const emailMatched = item.email.trim().toLowerCase() === normalizedEmail
+        const mobileMatched = normalizedMobile.length > 0 && item.mobile.trim() === normalizedMobile
+        return emailMatched || mobileMatched
+      })
+
+      if (duplicate) {
+        setModalError('A POC with the same email or mobile already exists for this client.')
+        return
+      }
+
       if (formMode === 'create') {
         await createPoc(payload)
         showSuccess('POC created successfully.')
@@ -94,7 +115,7 @@ const PocsPage = () => {
     } finally {
       setIsSubmitting(false)
     }
-  }, [formMode, loadPageData, showSuccess])
+  }, [formMode, loadPageData, pocs, showSuccess])
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) {

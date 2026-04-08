@@ -71,6 +71,59 @@ const normalizePoc = (raw: Record<string, unknown>): PocItem => ({
   status: normalizeStatus(raw.status ?? raw.is_active ?? raw.active),
 })
 
+const collectPocRecords = (value: unknown, fallbackClient?: { id?: number; name?: string }): Record<string, unknown>[] => {
+  if (Array.isArray(value)) {
+    const directPocs = value
+      .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+      .filter((item) => {
+        const hasPocMarkers = 'email' in item || 'mobile' in item || 'poc_id' in item || 'client_id' in item
+        const hasNestedPocs = Array.isArray(item.pocs)
+        return hasPocMarkers && !hasNestedPocs
+      })
+
+    if (directPocs.length > 0) {
+      return directPocs.map((item) => ({
+        ...item,
+        client_id: item.client_id ?? fallbackClient?.id,
+        client_name: item.client_name ?? fallbackClient?.name,
+      }))
+    }
+
+    return value.flatMap((entry) => collectPocRecords(entry, fallbackClient))
+  }
+
+  if (!value || typeof value !== 'object') {
+    return []
+  }
+
+  const source = value as Record<string, unknown>
+  const nextFallback = {
+    id: Number(source.client_id ?? source.id ?? fallbackClient?.id ?? 0) || fallbackClient?.id,
+    name: String(source.client_name ?? source.name ?? fallbackClient?.name ?? '').trim() || fallbackClient?.name,
+  }
+
+  const directPocKeys = ['pocs', 'poc_list', 'pocItems', 'contacts']
+
+  for (const key of directPocKeys) {
+    const found = source[key]
+    if (Array.isArray(found)) {
+      const nestedPocs = found
+        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+        .map((item) => ({
+          ...item,
+          client_id: item.client_id ?? nextFallback.id,
+          client_name: item.client_name ?? nextFallback.name,
+        }))
+
+      if (nestedPocs.length > 0) {
+        return nestedPocs
+      }
+    }
+  }
+
+  return Object.values(source).flatMap((entry) => collectPocRecords(entry, nextFallback))
+}
+
 const normalizeClient = (raw: Record<string, unknown>): ClientOption => ({
   id: Number(raw.id ?? raw.client_id ?? 0),
   name: String(raw.name ?? raw.client_name ?? '').trim(),
@@ -78,11 +131,12 @@ const normalizeClient = (raw: Record<string, unknown>): ClientOption => ({
 
 export const getPocs = async () => {
   const response = await apiRequest('/pocs/list')
-  const pocs = extractArrayPayload(response)
+  const extractedList = extractArrayPayload(response)
+  const pocs = collectPocRecords(extractedList.length > 0 ? extractedList : response)
 
   return pocs
     .map((item) => (item && typeof item === 'object' ? normalizePoc(item as Record<string, unknown>) : null))
-    .filter((item): item is PocItem => Boolean(item?.id && item.name && item.email))
+    .filter((item): item is PocItem => Boolean(item?.id && item.name))
 }
 
 export const createPoc = async (payload: PocPayload) =>
