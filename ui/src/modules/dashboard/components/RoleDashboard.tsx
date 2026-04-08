@@ -4,7 +4,7 @@ import {
   assignDashboardTask,
   getDashboardExperts,
   getDashboardSummary,
-  getDashboardTasks,
+  getDashboardTasksByPaths,
   type DashboardExpert,
   type DashboardSummary,
   type DashboardTask,
@@ -27,6 +27,14 @@ const defaultSummary: DashboardSummary = {
   expertsTotal: 0,
 }
 
+const taskPathsByMode: Record<DashboardMode, string[]> = {
+  admin: [],
+  manager: ['/dashboard/tasks', '/dashboard/team-tasks', '/dashboard/my-tasks'],
+  coordinator: ['/dashboard/tasks', '/dashboard/team-tasks', '/dashboard/my-tasks'],
+  expertlead: ['/dashboard/team-tasks', '/dashboard/my-tasks'],
+  expert: ['/dashboard/my-tasks'],
+}
+
 const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
   const [summary, setSummary] = useState<DashboardSummary>(defaultSummary)
   const [tasks, setTasks] = useState<DashboardTask[]>([])
@@ -41,28 +49,51 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
   const allowAssign = mode === 'manager' || mode === 'coordinator'
 
   useEffect(() => {
+    let mounted = true
+
     const loadDashboard = async () => {
       try {
         setLoading(true)
         setError(null)
 
+        const summaryPromise = getDashboardSummary().catch(() => defaultSummary)
+        const tasksPromise =
+          mode === 'admin' ? Promise.resolve([]) : getDashboardTasksByPaths(taskPathsByMode[mode]).catch(() => [])
+        const expertsPromise = allowAssign ? getDashboardExperts().catch(() => []) : Promise.resolve([])
+
         const [summaryData, scopedTasks, expertList] = await Promise.all([
-          getDashboardSummary(),
-          getDashboardTasks(mode === 'expert' ? 'my' : mode === 'expertlead' ? 'team' : 'all'),
-          allowAssign ? getDashboardExperts() : Promise.resolve([]),
+          summaryPromise,
+          tasksPromise,
+          expertsPromise,
         ])
+
+        if (!mounted) {
+          return
+        }
 
         setSummary(summaryData)
         setTasks(scopedTasks)
         setExperts(expertList)
-      } catch (nextError) {
-        setError(nextError instanceof Error ? nextError.message : 'Unable to load dashboard.')
+
+        if (
+          summaryData === defaultSummary &&
+          scopedTasks.length === 0 &&
+          (mode === 'admin' || !allowAssign || expertList.length === 0)
+        ) {
+          setError('Dashboard API access is restricted for this account (403).')
+        }
       } finally {
-        setLoading(false)
+        if (mounted) {
+          setLoading(false)
+        }
       }
     }
 
     loadDashboard()
+
+    return () => {
+      mounted = false
+    }
   }, [allowAssign, mode])
 
   const filteredTasks = useMemo(() => {
@@ -113,13 +144,22 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
     }
 
     return [
-      { label: 'Total Tasks', value: summary.totalTasks },
-      { label: 'Pending Tasks', value: summary.pendingTasks },
-      { label: 'Assigned Tasks', value: summary.assignedTasks },
+      { label: 'Total Tasks', value: summary.totalTasks || tasks.length },
+      {
+        label: 'Pending Tasks',
+        value: summary.pendingTasks || tasks.filter((task) => task.status.includes('pending')).length,
+      },
+      {
+        label: 'Assigned Tasks',
+        value: summary.assignedTasks || tasks.filter((task) => task.status.includes('assign')).length,
+      },
       ...(mode === 'manager' ? [{ label: 'Total Clients', value: summary.totalClients }] : []),
-      { label: 'Experts', value: `${summary.expertsPresent}/${summary.expertsTotal}` },
+      {
+        label: 'Experts',
+        value: `${summary.expertsPresent || experts.filter((expert) => expert.isPresent).length}/${summary.expertsTotal || experts.length}`,
+      },
     ]
-  }, [mode, summary, tasks])
+  }, [mode, summary, tasks, experts])
 
   const onAssign = async () => {
     if (!assigningTask || !selectedExpertId) {
@@ -225,7 +265,7 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
                           <button
                             type="button"
                             className="button"
-                            disabled={task.status.includes('assign')}
+                            disabled={task.status.includes('assign') || experts.length === 0}
                             onClick={() => {
                               setAssigningTask(task)
                               setSelectedExpertId(experts[0]?.id ?? '')

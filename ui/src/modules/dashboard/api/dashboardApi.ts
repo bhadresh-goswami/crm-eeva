@@ -33,18 +33,10 @@ const asArray = <T>(payload: unknown): T[] => {
 
   if (payload && typeof payload === 'object') {
     const data = payload as Record<string, unknown>
-    if (Array.isArray(data.data)) {
-      return data.data as T[]
-    }
-    if (Array.isArray(data.tasks)) {
-      return data.tasks as T[]
-    }
-    if (Array.isArray(data.experts)) {
-      return data.experts as T[]
-    }
-    if (Array.isArray(data.items)) {
-      return data.items as T[]
-    }
+    if (Array.isArray(data.data)) return data.data as T[]
+    if (Array.isArray(data.tasks)) return data.tasks as T[]
+    if (Array.isArray(data.experts)) return data.experts as T[]
+    if (Array.isArray(data.items)) return data.items as T[]
   }
 
   return []
@@ -72,6 +64,11 @@ const normalizeExpert = (expert: Record<string, unknown>): DashboardExpert => ({
   isPresent: Boolean(expert.isPresent ?? expert.present ?? expert.isOnline),
 })
 
+const requestTaskPath = async (path: string) => {
+  const response = await apiRequest<unknown>(path)
+  return asArray<Record<string, unknown>>(response).map(normalizeTask)
+}
+
 export const getDashboardSummary = async () => {
   const response = await apiRequest<Record<string, unknown>>('/dashboard/summary')
 
@@ -89,8 +86,21 @@ export const getDashboardSummary = async () => {
 export const getDashboardTasks = async (scope: 'all' | 'my' | 'team' = 'all') => {
   const path =
     scope === 'my' ? '/dashboard/my-tasks' : scope === 'team' ? '/dashboard/team-tasks' : '/dashboard/tasks'
-  const response = await apiRequest<unknown>(path)
-  return asArray<Record<string, unknown>>(response).map(normalizeTask)
+  return requestTaskPath(path)
+}
+
+export const getDashboardTasksByPaths = async (paths: string[]) => {
+  let lastError: unknown = null
+
+  for (const path of paths) {
+    try {
+      return await requestTaskPath(path)
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Unable to load tasks for current role.')
 }
 
 export const getDashboardExperts = async () => {
