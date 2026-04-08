@@ -217,7 +217,7 @@ const UsersPage = () => {
       />
 
       <UserFormModal
-        key={`${formMode}-${selectedUser?.id ?? 'new'}-${isFormOpen ? 'open' : 'closed'}`}
+        key={`user-form-${formMode}-${selectedUser?.id ?? 'new'}-${isFormOpen ? 'open' : 'closed'}`}
         isOpen={isFormOpen}
         mode={formMode}
         user={selectedUser}
