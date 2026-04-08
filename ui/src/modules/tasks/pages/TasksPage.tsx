@@ -560,8 +560,13 @@ const TasksPage = () => {
 
       {isFormOpen ? (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ width: 'min(980px, 100%)' }}>
-            <h3 className="modal-title">{formMode === 'create' ? 'Create New Task' : 'Edit Task'}</h3>
+          <div className="modal-card" style={{ width: 'min(980px, 100%)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 className="modal-title" style={{ marginBottom: 0 }}>{formMode === 'create' ? 'Create New Task' : 'Edit Task'}</h3>
+              <button className="button" type="button" onClick={() => setIsFormOpen(false)} aria-label="Close task modal">
+                ✕
+              </button>
+            </div>
             <div className="modal-form" style={{ gridTemplateColumns: '1fr 1fr' }}>
               <SearchableSelect
                 label="Client"

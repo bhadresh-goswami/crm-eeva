@@ -180,9 +180,11 @@ const normalizeCandidate = (raw: UnknownMap): CandidateOption => ({
 })
 
 export const getCandidatesByClient = async (clientId: number) => {
-  const response = await apiRequest<unknown>(`/candidates?client_id=${clientId}`)
-  return getList(response)
-    .map((item) => (item && typeof item === 'object' ? normalizeCandidate(item as UnknownMap) : null))
+  const response = await apiRequest<unknown>('/candidates/list')
+  const rawList = getList(response).filter((item): item is UnknownMap => Boolean(item && typeof item === 'object'))
+  return rawList
+    .filter((item) => asNumber(item.client_id) === clientId)
+    .map(normalizeCandidate)
     .filter((item): item is CandidateOption => Boolean(item?.id && item.name))
 }
 
@@ -192,9 +194,11 @@ const normalizePoc = (raw: UnknownMap): PocOption => ({
 })
 
 export const getPocsByClient = async (clientId: number) => {
-  const response = await apiRequest<unknown>(`/pocs?client_id=${clientId}`)
-  return getList(response)
-    .map((item) => (item && typeof item === 'object' ? normalizePoc(item as UnknownMap) : null))
+  const response = await apiRequest<unknown>('/pocs/list')
+  const rawList = getList(response).filter((item): item is UnknownMap => Boolean(item && typeof item === 'object'))
+  return rawList
+    .filter((item) => asNumber(item.client_id) === clientId)
+    .map(normalizePoc)
     .filter((item): item is PocOption => Boolean(item?.id && item.name))
 }
 
