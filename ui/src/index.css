@@ -708,6 +708,17 @@ p {
   margin-top: 0.35rem;
 }
 
+.dashboard-card-button {
+  text-align: left;
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+}
+
+.dashboard-card-button:hover {
+  border-color: #cbd5e1;
+}
+
 .skeleton-card {
   min-height: 98px;
   background: linear-gradient(90deg, #f3f4f6, #e5e7eb, #f3f4f6);
@@ -744,6 +755,10 @@ p {
 
 .dashboard-table tbody tr:hover {
   background: #f8fafc;
+}
+
+.dashboard-table td .users-icon-btn + .users-icon-btn {
+  margin-left: 0.35rem;
 }
 
 .dashboard-empty {

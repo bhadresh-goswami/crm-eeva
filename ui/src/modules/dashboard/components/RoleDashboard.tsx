@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import {
   assignDashboardTask,
+  getDashboardTasksByStatus,
   getDashboardExperts,
   getDashboardSummary,
   getDashboardTasksByPaths,
-  getManagerDashboardData,
   updateDashboardTaskStatus,
   type DashboardExpert,
   type DashboardSummary,
@@ -56,11 +56,22 @@ const summaryFromTasks = (tasks: DashboardTask[], includeClients: boolean): Dash
 const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
   const [summary, setSummary] = useState<DashboardSummary>(defaultSummary)
   const [tasks, setTasks] = useState<DashboardTask[]>([])
+  const [, setManagerTasksByStatus] = useState<
+    Record<'pending' | 'assigned' | 'cancelled' | 'completed', DashboardTask[]>
+  >({
+    pending: [],
+    assigned: [],
+    cancelled: [],
+    completed: [],
+  })
   const [experts, setExperts] = useState<DashboardExpert[]>([])
   const [loading, setLoading] = useState(true)
+  const [tableLoading, setTableLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'pending' | 'assigned'>('pending')
+  const [activeTab, setActiveTab] = useState<'pending' | 'assigned' | 'cancelled' | 'completed'>('pending')
   const [assigningTask, setAssigningTask] = useState<DashboardTask | null>(null)
+  const [viewingTask, setViewingTask] = useState<DashboardTask | null>(null)
+  const [cardModal, setCardModal] = useState<{ label: string; tasks: DashboardTask[] } | null>(null)
   const [selectedExpertId, setSelectedExpertId] = useState('')
   const [isAssigning, setIsAssigning] = useState(false)
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null)
@@ -77,8 +88,9 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
         setError(null)
 
         if (mode === 'manager') {
-          const [managerData, expertList] = await Promise.all([
-            getManagerDashboardData(),
+          const [summaryData, pendingTasks, expertList] = await Promise.all([
+            getDashboardSummary(),
+            getDashboardTasksByStatus('pending'),
             allowAssign ? getDashboardExperts().catch(() => []) : Promise.resolve([]),
           ])
 
@@ -86,8 +98,9 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
             return
           }
 
-          setSummary(managerData.summary)
-          setTasks([...managerData.pendingTasks, ...managerData.assignedTasks])
+          setSummary(summaryData)
+          setTasks(pendingTasks)
+          setManagerTasksByStatus((previous) => ({ ...previous, pending: pendingTasks }))
           setExperts(expertList)
           return
         }
@@ -138,12 +151,39 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
     }
   }, [allowAssign, mode])
 
+  const loadManagerTasksByStatus = async (status: 'pending' | 'assigned' | 'cancelled' | 'completed') => {
+    if (mode !== 'manager') return
+
+    try {
+      setTableLoading(true)
+      setError(null)
+      const statusTasks = await getDashboardTasksByStatus(status)
+      setManagerTasksByStatus((previous) => ({ ...previous, [status]: statusTasks }))
+      setTasks(statusTasks)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Unable to load selected task status.')
+    } finally {
+      setTableLoading(false)
+    }
+  }
+
+  const onTabClick = (status: 'pending' | 'assigned' | 'cancelled' | 'completed') => {
+    setActiveTab(status)
+    if (mode === 'manager') {
+      void loadManagerTasksByStatus(status)
+    }
+  }
+
   const filteredTasks = useMemo(() => {
     if (mode === 'admin') {
       return []
     }
 
     if (mode === 'expert') {
+      return tasks
+    }
+
+    if (mode === 'manager') {
       return tasks
     }
 
@@ -191,6 +231,45 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
     ]
   }, [mode, summary])
 
+  const managerCardConfigs = useMemo(
+    () => [
+      { label: 'Total Tasks', value: summary.totalTasks, status: 'pending' as const, useAll: true },
+      { label: 'Pending Tasks', value: summary.pendingTasks, status: 'pending' as const },
+      { label: 'Assigned Tasks', value: summary.assignedTasks, status: 'assigned' as const },
+      { label: 'Completed Tasks', value: summary.completedTasks, status: 'completed' as const },
+      { label: 'Total Clients', value: summary.totalClients, status: 'pending' as const, useAll: true },
+      { label: 'Experts', value: `${summary.expertsPresent}/${summary.expertsTotal}`, status: 'pending' as const, useAll: true },
+    ],
+    [summary],
+  )
+
+  const openManagerCardModal = async (label: string, status: 'pending' | 'assigned' | 'cancelled' | 'completed', useAll?: boolean) => {
+    if (mode !== 'manager') return
+    try {
+      setError(null)
+      if (useAll) {
+        const [pending, assigned, cancelled, completed] = await Promise.all([
+          getDashboardTasksByStatus('pending'),
+          getDashboardTasksByStatus('assigned'),
+          getDashboardTasksByStatus('cancelled'),
+          getDashboardTasksByStatus('completed'),
+        ])
+        setManagerTasksByStatus({ pending, assigned, cancelled, completed })
+        setCardModal({
+          label,
+          tasks: [...pending, ...assigned, ...cancelled, ...completed],
+        })
+        return
+      }
+
+      const fresh = await getDashboardTasksByStatus(status)
+      setManagerTasksByStatus((previous) => ({ ...previous, [status]: fresh }))
+      setCardModal({ label, tasks: fresh })
+    } catch (cardError) {
+      setError(cardError instanceof Error ? cardError.message : 'Unable to open task list for this card.')
+    }
+  }
+
   const onAssign = async () => {
     if (!assigningTask || !selectedExpertId) {
       return
@@ -204,6 +283,14 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
           task.id === assigningTask.id ? { ...task, status: 'assigned', expertId: selectedExpertId } : task,
         ),
       )
+      setManagerTasksByStatus((previous) => ({
+        ...previous,
+        pending: previous.pending.filter((task) => task.id !== assigningTask.id),
+        assigned: [
+          ...previous.assigned,
+          { ...assigningTask, status: 'assigned', expertId: selectedExpertId },
+        ],
+      }))
       setAssigningTask(null)
       setSelectedExpertId('')
     } catch (nextError) {
@@ -225,6 +312,8 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
     }
   }
 
+  const tableColSpan = mode === 'manager' ? 7 : allowAssign || allowStatusUpdate ? 7 : 5
+
   return (
     <section>
       <h2 className="page-title">{roleLabel} Dashboard</h2>
@@ -236,12 +325,24 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
           ? Array.from({ length: mode === 'admin' ? 4 : 5 }).map((_, index) => (
               <article key={index} className="card skeleton-card" aria-hidden="true" />
             ))
-          : visibleCards.map((card) => (
-              <article className="card" key={card.label}>
-                <p className="dashboard-card__label">{card.label}</p>
-                <h3 className="dashboard-card__value">{card.value}</h3>
-              </article>
-            ))}
+          : mode === 'manager'
+            ? managerCardConfigs.map((card) => (
+                <button
+                  type="button"
+                  className="card dashboard-card-button"
+                  key={card.label}
+                  onClick={() => void openManagerCardModal(card.label, card.status, card.useAll)}
+                >
+                  <p className="dashboard-card__label">{card.label}</p>
+                  <h3 className="dashboard-card__value">{card.value}</h3>
+                </button>
+              ))
+            : visibleCards.map((card) => (
+                <article className="card" key={card.label}>
+                  <p className="dashboard-card__label">{card.label}</p>
+                  <h3 className="dashboard-card__value">{card.value}</h3>
+                </article>
+              ))}
       </div>
 
       {mode !== 'admin' ? (
@@ -252,7 +353,7 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
                 type="button"
                 role="tab"
                 className={`dashboard-tab ${activeTab === 'pending' ? 'dashboard-tab--active' : ''}`}
-                onClick={() => setActiveTab('pending')}
+                onClick={() => onTabClick('pending')}
               >
                 Pending
               </button>
@@ -260,10 +361,30 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
                 type="button"
                 role="tab"
                 className={`dashboard-tab ${activeTab === 'assigned' ? 'dashboard-tab--active' : ''}`}
-                onClick={() => setActiveTab('assigned')}
+                onClick={() => onTabClick('assigned')}
               >
                 Assigned
               </button>
+              {mode === 'manager' ? (
+                <>
+                  <button
+                    type="button"
+                    role="tab"
+                    className={`dashboard-tab ${activeTab === 'cancelled' ? 'dashboard-tab--active' : ''}`}
+                    onClick={() => onTabClick('cancelled')}
+                  >
+                    Cancelled
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    className={`dashboard-tab ${activeTab === 'completed' ? 'dashboard-tab--active' : ''}`}
+                    onClick={() => onTabClick('completed')}
+                  >
+                    Completed
+                  </button>
+                </>
+              ) : null}
             </div>
           )}
 
@@ -276,20 +397,21 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
                   <th>Candidate</th>
                   <th>Schedule time</th>
                   <th>Status</th>
+                  {mode === 'manager' ? <th>Actions</th> : null}
                   {allowStatusUpdate ? <th>Update</th> : null}
-                  {allowAssign ? <th>Action</th> : null}
+                  {allowAssign && mode !== 'manager' ? <th>Action</th> : null}
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {loading || tableLoading ? (
                   <tr>
-                    <td colSpan={allowAssign || allowStatusUpdate ? 7 : 5} className="dashboard-empty">
+                    <td colSpan={tableColSpan} className="dashboard-empty">
                       Loading tasks...
                     </td>
                   </tr>
                 ) : filteredTasks.length === 0 ? (
                   <tr>
-                    <td colSpan={allowAssign || allowStatusUpdate ? 7 : 5} className="dashboard-empty">
+                    <td colSpan={tableColSpan} className="dashboard-empty">
                       No tasks found for this view.
                     </td>
                   </tr>
@@ -303,6 +425,25 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
                       <td>
                         <span className="status-pill">{task.status}</span>
                       </td>
+                      {mode === 'manager' ? (
+                        <td>
+                          <button type="button" className="button users-icon-btn" title="View task details" onClick={() => setViewingTask(task)}>
+                            👁
+                          </button>
+                          <button
+                            type="button"
+                            className="button users-icon-btn"
+                            title="Assign task"
+                            disabled={task.status.includes('assign') || task.status.includes('cancel') || experts.length === 0}
+                            onClick={() => {
+                              setAssigningTask(task)
+                              setSelectedExpertId(experts[0]?.id ?? '')
+                            }}
+                          >
+                            👤
+                          </button>
+                        </td>
+                      ) : null}
                       {allowStatusUpdate ? (
                         <td>
                           <select
@@ -317,18 +458,19 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
                           </select>
                         </td>
                       ) : null}
-                      {allowAssign ? (
+                      {allowAssign && mode !== 'manager' ? (
                         <td>
                           <button
                             type="button"
-                            className="button"
-                            disabled={task.status.includes('assign') || experts.length === 0}
+                            className="button users-icon-btn"
+                            title="Assign task"
+                            disabled={task.status.includes('assign') || task.status.includes('cancel') || experts.length === 0}
                             onClick={() => {
                               setAssigningTask(task)
                               setSelectedExpertId(experts[0]?.id ?? '')
                             }}
                           >
-                            👤 Assign
+                            👤
                           </button>
                         </td>
                       ) : null}
@@ -369,6 +511,53 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
               {isAssigning ? 'Assigning...' : 'Assign'}
             </button>
           </div>
+        </div>
+      </AnimatedModal>
+
+      <AnimatedModal isOpen={Boolean(viewingTask)} onClose={() => setViewingTask(null)} title="Task details">
+        <h3 className="modal-title">Task details</h3>
+        <p className="page-description"><strong>Title:</strong> {viewingTask?.title}</p>
+        <p className="page-description"><strong>Client:</strong> {viewingTask?.client || '—'}</p>
+        <p className="page-description"><strong>Candidate:</strong> {viewingTask?.candidate || '—'}</p>
+        <p className="page-description"><strong>Schedule:</strong> {viewingTask?.scheduleTime || '—'}</p>
+        <p className="page-description"><strong>Status:</strong> {viewingTask?.status || '—'}</p>
+        <p className="page-description"><strong>Description:</strong> {viewingTask?.description || '—'}</p>
+        {viewingTask?.fileUrl ? (
+          <p className="page-description">
+            <strong>File:</strong> <a href={viewingTask.fileUrl} target="_blank" rel="noreferrer">Open attachment</a>
+          </p>
+        ) : null}
+      </AnimatedModal>
+
+      <AnimatedModal isOpen={Boolean(cardModal)} onClose={() => setCardModal(null)} title="Task list">
+        <h3 className="modal-title">{cardModal?.label}</h3>
+        <div className="roles-table__wrapper dashboard-table-wrap">
+          <table className="roles-table dashboard-table">
+            <thead>
+              <tr>
+                <th>Task Title</th>
+                <th>Client</th>
+                <th>Candidate</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(cardModal?.tasks.length ?? 0) === 0 ? (
+                <tr>
+                  <td colSpan={4} className="dashboard-empty">No tasks found for this view.</td>
+                </tr>
+              ) : (
+                cardModal?.tasks.map((task) => (
+                  <tr key={`${cardModal?.label}-${task.id}`}>
+                    <td>{task.title}</td>
+                    <td>{task.client}</td>
+                    <td>{task.candidate}</td>
+                    <td><span className="status-pill">{task.status}</span></td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </AnimatedModal>
     </section>
