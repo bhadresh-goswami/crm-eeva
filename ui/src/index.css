@@ -548,6 +548,9 @@ p {
 }
 
 .tasks-table__wrapper {
+  height: 400px;   /* set your required height */
+  width: 1000px;     /* or fixed like 800px */
+
   overflow-y: auto;
   overflow-x: auto;
   border-radius: 1rem;
