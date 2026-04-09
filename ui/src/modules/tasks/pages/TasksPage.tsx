@@ -13,6 +13,7 @@ import {
   getPocsByClient,
   getTaskTypes,
   getTasks,
+  moveTaskToPending,
   updateTask,
   type CandidateOption,
   type ExpertRecord,
@@ -207,6 +208,7 @@ const TasksPage = () => {
   const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
 
   const [tasks, setTasks] = useState<TaskRecord[]>([])
+  const [cancelledTasks, setCancelledTasks] = useState<TaskRecord[]>([])
   const [clients, setClients] = useState<ClientItem[]>([])
   const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([])
   const [pocs, setPocs] = useState<PocOption[]>([])
@@ -237,6 +239,8 @@ const TasksPage = () => {
   const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const rowsPerPage = 10
+  const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false)
+  const [statusActionTaskId, setStatusActionTaskId] = useState<number | null>(null)
 
   const [assignTarget, setAssignTarget] = useState<TaskRecord | null>(null)
   const [experts, setExperts] = useState<ExpertRecord[]>([])
@@ -255,8 +259,15 @@ const TasksPage = () => {
     setLoading(true)
     setError(null)
     try {
-      const [tasksData, clientsData, taskTypeData] = await Promise.all([getTasks(), getClients(), getTaskTypes()])
-      setTasks(tasksData)
+      const [tasksData, cancelledTasksData, clientsData, taskTypeData] = await Promise.all([
+        getTasks({ excludeStatus: 'cancelled' }),
+        getTasks({ status: 'cancelled' }),
+        getClients(),
+        getTaskTypes(),
+      ])
+      const visibleStatuses = new Set(['active', 'pending', 'assigned'])
+      setTasks(tasksData.filter((task) => visibleStatuses.has(task.status)))
+      setCancelledTasks(cancelledTasksData.filter((task) => task.status === 'cancelled'))
       setClients(clientsData)
       setTaskTypes(taskTypeData)
     } catch (err) {
@@ -525,6 +536,20 @@ const TasksPage = () => {
     }
   }
 
+  const handleMoveToPending = async (taskId: number) => {
+    setStatusActionTaskId(taskId)
+    setError(null)
+    try {
+      await moveTaskToPending(taskId)
+      showSuccess('Task moved to pending.')
+      await loadPage()
+    } catch (err) {
+      setError(normalizeError(err, 'Failed to move task to pending.'))
+    } finally {
+      setStatusActionTaskId(null)
+    }
+  }
+
   const handleDownloadFile = async (fileUrl: string) => {
     const filename = fileUrl.split('/').pop()
     if (!filename) return
@@ -553,17 +578,22 @@ const TasksPage = () => {
     <section>
       <div className="users-page__header">
         <h2 className="page-title">Task Management</h2>
-        {canManage ? (
-          <button className="button button--primary" onClick={openCreate}>
-            + Add Task
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className="button" onClick={() => setIsCancelledModalOpen(true)}>
+            Cancelled Tasks
           </button>
-        ) : null}
+          {canManage ? (
+            <button className="button button--primary" onClick={openCreate}>
+              + Add Task
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {error ? <p className="auth-card__error roles-feedback">{error}</p> : null}
       {success ? <p className="roles-success roles-feedback">{success}</p> : null}
 
-      <div className="card clients-controls">
+      <div className="card tasks-filters">
         <label className="auth-card__field">
           Candidate
           <input value={candidateFilter} onChange={(event) => setCandidateFilter(event.target.value)} placeholder="Search" />
@@ -581,7 +611,7 @@ const TasksPage = () => {
           Status
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="">All</option>
-            {['pending', 'assigned', 'in_progress', 'completed', 'cancelled'].map((status) => (
+            {['active', 'pending', 'assigned'].map((status) => (
               <option key={status} value={status}>{status}</option>
             ))}
           </select>
@@ -597,7 +627,7 @@ const TasksPage = () => {
         </label>
       </div>
 
-      <div className="card" style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="card tasks-bulk-actions">
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <input
             type="checkbox"
@@ -620,29 +650,31 @@ const TasksPage = () => {
         </button>
       </div>
 
-      <div className="card clients-table__wrapper" style={{ height: 500, overflow: 'auto' }}>
+      <div className="card table-container tasks-table__wrapper">
         {loading ? <p className="users-loader">Loading tasks...</p> : null}
         {!loading && filteredTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
         {!loading && filteredTasks.length > 0 ? (
-          <table className="roles-table users-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
+          <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
             <thead>
               <tr>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>✓</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>SR No</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Date</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Candidate</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Company</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Status</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Assign To</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Time Start</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Time End</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>File</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Description</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Actions</th>
+                <th>✓</th>
+                <th>SR No</th>
+                <th>Date</th>
+                <th>Candidate</th>
+                <th>Company</th>
+                <th>Status</th>
+                <th>Assign To</th>
+                <th>Time Start</th>
+                <th>Time End</th>
+                <th>File</th>
+                <th>Description</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {paginatedTasks.map((task, index) => (
+              {paginatedTasks.map((task, index) => {
+                const isCancelled = task.status === 'cancelled'
+                return (
                 <tr key={task.id}>
                   <td>
                     <input
@@ -687,11 +719,11 @@ const TasksPage = () => {
                       <button className="button users-icon-btn" title="View" onClick={() => void openEdit(task)}>👁</button>
                       <button className="button users-icon-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
                       <button className="button users-icon-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
-                      <button className="button users-icon-btn" title={task.assigned_to_id ? 'Reassign' : 'Assign'} disabled={!task.can_assign || !canManage} onClick={() => void openAssign(task)}>👤</button>
+                      <button className="button users-icon-btn" title={task.assigned_to_id ? 'Reassign' : 'Assign'} disabled={!task.can_assign || !canManage || isCancelled} onClick={() => void openAssign(task)}>👤</button>
                     </div>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         ) : null}
@@ -880,6 +912,73 @@ const TasksPage = () => {
               <button className="button" type="button" onClick={() => setDescriptionPreview(null)}>✕</button>
             </div>
             <div className="card" dangerouslySetInnerHTML={{ __html: descriptionPreview }} />
+          </div>
+        </div>
+      ) : null}
+
+      {isCancelledModalOpen ? (
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ width: 'min(1100px, 100%)', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <h3 className="modal-title" style={{ marginBottom: 0 }}>Cancelled Tasks</h3>
+              <button className="button" type="button" onClick={() => setIsCancelledModalOpen(false)}>✕</button>
+            </div>
+            {cancelledTasks.length === 0 ? <p className="users-empty">No cancelled tasks found.</p> : (
+              <div className="tasks-table__wrapper tasks-table__wrapper--modal">
+                <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Candidate</th>
+                      <th>Company</th>
+                      <th>Status</th>
+                      <th>Assign To</th>
+                      <th>Time Start</th>
+                      <th>Time End</th>
+                      <th>File</th>
+                      <th>Description</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cancelledTasks.map((task) => (
+                      <tr key={task.id}>
+                        <td>{formatDisplayDate(task.due_date)}</td>
+                        <td>{task.candidate || '—'}</td>
+                        <td>{task.client || '—'}</td>
+                        <td><span className="status-pill status-pill--inactive">{task.status}</span></td>
+                        <td>{task.assigned_to_name || '—'}</td>
+                        <td>{formatTime(task.time_start)}</td>
+                        <td>{formatTime(task.time_end)}</td>
+                        <td>
+                          {task.file_url ? (
+                            <button className="button users-icon-btn" type="button" title="Download file" onClick={() => void handleDownloadFile(task.file_url)}>
+                              📎
+                            </button>
+                          ) : '—'}
+                        </td>
+                        <td>
+                          {task.description ? (
+                            <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
+                              👁
+                            </button>
+                          ) : '—'}
+                        </td>
+                        <td>
+                          <button
+                            className="button button--primary"
+                            disabled={statusActionTaskId === task.id}
+                            onClick={() => void handleMoveToPending(task.id)}
+                          >
+                            {statusActionTaskId === task.id ? 'Updating...' : 'Move to Pending'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       ) : null}
