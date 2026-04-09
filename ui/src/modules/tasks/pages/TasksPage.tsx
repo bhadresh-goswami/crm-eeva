@@ -580,7 +580,7 @@ const TasksPage = () => {
         <h2 className="page-title">Task Management</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button className="button" onClick={() => setIsCancelledModalOpen(true)}>
-            View Cancelled Tasks
+            Cancelled Tasks
           </button>
           {canManage ? (
             <button className="button button--primary" onClick={openCreate}>
@@ -593,7 +593,7 @@ const TasksPage = () => {
       {error ? <p className="auth-card__error roles-feedback">{error}</p> : null}
       {success ? <p className="roles-success roles-feedback">{success}</p> : null}
 
-      <div className="card clients-controls">
+      <div className="card tasks-filters">
         <label className="auth-card__field">
           Candidate
           <input value={candidateFilter} onChange={(event) => setCandidateFilter(event.target.value)} placeholder="Search" />
@@ -627,7 +627,7 @@ const TasksPage = () => {
         </label>
       </div>
 
-      <div className="card" style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="card tasks-bulk-actions">
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <input
             type="checkbox"
@@ -650,25 +650,25 @@ const TasksPage = () => {
         </button>
       </div>
 
-      <div className="card clients-table__wrapper" style={{ height: 500, overflow: 'auto' }}>
+      <div className="card tasks-table__wrapper">
         {loading ? <p className="users-loader">Loading tasks...</p> : null}
         {!loading && filteredTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
         {!loading && filteredTasks.length > 0 ? (
-          <table className="roles-table users-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
+          <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
             <thead>
               <tr>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>✓</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>SR No</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Date</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Candidate</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Company</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Status</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Assign To</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Time Start</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Time End</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>File</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Description</th>
-                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Actions</th>
+                <th>✓</th>
+                <th>SR No</th>
+                <th>Date</th>
+                <th>Candidate</th>
+                <th>Company</th>
+                <th>Status</th>
+                <th>Assign To</th>
+                <th>Time Start</th>
+                <th>Time End</th>
+                <th>File</th>
+                <th>Description</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -924,8 +924,8 @@ const TasksPage = () => {
               <button className="button" type="button" onClick={() => setIsCancelledModalOpen(false)}>✕</button>
             </div>
             {cancelledTasks.length === 0 ? <p className="users-empty">No cancelled tasks found.</p> : (
-              <div className="clients-table__wrapper" style={{ overflow: 'auto' }}>
-                <table className="roles-table users-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
+              <div className="tasks-table__wrapper tasks-table__wrapper--modal">
+                <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
                   <thead>
                     <tr>
                       <th>Date</th>
