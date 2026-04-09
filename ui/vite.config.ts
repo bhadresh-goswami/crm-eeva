@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      axios: resolve(__dirname, 'src/shims/axios.ts'),
       'react-router-dom': resolve(__dirname, 'src/router/react-router-dom.tsx'),
     },
   },

@@ -15,6 +15,9 @@
     "paths": {
       "react-router-dom": [
         "./src/router/react-router-dom.tsx"
+      ],
+      "axios": [
+        "./src/shims/axios.ts"
       ]
     },
     "moduleResolution": "bundler",
