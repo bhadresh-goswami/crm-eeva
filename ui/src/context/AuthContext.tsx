@@ -26,11 +26,23 @@ type LoginPayload = {
 }
 
 type LoginResponse = {
-  token: string
-  user: {
-    id: string
-    name: string
-    role: string
+  token?: string
+  access_token?: string
+  user?: {
+    id?: string | number
+    name?: string
+    role?: string
+    user_role?: string
+  }
+  data?: {
+    token?: string
+    access_token?: string
+    user?: {
+      id?: string | number
+      name?: string
+      role?: string
+      user_role?: string
+    }
   }
 }
 
@@ -73,10 +85,10 @@ const normalizeRole = (role: string | undefined): UserRole => {
   return 'expert'
 }
 
-const normalizeUser = (user: { id: string; name: string; role: string }): AuthUser => ({
-  id: user.id,
-  name: user.name,
-  role: normalizeRole(user.role),
+const normalizeUser = (user: { id?: string | number; name?: string; role?: string; user_role?: string }): AuthUser => ({
+  id: String(user.id ?? ''),
+  name: String(user.name ?? '').trim(),
+  role: normalizeRole(user.role ?? user.user_role),
 })
 
 const getStoredAuthState = (): StoredAuthState | null => {
@@ -87,9 +99,9 @@ const getStoredAuthState = (): StoredAuthState | null => {
   }
 
   try {
-    const parsed = JSON.parse(raw) as { token?: string; user?: { id: string; name: string; role: string } }
+    const parsed = JSON.parse(raw) as { token?: string; user?: { id?: string | number; name?: string; role?: string } }
 
-    if (!parsed.token || !parsed.user) {
+    if (!parsed.token || !parsed.user?.id) {
       return null
     }
 
@@ -118,7 +130,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [token, setToken] = useState<string | null>(storedAuth?.token ?? null)
   const [user, setUser] = useState<AuthUser | null>(storedAuth?.user ?? null)
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>(
-    token ? getStoredSessionStatus() : 'logged_out',
+    storedAuth?.token ? getStoredSessionStatus() : 'logged_out',
   )
 
   const clearAuthState = useCallback(() => {
@@ -126,6 +138,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setUser(null)
     setSessionStatus('logged_out')
     localStorage.removeItem(AUTH_STORAGE_KEY)
+    sessionStorage.removeItem(AUTH_STORAGE_KEY)
     localStorage.setItem(SESSION_STATUS_STORAGE_KEY, 'logged_out')
   }, [])
 
@@ -136,20 +149,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     const response = await apiRequest<LoginResponse>('/login', {
       method: 'POST',
-      headers: {
-        'X-Skip-Auth': '1',
-      },
       body: JSON.stringify({ email, password }),
     })
 
-    const nextUser = normalizeUser(response.user)
+    const tokenValue = response.token ?? response.access_token ?? response.data?.token ?? response.data?.access_token
+    const userValue = response.user ?? response.data?.user
+
+    if (!tokenValue || !userValue?.id) {
+      throw new Error('Login response missing token or user details.')
+    }
+
+    const nextUser = normalizeUser(userValue)
 
     const nextAuthState: StoredAuthState = {
-      token: response.token,
+      token: tokenValue,
       user: nextUser,
     }
 
-    setToken(response.token)
+    setToken(tokenValue)
     setUser(nextUser)
     setSessionStatus('logged_in')
 
@@ -162,11 +179,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         await apiRequest('/logout', { method: 'POST' })
       } catch {
-        // The logout endpoint may not exist yet.
+        // Backend may return an error for an already expired token.
       }
     }
 
     clearAuthState()
+    window.location.replace('/login')
   }, [clearAuthState, token])
 
   const breakIn = useCallback(async () => {
@@ -194,6 +212,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     setUnauthorizedHandler(() => {
       clearAuthState()
+      window.location.replace('/login')
     })
 
     return () => setUnauthorizedHandler(undefined)

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { useAuth } from '../../../context/AuthContext'
+import { apiFetch } from '../../../api/client'
 import {
   assignTask,
   bulkAssignTasks,
@@ -201,7 +202,7 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
 })
 
 const TasksPage = () => {
-  const { user, token } = useAuth()
+  const { user } = useAuth()
   const editorRef = useRef<HTMLDivElement | null>(null)
   const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
 
@@ -527,14 +528,10 @@ const TasksPage = () => {
   const handleDownloadFile = async (fileUrl: string) => {
     const filename = fileUrl.split('/').pop()
     if (!filename) return
-    if (!token) {
-      setError('Session token missing. Please login again.')
-      return
-    }
-    const response = await fetch(`https://support.bsquareg-developers.com/api/tasks/file?file=${encodeURIComponent(filename)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+
+    const response = await apiFetch(`/tasks/file?file=${encodeURIComponent(filename)}`)
     if (!response.ok) throw new Error('Failed to download file')
+
     const blob = await response.blob()
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
