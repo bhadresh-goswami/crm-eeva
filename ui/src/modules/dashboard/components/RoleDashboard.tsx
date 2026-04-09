@@ -5,6 +5,7 @@ import {
   getDashboardExperts,
   getDashboardSummary,
   getDashboardTasksByPaths,
+  getManagerDashboardData,
   updateDashboardTaskStatus,
   type DashboardExpert,
   type DashboardSummary,
@@ -75,6 +76,22 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
         setLoading(true)
         setError(null)
 
+        if (mode === 'manager') {
+          const [managerData, expertList] = await Promise.all([
+            getManagerDashboardData(),
+            allowAssign ? getDashboardExperts().catch(() => []) : Promise.resolve([]),
+          ])
+
+          if (!mounted) {
+            return
+          }
+
+          setSummary(managerData.summary)
+          setTasks([...managerData.pendingTasks, ...managerData.assignedTasks])
+          setExperts(expertList)
+          return
+        }
+
         const [summaryData, scopedTasks, expertList] = await Promise.all([
           getDashboardSummary().catch(() => null),
           getDashboardTasksByPaths(taskPathsByMode[mode]).catch(() => []),
@@ -85,7 +102,7 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
           return
         }
 
-        const computedSummary = summaryFromTasks(scopedTasks, mode === 'admin' || mode === 'manager')
+        const computedSummary = summaryFromTasks(scopedTasks, mode === 'admin')
 
         setSummary(
           summaryData
@@ -101,9 +118,11 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
         )
         setTasks(scopedTasks)
         setExperts(expertList)
+      } catch (loadError) {
+        console.error('Failed to load dashboard data', loadError)
 
-        if (!summaryData && scopedTasks.length === 0) {
-          setError('Unable to load dashboard data from live API.')
+        if (mounted) {
+          setError(loadError instanceof Error ? loadError.message : 'Unable to load dashboard data from live API.')
         }
       } finally {
         if (mounted) {
