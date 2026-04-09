@@ -42,7 +42,10 @@ export const apiRequest = async <TResponse = unknown>(
     headers.set('Content-Type', 'application/json')
   }
 
-  if (token) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const isAuthRoute = normalizedPath === '/login'
+
+  if (token && !isAuthRoute) {
     headers.set('Authorization', `Bearer ${token}`)
   }
 
