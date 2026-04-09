@@ -136,6 +136,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     const response = await apiRequest<LoginResponse>('/login', {
       method: 'POST',
+      headers: {
+        'X-Skip-Auth': '1',
+      },
       body: JSON.stringify({ email, password }),
     })
 
