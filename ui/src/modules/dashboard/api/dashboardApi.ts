@@ -1,3 +1,4 @@
+import axios, { type RequestConfig } from 'axios'
 import { apiRequest } from '../../../api/client'
 
 export type DashboardTask = {
