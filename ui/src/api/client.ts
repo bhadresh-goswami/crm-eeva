@@ -4,7 +4,7 @@ const AUTH_STORAGE_KEY = 'crm_auth'
 const API_BASE_URL = '/api'
 
 const getStoredToken = () => {
-  const raw = localStorage.getItem(AUTH_STORAGE_KEY)
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY) ?? sessionStorage.getItem(AUTH_STORAGE_KEY)
 
   if (!raw) {
     return null
@@ -14,7 +14,8 @@ const getStoredToken = () => {
     const parsed = JSON.parse(raw) as { token?: string }
     return parsed.token ?? null
   } catch {
-    return null
+    const directToken = raw.trim()
+    return directToken || null
   }
 }
 

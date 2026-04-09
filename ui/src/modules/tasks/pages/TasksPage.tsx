@@ -201,7 +201,7 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
 })
 
 const TasksPage = () => {
-  const { user } = useAuth()
+  const { user, token } = useAuth()
   const editorRef = useRef<HTMLDivElement | null>(null)
   const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
 
@@ -527,10 +527,12 @@ const TasksPage = () => {
   const handleDownloadFile = async (fileUrl: string) => {
     const filename = fileUrl.split('/').pop()
     if (!filename) return
-    const raw = localStorage.getItem('crm_auth')
-    const token = raw ? (JSON.parse(raw) as { token?: string }).token : null
+    if (!token) {
+      setError('Session token missing. Please login again.')
+      return
+    }
     const response = await fetch(`https://support.bsquareg-developers.com/api/tasks/file?file=${encodeURIComponent(filename)}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      headers: { Authorization: `Bearer ${token}` },
     })
     if (!response.ok) throw new Error('Failed to download file')
     const blob = await response.blob()
