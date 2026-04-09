@@ -1,7 +1,7 @@
 let unauthorizedHandler: (() => void) | undefined
 
 const AUTH_STORAGE_KEY = 'crm_auth'
-const API_BASE_URL = '/api'
+const API_BASE_URL = 'https://support.bsquareg-developers.com/api'
 
 const isAbsoluteUrl = (path: string) => path.startsWith('http://') || path.startsWith('https://')
 
