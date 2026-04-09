@@ -152,8 +152,8 @@ const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: Task
   const formData = new FormData()
   if (payload.id) formData.append('task_id', String(payload.id))
   formData.append('client_id', String(payload.client_id))
-  formData.append('poc_id', String(payload.poc_id))
-  formData.append('candidate_id', String(payload.candidate_id))
+  if (payload.poc_id > 0) formData.append('poc_id', String(payload.poc_id))
+  if (payload.candidate_id > 0) formData.append('candidate_id', String(payload.candidate_id))
   formData.append('task_type_id', String(payload.task_type_id))
   formData.append('title', payload.title)
   formData.append('description', payload.description)
@@ -168,16 +168,30 @@ const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: Task
   }
 
   try {
-    await apiRequest(path, {
+    const response = await apiRequest<Record<string, unknown>>(path, {
       method: 'POST',
       body: formData,
     })
-  } catch {
+    throwIfApiError(response)
+    return
+  } catch (error) {
+    if (error instanceof Error && error.message.trim()) {
+      const shouldFallback =
+        error.message.includes('415') ||
+        error.message.includes('Unsupported Media Type') ||
+        error.message.includes('Cannot parse') ||
+        error.message.includes('multipart')
+
+      if (!shouldFallback) {
+        throw error
+      }
+    }
+
     const fallback = {
       ...(payload.id ? { task_id: payload.id } : {}),
       client_id: payload.client_id,
-      poc_id: payload.poc_id,
-      candidate_id: payload.candidate_id,
+      ...(payload.poc_id > 0 ? { poc_id: payload.poc_id } : {}),
+      ...(payload.candidate_id > 0 ? { candidate_id: payload.candidate_id } : {}),
       task_type_id: payload.task_type_id,
       title: payload.title,
       description: payload.description,
@@ -188,10 +202,20 @@ const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: Task
       total_amount: payload.total_amount,
       payment_mode: payload.payment_mode,
     }
-    await apiRequest(path, {
+    const fallbackResponse = await apiRequest<Record<string, unknown>>(path, {
       method: 'POST',
       body: JSON.stringify(fallback),
     })
+    throwIfApiError(fallbackResponse)
+    return
+  }
+}
+
+const throwIfApiError = (response: Record<string, unknown> | undefined) => {
+  if (!response || typeof response !== 'object') return
+  const error = String(response.error ?? '').trim()
+  if (error) {
+    throw new Error(error)
   }
 }
 
@@ -237,6 +261,27 @@ export const assignTask = async (payload: { task_id: number; user_id: number; re
   await apiRequest('/tasks/assign', {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export const bulkAssignTasks = async (payload: { task_ids: number[]; user_id: number }) => {
+  await apiRequest('/tasks/bulk-assign', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export const bulkCancelTasks = async (taskIds: number[]) => {
+  await apiRequest('/tasks/bulk-status', {
+    method: 'POST',
+    body: JSON.stringify({ task_ids: taskIds, status: 'Cancelled' }),
+  })
+}
+
+export const cancelTask = async (taskId: number) => {
+  await apiRequest('/tasks/cancel', {
+    method: 'POST',
+    body: JSON.stringify({ task_id: taskId }),
   })
 }
 

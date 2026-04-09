@@ -3,8 +3,10 @@ import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { useAuth } from '../../../context/AuthContext'
 import {
   assignTask,
+  bulkAssignTasks,
+  bulkCancelTasks,
+  cancelTask,
   createTask,
-  deleteTask,
   getCandidatesByClient,
   getExperts,
   getPocsByClient,
@@ -231,6 +233,9 @@ const TasksPage = () => {
 
   const [deleteTarget, setDeleteTarget] = useState<TaskRecord | null>(null)
   const [actionTaskId, setActionTaskId] = useState<number | null>(null)
+  const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const rowsPerPage = 10
 
   const [assignTarget, setAssignTarget] = useState<TaskRecord | null>(null)
   const [experts, setExperts] = useState<ExpertRecord[]>([])
@@ -238,6 +243,7 @@ const TasksPage = () => {
   const [assignLoading, setAssignLoading] = useState(false)
   const [selectedExpertId, setSelectedExpertId] = useState<number | null>(null)
   const [reassignReason, setReassignReason] = useState('')
+  const [isBulkAssign, setIsBulkAssign] = useState(false)
 
   const showSuccess = useCallback((message: string) => {
     setSuccess(message)
@@ -279,6 +285,27 @@ const TasksPage = () => {
       }),
     [assigneeFilter, candidateFilter, companyFilter, statusFilter, tasks],
   )
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / rowsPerPage))
+  const paginatedTasks = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage
+    return filteredTasks.slice(start, start + rowsPerPage)
+  }, [currentPage, filteredTasks])
+  const pageTaskIds = paginatedTasks.map((task) => task.id)
+  const isAllPageSelected = pageTaskIds.length > 0 && pageTaskIds.every((id) => selectedTaskIds.includes(id))
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [candidateFilter, companyFilter, statusFilter, assigneeFilter])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  useEffect(() => {
+    setSelectedTaskIds((prev) => prev.filter((id) => tasks.some((task) => task.id === id)))
+  }, [tasks])
 
   const clientOptions = useMemo(
     () => clients.map((client) => ({ id: client.id, label: client.company_name || client.name })).sort((a, b) => a.label.localeCompare(b.label)),
@@ -407,9 +434,9 @@ const TasksPage = () => {
     setActionTaskId(deleteTarget.id)
     setError(null)
     try {
-      await deleteTask(deleteTarget.id)
+      await cancelTask(deleteTarget.id)
       setDeleteTarget(null)
-      showSuccess('Task deleted successfully.')
+      showSuccess('Task cancelled successfully.')
       await loadPage()
     } catch (err) {
       setError(normalizeError(err, 'Failed to delete task.'))
@@ -434,8 +461,9 @@ const TasksPage = () => {
     [assignTarget, tasks],
   )
 
-  const openAssign = async (task: TaskRecord) => {
-    setAssignTarget(task)
+  const openAssign = async (task?: TaskRecord) => {
+    setAssignTarget(task ?? null)
+    setIsBulkAssign(!task)
     setSelectedExpertId(null)
     setReassignReason('')
     setAssignError(null)
@@ -450,31 +478,70 @@ const TasksPage = () => {
   }
 
   const handleAssign = async () => {
-    if (!assignTarget || !selectedExpertId) {
+    if (!selectedExpertId) {
       setAssignError('Please select an available expert.')
       return
     }
-    if (assignTarget.assigned_to_id && !reassignReason.trim()) {
+    if (assignTarget?.assigned_to_id && !reassignReason.trim()) {
       setAssignError('Reassign reason is required.')
       return
     }
 
     setAssignError(null)
-    setActionTaskId(assignTarget.id)
+    if (assignTarget) {
+      setActionTaskId(assignTarget.id)
+    }
     try {
-      await assignTask({
-        task_id: assignTarget.id,
-        user_id: selectedExpertId,
-        reason: assignTarget.assigned_to_id ? reassignReason.trim() : undefined,
-      })
+      if (isBulkAssign) {
+        await bulkAssignTasks({ task_ids: selectedTaskIds, user_id: selectedExpertId })
+      } else if (assignTarget) {
+        await assignTask({
+          task_id: assignTarget.id,
+          user_id: selectedExpertId,
+          reason: assignTarget.assigned_to_id ? reassignReason.trim() : undefined,
+        })
+      }
       setAssignTarget(null)
-      showSuccess(assignTarget.assigned_to_id ? 'Task reassigned successfully.' : 'Task assigned successfully.')
+      setSelectedTaskIds([])
+      showSuccess(isBulkAssign ? 'Tasks assigned successfully.' : assignTarget?.assigned_to_id ? 'Task reassigned successfully.' : 'Task assigned successfully.')
       await loadPage()
     } catch (err) {
       setAssignError(normalizeError(err, 'Failed to assign task.'))
     } finally {
       setActionTaskId(null)
     }
+  }
+
+  const handleBulkCancel = async () => {
+    if (!selectedTaskIds.length) return
+    try {
+      await bulkCancelTasks(selectedTaskIds)
+      setSelectedTaskIds([])
+      showSuccess('Selected tasks cancelled.')
+      await loadPage()
+    } catch (err) {
+      setError(normalizeError(err, 'Failed to cancel selected tasks.'))
+    }
+  }
+
+  const handleDownloadFile = async (fileUrl: string) => {
+    const filename = fileUrl.split('/').pop()
+    if (!filename) return
+    const raw = localStorage.getItem('crm_auth')
+    const token = raw ? (JSON.parse(raw) as { token?: string }).token : null
+    const response = await fetch(`https://support.bsquareg-developers.com/api/tasks/file?file=${encodeURIComponent(filename)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!response.ok) throw new Error('Failed to download file')
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
   }
 
   const execEditorCommand = (command: string, value?: string) => {
@@ -531,15 +598,65 @@ const TasksPage = () => {
         </label>
       </div>
 
-      <div className="card clients-table__wrapper">
+      <div className="card" style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={isAllPageSelected}
+            onChange={(event) => {
+              if (event.target.checked) {
+                setSelectedTaskIds((prev) => [...new Set([...prev, ...pageTaskIds])])
+              } else {
+                setSelectedTaskIds((prev) => prev.filter((id) => !pageTaskIds.includes(id)))
+              }
+            }}
+          />
+          Select All
+        </label>
+        <button className="button" disabled={!selectedTaskIds.length || !canManage} onClick={() => void openAssign()}>
+          👤 Bulk Assign
+        </button>
+        <button className="button button--danger" disabled={!selectedTaskIds.length || !canManage} onClick={() => void handleBulkCancel()}>
+          🗑 Cancel Selected
+        </button>
+      </div>
+
+      <div className="card clients-table__wrapper" style={{ height: 500, overflow: 'auto' }}>
         {loading ? <p className="users-loader">Loading tasks...</p> : null}
         {!loading && filteredTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
         {!loading && filteredTasks.length > 0 ? (
-          <table className="roles-table users-table" style={{ minWidth: 1500 }}>
-            <thead><tr><th>Date</th><th>Candidate</th><th>Company</th><th>Status</th><th>Assign To</th><th>Time Start</th><th>Time End</th><th>File</th><th>Description</th><th>Actions</th></tr></thead>
+          <table className="roles-table users-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
+            <thead>
+              <tr>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>✓</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>SR No</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Date</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Candidate</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Company</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Status</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Assign To</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Time Start</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Time End</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>File</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Description</th>
+                <th style={{ position: 'sticky', top: 0, background: '#fff' }}>Actions</th>
+              </tr>
+            </thead>
             <tbody>
-              {filteredTasks.map((task) => (
+              {paginatedTasks.map((task, index) => (
                 <tr key={task.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedTaskIds.includes(task.id)}
+                      onChange={(event) =>
+                        setSelectedTaskIds((prev) =>
+                          event.target.checked ? [...new Set([...prev, task.id])] : prev.filter((id) => id !== task.id),
+                        )
+                      }
+                    />
+                  </td>
+                  <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
                   <td>{formatDisplayDate(task.due_date)}</td>
                   <td>{task.candidate || '—'}</td>
                   <td>{task.client || '—'}</td>
@@ -549,7 +666,12 @@ const TasksPage = () => {
                   <td>{formatTime(task.time_end)}</td>
                   <td>
                     {task.file_url ? (
-                      <button className="button users-icon-btn" type="button" title="Open uploaded file" onClick={() => window.open(task.file_url, '_blank', 'noopener,noreferrer')}>
+                      <button
+                        className="button users-icon-btn"
+                        type="button"
+                        title="Download file"
+                        onClick={() => void handleDownloadFile(task.file_url)}
+                      >
                         📎
                       </button>
                     ) : '—'}
@@ -563,10 +685,10 @@ const TasksPage = () => {
                   </td>
                   <td>
                     <div className="roles-table__actions users-actions">
-                      <button className="button" onClick={() => void openEdit(task)}>View</button>
-                      <button className="button" disabled={!canManage} onClick={() => void openEdit(task)}>Edit</button>
-                      <button className="button button--danger" disabled={!canManage} onClick={() => setDeleteTarget(task)}>Delete</button>
-                      <button className="button" disabled={!task.can_assign || !canManage} onClick={() => void openAssign(task)}>{task.assigned_to_id ? 'Reassign' : 'Assign'}</button>
+                      <button className="button users-icon-btn" title="View" onClick={() => void openEdit(task)}>👁</button>
+                      <button className="button users-icon-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
+                      <button className="button users-icon-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
+                      <button className="button users-icon-btn" title={task.assigned_to_id ? 'Reassign' : 'Assign'} disabled={!task.can_assign || !canManage} onClick={() => void openAssign(task)}>👤</button>
                     </div>
                   </td>
                 </tr>
@@ -574,6 +696,22 @@ const TasksPage = () => {
             </tbody>
           </table>
         ) : null}
+      </div>
+
+      <div className="users-pagination">
+        <button className="button" disabled={currentPage === 1} onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}>
+          Prev
+        </button>
+        <div className="users-pagination__pages">
+          {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+            <button key={page} className={`button ${page === currentPage ? 'button--primary' : ''}`} onClick={() => setCurrentPage(page)}>
+              {page}
+            </button>
+          ))}
+        </div>
+        <button className="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}>
+          Next
+        </button>
       </div>
 
       {isFormOpen ? (
@@ -721,16 +859,16 @@ const TasksPage = () => {
         <div className="modal-overlay"><div className="modal-card"><h3 className="modal-title">Delete Task</h3><p className="card-text">Are you sure you want to delete this task?</p><div className="modal-actions"><button className="button" onClick={() => setDeleteTarget(null)}>Cancel</button><button className="button button--danger" onClick={() => void handleDelete()} disabled={actionTaskId === deleteTarget.id}>{actionTaskId === deleteTarget.id ? 'Deleting...' : 'Delete'}</button></div></div></div>
       ) : null}
 
-      {assignTarget ? (
+      {assignTarget || isBulkAssign ? (
         <div className="modal-overlay">
           <div className="modal-card" style={{ width: 'min(700px, 100%)' }}>
-            <h3 className="modal-title">{assignTarget.assigned_to_id ? 'Reassign Task' : 'Assign Task'}</h3>
-            {assignTarget.assigned_to_id ? <label className="auth-card__field" style={{ marginBottom: 8 }}>Reassign reason (required)<input value={reassignReason} onChange={(event) => setReassignReason(event.target.value)} /></label> : null}
+            <h3 className="modal-title">{isBulkAssign ? 'Bulk Assign Tasks' : assignTarget?.assigned_to_id ? 'Reassign Task' : 'Assign Task'}</h3>
+            {assignTarget?.assigned_to_id ? <label className="auth-card__field" style={{ marginBottom: 8 }}>Reassign reason (required)<input value={reassignReason} onChange={(event) => setReassignReason(event.target.value)} /></label> : null}
             {assignLoading ? <p className="card-text">Loading experts...</p> : (
               <table className="roles-table"><thead><tr><th>Expert Name</th><th>Status</th><th>Action</th></tr></thead><tbody>{experts.map((expert) => { const availability = checkAvailability(expert.id); return <tr key={expert.id}><td>{expert.name}</td><td><span className={`status-pill ${availability === 'available' ? 'status-pill--active' : 'status-pill--inactive'}`}>{availability}</span></td><td><button className="button" disabled={availability === 'busy'} onClick={() => setSelectedExpertId(expert.id)}>{selectedExpertId === expert.id ? 'Selected' : 'Select'}</button></td></tr> })}</tbody></table>
             )}
             {assignError ? <p className="auth-card__error">{assignError}</p> : null}
-            <div className="modal-actions"><button className="button" onClick={() => setAssignTarget(null)}>Cancel</button><button className="button button--primary" onClick={() => void handleAssign()} disabled={actionTaskId === assignTarget.id}>{actionTaskId === assignTarget.id ? 'Submitting...' : assignTarget.assigned_to_id ? 'Reassign' : 'Assign'}</button></div>
+            <div className="modal-actions"><button className="button" onClick={() => { setAssignTarget(null); setIsBulkAssign(false) }}>Cancel</button><button className="button button--primary" onClick={() => void handleAssign()} disabled={Boolean(assignTarget?.id) && actionTaskId === assignTarget?.id}>{Boolean(assignTarget?.id) && actionTaskId === assignTarget?.id ? 'Submitting...' : isBulkAssign ? 'Assign Selected' : assignTarget?.assigned_to_id ? 'Reassign' : 'Assign'}</button></div>
           </div>
         </div>
       ) : null}
