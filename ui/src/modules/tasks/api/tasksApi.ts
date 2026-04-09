@@ -64,6 +64,11 @@ export type TaskTypeOption = {
   name: string
 }
 
+type TaskQuery = {
+  status?: string
+  excludeStatus?: string
+}
+
 type UnknownMap = Record<string, unknown>
 
 const getList = (value: unknown): unknown[] => {
@@ -132,8 +137,12 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   can_assign: raw.can_assign === undefined ? true : Boolean(raw.can_assign),
 })
 
-export const getTasks = async () => {
-  const response = await apiRequest<unknown>('/tasks/list')
+export const getTasks = async (query: TaskQuery = {}) => {
+  const searchParams = new URLSearchParams()
+  if (query.status) searchParams.set('status', query.status)
+  if (query.excludeStatus) searchParams.set('status_ne', query.excludeStatus)
+  const endpoint = searchParams.toString() ? `/tasks/list?${searchParams.toString()}` : '/tasks/list'
+  const response = await apiRequest<unknown>(endpoint)
 
   return getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
@@ -282,6 +291,13 @@ export const cancelTask = async (taskId: number) => {
   await apiRequest('/tasks/cancel', {
     method: 'POST',
     body: JSON.stringify({ task_id: taskId }),
+  })
+}
+
+export const moveTaskToPending = async (taskId: number) => {
+  await apiRequest('/tasks/bulk-status', {
+    method: 'POST',
+    body: JSON.stringify({ task_ids: [taskId], status: 'Pending' }),
   })
 }
 
