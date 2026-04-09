@@ -8,6 +8,7 @@ export type DashboardTask = {
   scheduleTime: string
   status: string
   expertId?: string | null
+  assignedToName?: string
   description?: string
   fileUrl?: string
   dueDate?: string
@@ -19,6 +20,7 @@ export type DashboardExpert = {
   id: string
   name: string
   isPresent: boolean
+  isAvailable?: boolean
 }
 
 export type DashboardSummary = {
@@ -26,12 +28,14 @@ export type DashboardSummary = {
   pendingTasks: number
   assignedTasks: number
   completedTasks: number
+  cancelledTasks?: number
   totalClients: number
   expertsPresent: number
   expertsTotal: number
 }
 
 type TaskStatus = 'pending' | 'assigned' | 'cancelled' | 'completed'
+export type ManagerTaskStatus = TaskStatus
 
 const asArray = <T>(payload: unknown): T[] => {
   if (Array.isArray(payload)) {
@@ -58,21 +62,24 @@ const asNumber = (value: unknown) => {
 const normalizeTask = (task: Record<string, unknown>): DashboardTask => ({
   id: String(task.id ?? task.taskId ?? task._id ?? `${Date.now()}`),
   title: String(task.title ?? task.taskTitle ?? task.name ?? 'Untitled Task'),
-  client: String(task.clientName ?? task.client ?? task.client_company ?? '—'),
+  client: String(task.clientName ?? task.client ?? task.client_company ?? task.company ?? '—'),
   candidate: String(task.candidateName ?? task.candidate ?? '—'),
   scheduleTime: String(
     task.scheduleTime ??
       task.scheduledAt ??
       task.interviewTime ??
-      (task.due_date && task.time_start && task.time_end
-        ? `${task.due_date} ${task.time_start}-${task.time_end}`
-        : task.due_date ?? '—'),
+      (task.task_date && task.start_time && task.end_time
+        ? `${task.task_date} ${task.start_time}-${task.end_time}`
+        : task.due_date && task.time_start && task.time_end
+          ? `${task.due_date} ${task.time_start}-${task.time_end}`
+          : task.due_date ?? '—'),
   ),
   status: String(task.status ?? 'pending').toLowerCase(),
-  expertId: typeof task.expertId === 'string' ? task.expertId : null,
+  expertId: String(task.expertId ?? task.expert_id ?? task.assigned_to_id ?? '') || null,
+  assignedToName: String(task.assigned_to_name ?? task.expert_name ?? task.assignedToName ?? ''),
   description: String(task.description ?? task.task_description ?? ''),
   fileUrl: String(task.file ?? task.file_url ?? task.attachment_url ?? task.attachment ?? ''),
-  dueDate: String(task.due_date ?? task.date ?? ''),
+  dueDate: String(task.task_date ?? task.due_date ?? task.date ?? ''),
   startTime: String(task.time_start ?? task.start_time ?? ''),
   endTime: String(task.time_end ?? task.end_time ?? ''),
 })
@@ -81,6 +88,7 @@ const normalizeExpert = (expert: Record<string, unknown>): DashboardExpert => ({
   id: String(expert.id ?? expert.userId ?? expert._id),
   name: String(expert.name ?? expert.fullName ?? expert.email ?? 'Unknown Expert'),
   isPresent: Boolean(expert.isPresent ?? expert.present ?? expert.isOnline),
+  isAvailable: Boolean(expert.isAvailable ?? expert.available ?? expert.is_available),
 })
 
 const requestTaskPath = async (path: string) => {
@@ -93,10 +101,57 @@ const normalizeSummary = (response: Record<string, unknown>) => ({
   pendingTasks: asNumber(response.pendingTasks ?? response.pending_tasks),
   assignedTasks: asNumber(response.assignedTasks ?? response.assigned_tasks),
   completedTasks: asNumber(response.completedTasks ?? response.completed_tasks),
+  cancelledTasks: asNumber(response.cancelledTasks ?? response.cancelled_tasks),
   totalClients: asNumber(response.totalClients ?? response.total_clients ?? response.clients),
   expertsPresent: asNumber(response.expertsPresent ?? response.experts_present),
   expertsTotal: asNumber(response.expertsTotal ?? response.experts_total ?? response.experts),
 })
+
+const managerStatusMap: Record<ManagerTaskStatus, string> = {
+  pending: 'Pending',
+  assigned: 'Assigned',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
+
+export const getManagerDashboardSummary = async () => {
+  const response = await apiRequest<Record<string, unknown>>('/dashboard/summary')
+  return normalizeSummary(response) as DashboardSummary
+}
+
+export const getManagerTasksByStatus = async (status: ManagerTaskStatus) => {
+  const response = await apiRequest<unknown>(`/dashboard/tasks-by-status?status=${managerStatusMap[status]}`)
+  return asArray<Record<string, unknown>>(response).map((task) => normalizeTask({ ...task, status: task.status ?? status }))
+}
+
+export const getManagerAvailableExperts = async ({
+  taskDate,
+  startTime,
+  endTime,
+}: {
+  taskDate: string
+  startTime: string
+  endTime: string
+}) => {
+  const query = new URLSearchParams({
+    task_date: taskDate,
+    start_time: startTime,
+    end_time: endTime,
+  })
+
+  const response = await apiRequest<unknown>(`/dashboard/available-experts?${query.toString()}`)
+  return asArray<Record<string, unknown>>(response).map(normalizeExpert)
+}
+
+export const assignManagerTask = async (taskId: string, expertId: string) => {
+  await apiRequest('/dashboard/assign-task', {
+    method: 'POST',
+    body: JSON.stringify({
+      task_id: Number(taskId),
+      expert_id: Number(expertId),
+    }),
+  })
+}
 
 export const getDashboardTasksByStatus = async (status: TaskStatus) => {
   const response = await apiRequest<unknown>(`/tasks/list?status=${status}`)
