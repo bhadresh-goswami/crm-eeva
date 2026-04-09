@@ -1,5 +1,4 @@
-import axios, { type RequestConfig } from 'axios'
-import { apiRequest } from '../../../api/client'
+import { apiRequest, apiRequestWithFallback } from '../../../api/client'
 
 export type DashboardTask = {
   id: string
@@ -76,6 +75,14 @@ const requestTaskPath = async (path: string) => {
   return asArray<Record<string, unknown>>(response).map(normalizeTask)
 }
 
+const requestTaskList = async (status?: 'pending' | 'assigned') => {
+  const query = status ? `?status=${status}` : ''
+  const response = await apiRequestWithFallback<unknown>([`/tasks/list${query}`, `/tasks${query}`])
+  return asArray<Record<string, unknown>>(response).map((task) =>
+    normalizeTask({ ...task, ...(status ? { status: task.status ?? status } : {}) }),
+  )
+}
+
 const normalizeSummary = (response: Record<string, unknown>) => ({
   totalTasks: asNumber(response.totalTasks ?? response.total_tasks),
   pendingTasks: asNumber(response.pendingTasks ?? response.pending_tasks),
@@ -86,32 +93,35 @@ const normalizeSummary = (response: Record<string, unknown>) => ({
   expertsTotal: asNumber(response.expertsTotal ?? response.experts_total ?? response.experts),
 })
 
+const getSummaryResponse = async () => {
+  return apiRequestWithFallback<Record<string, unknown>>(['/dashboard/summary', '/dashboard/stats'])
+}
+
 export const getManagerDashboardData = async (): Promise<ManagerDashboardPayload> => {
   const [summaryResponse, pendingResponse, assignedResponse] = await Promise.all([
-    apiRequest<Record<string, unknown>>('/dashboard/summary'),
-    apiRequest<unknown>('/tasks/list?status=pending'),
-    apiRequest<unknown>('/tasks/list?status=assigned'),
+    getSummaryResponse(),
+    requestTaskList('pending'),
+    requestTaskList('assigned'),
   ])
 
   return {
     summary: normalizeSummary(summaryResponse),
-    pendingTasks: asArray<Record<string, unknown>>(pendingResponse).map((task) =>
-      normalizeTask({ ...task, status: task.status ?? 'pending' }),
-    ),
-    assignedTasks: asArray<Record<string, unknown>>(assignedResponse).map((task) =>
-      normalizeTask({ ...task, status: task.status ?? 'assigned' }),
-    ),
+    pendingTasks: pendingResponse,
+    assignedTasks: assignedResponse,
   }
 }
 
 export const getDashboardSummary = async () => {
-  const response = await apiRequest<Record<string, unknown>>('/dashboard/summary')
+  const response = await getSummaryResponse()
   return normalizeSummary(response) as DashboardSummary
 }
 
 export const getDashboardTasks = async (scope: 'all' | 'my' | 'team' = 'all') => {
-  const path =
-    scope === 'my' ? '/dashboard/my-tasks' : scope === 'team' ? '/dashboard/team-tasks' : '/dashboard/tasks'
+  if (scope === 'all') {
+    return requestTaskList()
+  }
+
+  const path = scope === 'my' ? '/dashboard/my-tasks' : '/dashboard/team-tasks'
   return requestTaskPath(path)
 }
 
@@ -124,6 +134,10 @@ export const getDashboardTasksByPaths = async (paths: string[]) => {
     } catch (error) {
       lastError = error
     }
+  }
+
+  if (paths.includes('/dashboard/tasks')) {
+    return requestTaskList()
   }
 
   throw lastError instanceof Error ? lastError : new Error('Unable to load tasks for current role.')

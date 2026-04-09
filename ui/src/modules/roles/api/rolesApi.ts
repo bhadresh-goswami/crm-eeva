@@ -1,4 +1,4 @@
-import { apiRequest } from '../../../api/client'
+import { apiRequest, apiRequestWithFallback } from '../../../api/client'
 
 export type Role = {
   id: number
@@ -60,7 +60,7 @@ const extractRoles = (payload: unknown): RoleApiItem[] => {
 }
 
 export const getRoles = async () => {
-  const response = await apiRequest('/roles/list')
+  const response = await apiRequestWithFallback<unknown>(['/roles/list', '/roles'])
   return extractRoles(response)
     .map(normalizeRole)
     .filter((role) => role.id > 0 && role.name)

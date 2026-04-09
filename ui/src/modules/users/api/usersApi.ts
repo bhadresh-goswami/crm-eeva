@@ -1,4 +1,4 @@
-import { apiRequest } from '../../../api/client'
+import { apiRequest, apiRequestWithFallback } from '../../../api/client'
 
 export type UserItem = {
   id: number
@@ -39,12 +39,12 @@ type RolesListResponse = {
 }
 
 export const getUsers = async () => {
-  const response = await apiRequest<UsersListResponse>('/users/list')
+  const response = await apiRequestWithFallback<UsersListResponse>(['/users/list', '/users'])
   return response.data ?? []
 }
 
 export const getRoleOptions = async () => {
-  const response = await apiRequest<RolesListResponse>('/roles/list')
+  const response = await apiRequestWithFallback<RolesListResponse>(['/roles/list', '/roles'])
   const data = response.data ?? []
 
   return data

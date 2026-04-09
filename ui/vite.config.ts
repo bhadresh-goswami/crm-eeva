@@ -14,7 +14,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://support.bsquareg-developers.com',
+        target: 'https://support.bsquareg-developers.com',
         changeOrigin: true,
       },
     },

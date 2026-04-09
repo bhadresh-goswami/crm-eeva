@@ -1,7 +1,7 @@
 let unauthorizedHandler: (() => void) | undefined
 
 const AUTH_STORAGE_KEY = 'crm_auth'
-const API_BASE_URL = '/api'
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || '/api'
 
 const getStoredToken = () => {
   const raw = localStorage.getItem(AUTH_STORAGE_KEY)
@@ -23,8 +23,53 @@ const buildApiUrl = (path: string) => {
     return path
   }
 
+  if (path.startsWith('/api/')) {
+    return path
+  }
+
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   return `${API_BASE_URL}${normalizedPath}`
+}
+
+
+class ApiHttpError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiHttpError'
+    this.status = status
+  }
+}
+
+const parseErrorMessage = (body: string, status: number) => {
+  if (!body) {
+    return `Request failed with status ${status}`
+  }
+
+  try {
+    const parsed = JSON.parse(body) as {
+      message?: string
+      error?: string
+      errors?: string[]
+      data?: { message?: string; error?: string }
+    }
+
+    const candidate =
+      parsed.message ??
+      parsed.error ??
+      parsed.data?.message ??
+      parsed.data?.error ??
+      (Array.isArray(parsed.errors) ? parsed.errors[0] : '')
+
+    if (candidate && String(candidate).trim()) {
+      return String(candidate).trim()
+    }
+  } catch {
+    // Ignore JSON parse error and fallback to plain text.
+  }
+
+  return body
 }
 
 export const setUnauthorizedHandler = (handler?: () => void) => {
@@ -43,7 +88,8 @@ export const apiRequest = async <TResponse = unknown>(
   }
 
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  const isAuthRoute = normalizedPath === '/login'
+  const authPath = normalizedPath.split('?')[0].replace(/\/+$/, '')
+  const isAuthRoute = authPath === '/login' || authPath === '/api/login'
 
   if (token && !isAuthRoute) {
     headers.set('Authorization', `Bearer ${token}`)
@@ -60,8 +106,8 @@ export const apiRequest = async <TResponse = unknown>(
   }
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(message || `Request failed with status ${response.status}`)
+    const message = parseErrorMessage(await response.text(), response.status)
+    throw new ApiHttpError(response.status, message)
   }
 
   if (response.status === 204) {
@@ -79,4 +125,24 @@ export const apiRequest = async <TResponse = unknown>(
   } catch {
     return rawBody as TResponse
   }
+}
+
+export const apiRequestWithFallback = async <TResponse = unknown>(
+  paths: string[],
+  init: RequestInit = {},
+): Promise<TResponse> => {
+  let lastError: unknown = null
+
+  for (const path of paths) {
+    try {
+      return await apiRequest<TResponse>(path, init)
+    } catch (error) {
+      if (error instanceof ApiHttpError && error.status !== 404) {
+        throw error
+      }
+      lastError = error
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('API request failed.')
 }
