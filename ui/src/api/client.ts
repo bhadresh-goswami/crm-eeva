@@ -38,15 +38,16 @@ export const apiRequest = async <TResponse = unknown>(
 ): Promise<TResponse> => {
   const token = getStoredToken()
   const headers = new Headers(init.headers)
+  const skipAuth = headers.get('X-Skip-Auth') === '1'
+  if (skipAuth) {
+    headers.delete('X-Skip-Auth')
+  }
 
   if (!headers.has('Content-Type') && init.body && !(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
 
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  const isAuthRoute = normalizedPath === '/login'
-
-  if (token && !isAuthRoute) {
+  if (token && !skipAuth) {
     headers.set('Authorization', `Bearer ${token}`)
   }
 
