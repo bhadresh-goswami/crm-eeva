@@ -2,16 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import {
   assignManagerTask,
+  getManagerAvailableExperts,
   getManagerDashboardSummary,
   getManagerTasksByStatus,
-  getManagerAvailableExperts,
   type DashboardExpert,
   type DashboardSummary,
   type DashboardTask,
   type ManagerTaskStatus,
 } from '../api/dashboardApi'
 
-const summaryFallback: DashboardSummary = {
+const defaultSummary: DashboardSummary = {
   totalTasks: 0,
   pendingTasks: 0,
   assignedTasks: 0,
@@ -22,7 +22,7 @@ const summaryFallback: DashboardSummary = {
   expertsTotal: 0,
 }
 
-const statusLabels: Record<ManagerTaskStatus, string> = {
+const tabLabels: Record<ManagerTaskStatus, string> = {
   pending: 'Pending',
   assigned: 'Assigned',
   completed: 'Completed',
@@ -30,88 +30,60 @@ const statusLabels: Record<ManagerTaskStatus, string> = {
 }
 
 const ManagerDashboard = () => {
-  const [summary, setSummary] = useState<DashboardSummary>(summaryFallback)
-  const [summaryLoading, setSummaryLoading] = useState(true)
-  const [summaryError, setSummaryError] = useState<string | null>(null)
-
+  const [summaryData, setSummaryData] = useState<DashboardSummary>(defaultSummary)
+  const [tasksData, setTasksData] = useState<DashboardTask[]>([])
   const [activeTab, setActiveTab] = useState<ManagerTaskStatus>('pending')
-  const [tasksByTab, setTasksByTab] = useState<Record<ManagerTaskStatus, DashboardTask[]>>({
-    pending: [],
-    assigned: [],
-    completed: [],
-    cancelled: [],
-  })
-  const [loadingByTab, setLoadingByTab] = useState<Record<ManagerTaskStatus, boolean>>({
-    pending: true,
-    assigned: false,
-    completed: false,
-    cancelled: false,
-  })
-  const [loadedTabs, setLoadedTabs] = useState<Record<ManagerTaskStatus, boolean>>({
-    pending: false,
-    assigned: false,
-    completed: false,
-    cancelled: false,
-  })
-  const [tableError, setTableError] = useState<string | null>(null)
+  const [loadingSummary, setLoadingSummary] = useState<boolean>(true)
+  const [loadingTasks, setLoadingTasks] = useState<boolean>(true)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [tasksError, setTasksError] = useState<string | null>(null)
 
-  const [viewingTask, setViewingTask] = useState<DashboardTask | null>(null)
   const [assigningTask, setAssigningTask] = useState<DashboardTask | null>(null)
-  const [experts, setExperts] = useState<DashboardExpert[]>([])
-  const [expertsLoading, setExpertsLoading] = useState(false)
-  const [expertsError, setExpertsError] = useState<string | null>(null)
+  const [availableExperts, setAvailableExperts] = useState<DashboardExpert[]>([])
+  const [loadingExperts, setLoadingExperts] = useState(false)
+  const [assignError, setAssignError] = useState<string | null>(null)
   const [selectedExpertId, setSelectedExpertId] = useState<string>('')
-  const [assigningLoading, setAssigningLoading] = useState(false)
+  const [submittingAssign, setSubmittingAssign] = useState(false)
 
-  useEffect(() => {
-    let mounted = true
+  const [detailTask, setDetailTask] = useState<DashboardTask | null>(null)
 
-    const loadSummary = async () => {
-      try {
-        setSummaryLoading(true)
-        setSummaryError(null)
-        const response = await getManagerDashboardSummary()
-        if (!mounted) return
-        setSummary(response)
-      } catch (error) {
-        console.error('Failed to load dashboard summary', error)
-        if (!mounted) return
-        setSummaryError(error instanceof Error ? error.message : 'Unable to load summary cards.')
-      } finally {
-        if (mounted) {
-          setSummaryLoading(false)
-        }
-      }
-    }
-
-    void loadSummary()
-
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  const loadTabTasks = async (status: ManagerTaskStatus, force = false) => {
-    if (loadedTabs[status] && !force) {
-      return
-    }
-
+  const loadSummary = async () => {
     try {
-      setLoadingByTab((prev) => ({ ...prev, [status]: true }))
-      setTableError(null)
-      const response = await getManagerTasksByStatus(status)
-      setTasksByTab((prev) => ({ ...prev, [status]: response }))
-      setLoadedTabs((prev) => ({ ...prev, [status]: true }))
+      setLoadingSummary(true)
+      setSummaryError(null)
+      const response = await getManagerDashboardSummary()
+      console.log('Summary API:', response)
+      setSummaryData(response)
     } catch (error) {
-      console.error(`Failed to load ${status} tasks`, error)
-      setTableError(error instanceof Error ? error.message : 'Unable to load tasks for the selected tab.')
+      console.error('Failed to load dashboard summary', error)
+      setSummaryError(error instanceof Error ? error.message : 'Unable to load summary data.')
     } finally {
-      setLoadingByTab((prev) => ({ ...prev, [status]: false }))
+      setLoadingSummary(false)
+    }
+  }
+
+  const loadTasksByStatus = async (status: ManagerTaskStatus) => {
+    try {
+      setLoadingTasks(true)
+      setTasksError(null)
+      const response = await getManagerTasksByStatus(status)
+      console.log('Tasks API:', response)
+      setTasksData(response)
+    } catch (error) {
+      console.error(`Failed to load tasks for ${status}`, error)
+      setTasksError(error instanceof Error ? error.message : 'Unable to load tasks for this tab.')
+      setTasksData([])
+    } finally {
+      setLoadingTasks(false)
     }
   }
 
   useEffect(() => {
-    void loadTabTasks(activeTab)
+    void loadSummary()
+  }, [])
+
+  useEffect(() => {
+    void loadTasksByStatus(activeTab)
   }, [activeTab])
 
   useEffect(() => {
@@ -119,15 +91,15 @@ const ManagerDashboard = () => {
 
     const loadExperts = async () => {
       if (!assigningTask) {
-        setExperts([])
-        setExpertsError(null)
+        setAvailableExperts([])
+        setAssignError(null)
         setSelectedExpertId('')
         return
       }
 
       try {
-        setExpertsLoading(true)
-        setExpertsError(null)
+        setLoadingExperts(true)
+        setAssignError(null)
         const response = await getManagerAvailableExperts({
           taskDate: assigningTask.dueDate ?? '',
           startTime: assigningTask.startTime ?? '',
@@ -136,16 +108,17 @@ const ManagerDashboard = () => {
 
         if (!mounted) return
 
-        setExperts(response)
+        const onlyAvailable = response.filter((expert) => expert.isAvailable)
+        setAvailableExperts(onlyAvailable)
         setSelectedExpertId('')
       } catch (error) {
-        console.error('Failed to load available experts', error)
+        console.error('Failed to load experts for assign modal', error)
         if (!mounted) return
-        setExperts([])
-        setExpertsError(error instanceof Error ? error.message : 'Unable to load experts for this slot.')
+        setAssignError(error instanceof Error ? error.message : 'Unable to load experts.')
+        setAvailableExperts([])
       } finally {
         if (mounted) {
-          setExpertsLoading(false)
+          setLoadingExperts(false)
         }
       }
     }
@@ -157,64 +130,40 @@ const ManagerDashboard = () => {
     }
   }, [assigningTask])
 
-  const currentTasks = tasksByTab[activeTab]
-  const currentTabLoading = loadingByTab[activeTab]
-
   const cards = useMemo(
     () => [
-      { label: 'Total Tasks', value: summary.totalTasks, action: undefined },
-      {
-        label: 'Pending Tasks',
-        value: summary.pendingTasks,
-        action: () => setActiveTab('pending' as const),
-      },
-      {
-        label: 'Assigned Tasks',
-        value: summary.assignedTasks,
-        action: () => setActiveTab('assigned' as const),
-      },
-      {
-        label: 'Cancelled Tasks',
-        value: summary.cancelledTasks ?? 0,
-        action: () => setActiveTab('cancelled' as const),
-      },
-      { label: 'Total Clients', value: summary.totalClients, action: undefined },
-      { label: 'Experts', value: summary.expertsTotal, action: undefined },
+      { label: 'Total Tasks', value: summaryData.totalTasks },
+      { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const },
+      { label: 'Assigned Tasks', value: summaryData.assignedTasks, tab: 'assigned' as const },
+      { label: 'Cancelled Tasks', value: summaryData.cancelledTasks ?? 0, tab: 'cancelled' as const },
+      { label: 'Total Clients', value: summaryData.totalClients },
+      { label: 'Experts', value: summaryData.expertsTotal },
     ],
-    [summary],
+    [summaryData],
   )
 
-  const taskAction = (task: DashboardTask) => {
-    if (task.status === 'pending') {
-      return { label: 'Assign', disabled: false }
-    }
-
-    if (task.status === 'assigned') {
-      return { label: 'Reassign', disabled: false }
-    }
-
+  const getActionConfig = (status: string) => {
+    if (status === 'pending') return { label: 'Assign', disabled: false }
+    if (status === 'assigned') return { label: 'Reassign', disabled: false }
     return { label: 'Assign', disabled: true }
   }
 
-  const handleAssignSubmit = async () => {
+  const handleAssign = async () => {
     if (!assigningTask || !selectedExpertId) return
 
     try {
-      setAssigningLoading(true)
-      setExpertsError(null)
+      setSubmittingAssign(true)
+      setAssignError(null)
       await assignManagerTask(assigningTask.id, selectedExpertId)
       setAssigningTask(null)
       setSelectedExpertId('')
-      await loadTabTasks(activeTab, true)
-      setSummaryLoading(true)
-      const refreshedSummary = await getManagerDashboardSummary()
-      setSummary(refreshedSummary)
+      await loadTasksByStatus(activeTab)
+      await loadSummary()
     } catch (error) {
       console.error('Failed to assign task', error)
-      setExpertsError(error instanceof Error ? error.message : 'Unable to assign task.')
+      setAssignError(error instanceof Error ? error.message : 'Unable to assign task.')
     } finally {
-      setAssigningLoading(false)
-      setSummaryLoading(false)
+      setSubmittingAssign(false)
     }
   }
 
@@ -224,12 +173,12 @@ const ManagerDashboard = () => {
       <p className="page-description">Live dashboard summary and task assignment workflow.</p>
 
       <div className="cards-grid dashboard-cards">
-        {summaryLoading
+        {loadingSummary
           ? Array.from({ length: 6 }).map((_, index) => (
               <article key={index} className="card skeleton-card" aria-hidden="true" />
             ))
           : cards.map((card) => {
-              if (!card.action) {
+              if (!card.tab) {
                 return (
                   <article className="card" key={card.label}>
                     <p className="dashboard-card__label">{card.label}</p>
@@ -239,7 +188,12 @@ const ManagerDashboard = () => {
               }
 
               return (
-                <button type="button" className="card dashboard-card-button" key={card.label} onClick={card.action}>
+                <button
+                  key={card.label}
+                  type="button"
+                  className="card dashboard-card-button"
+                  onClick={() => setActiveTab(card.tab)}
+                >
                   <p className="dashboard-card__label">{card.label}</p>
                   <h3 className="dashboard-card__value">{card.value}</h3>
                 </button>
@@ -249,7 +203,7 @@ const ManagerDashboard = () => {
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
-        {(Object.keys(statusLabels) as ManagerTaskStatus[]).map((status) => (
+        {(Object.keys(tabLabels) as ManagerTaskStatus[]).map((status) => (
           <button
             key={status}
             type="button"
@@ -258,12 +212,12 @@ const ManagerDashboard = () => {
             aria-selected={activeTab === status}
             onClick={() => setActiveTab(status)}
           >
-            {statusLabels[status]}
+            {tabLabels[status]}
           </button>
         ))}
       </div>
 
-      {tableError ? <p className="dashboard-notice">{tableError}</p> : null}
+      {tasksError ? <p className="dashboard-notice">{tasksError}</p> : null}
 
       <div className="roles-table__wrapper dashboard-table-wrap">
         <table className="roles-table dashboard-table">
@@ -281,21 +235,17 @@ const ManagerDashboard = () => {
             </tr>
           </thead>
           <tbody>
-            {currentTabLoading ? (
+            {loadingTasks ? (
               <tr>
-                <td colSpan={9} className="dashboard-empty">
-                  Loading tasks...
-                </td>
+                <td colSpan={9} className="dashboard-empty">Loading tasks...</td>
               </tr>
-            ) : currentTasks.length === 0 ? (
+            ) : tasksData.length === 0 ? (
               <tr>
-                <td colSpan={9} className="dashboard-empty">
-                  No tasks found
-                </td>
+                <td colSpan={9} className="dashboard-empty">No tasks found</td>
               </tr>
             ) : (
-              currentTasks.map((task, index) => {
-                const action = taskAction(task)
+              tasksData.map((task, index) => {
+                const action = getActionConfig(task.status)
                 return (
                   <tr key={task.id}>
                     <td>{index + 1}</td>
@@ -303,14 +253,10 @@ const ManagerDashboard = () => {
                     <td>{task.candidate || '—'}</td>
                     <td>{task.client || '—'}</td>
                     <td>{task.startTime && task.endTime ? `${task.startTime} - ${task.endTime}` : task.scheduleTime || '—'}</td>
-                    <td>
-                      <span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : task.status === 'cancelled' ? 'status-pill--inactive' : ''}`}>
-                        {task.status}
-                      </span>
-                    </td>
+                    <td><span className="status-pill">{task.status}</span></td>
                     <td>{task.assignedToName || '—'}</td>
                     <td>
-                      <button type="button" className="button users-icon-btn" onClick={() => setViewingTask(task)}>
+                      <button type="button" className="button users-icon-btn" onClick={() => setDetailTask(task)}>
                         View
                       </button>
                     </td>
@@ -341,7 +287,7 @@ const ManagerDashboard = () => {
         title={assigningTask?.status === 'assigned' ? 'Reassign Task' : 'Assign Task'}
       >
         <h3 className="modal-title">{assigningTask?.status === 'assigned' ? 'Reassign Task' : 'Assign Task'}</h3>
-        {expertsLoading ? (
+        {loadingExperts ? (
           <p className="card-text">Loading experts...</p>
         ) : (
           <div className="roles-table__wrapper" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
@@ -354,41 +300,28 @@ const ManagerDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {experts.length === 0 ? (
+                {availableExperts.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="dashboard-empty">No experts found</td>
+                    <td colSpan={3} className="dashboard-empty">No available experts found</td>
                   </tr>
                 ) : (
-                  experts.map((expert) => {
-                    const isAvailable = expert.isAvailable
-                    return (
-                      <tr key={expert.id}>
-                        <td>{expert.name}</td>
-                        <td>
-                          <span className={`status-pill ${isAvailable ? 'status-pill--active' : 'status-pill--inactive'}`}>
-                            {isAvailable ? 'Available' : 'Not Available'}
-                          </span>
-                        </td>
-                        <td>
-                          {isAvailable ? (
-                            <button type="button" className="button" onClick={() => setSelectedExpertId(expert.id)}>
-                              {selectedExpertId === expert.id ? 'Selected' : 'Select'}
-                            </button>
-                          ) : (
-                            <span className="card-text">Not Available</span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })
+                  availableExperts.map((expert) => (
+                    <tr key={expert.id}>
+                      <td>{expert.name}</td>
+                      <td><span className="status-pill status-pill--active">Available</span></td>
+                      <td>
+                        <button type="button" className="button" onClick={() => setSelectedExpertId(expert.id)}>
+                          {selectedExpertId === expert.id ? 'Selected' : 'Select'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
           </div>
         )}
-
-        {expertsError ? <p className="auth-card__error">{expertsError}</p> : null}
-
+        {assignError ? <p className="auth-card__error">{assignError}</p> : null}
         <div className="modal-actions">
           <button
             type="button"
@@ -403,22 +336,22 @@ const ManagerDashboard = () => {
           <button
             type="button"
             className="button button--primary"
-            disabled={assigningLoading || expertsLoading || !selectedExpertId}
-            onClick={() => void handleAssignSubmit()}
+            disabled={loadingExperts || submittingAssign || !selectedExpertId}
+            onClick={() => void handleAssign()}
           >
-            {assigningLoading ? 'Submitting...' : assigningTask?.status === 'assigned' ? 'Reassign' : 'Assign'}
+            {submittingAssign ? 'Submitting...' : assigningTask?.status === 'assigned' ? 'Reassign' : 'Assign'}
           </button>
         </div>
       </AnimatedModal>
 
-      <AnimatedModal isOpen={Boolean(viewingTask)} onClose={() => setViewingTask(null)} title="Task details">
+      <AnimatedModal isOpen={Boolean(detailTask)} onClose={() => setDetailTask(null)} title="Task details">
         <h3 className="modal-title">Task details</h3>
-        <p className="page-description"><strong>Title:</strong> {viewingTask?.title || '—'}</p>
-        <p className="page-description"><strong>Candidate:</strong> {viewingTask?.candidate || '—'}</p>
-        <p className="page-description"><strong>Company:</strong> {viewingTask?.client || '—'}</p>
-        <p className="page-description"><strong>Status:</strong> {viewingTask?.status || '—'}</p>
+        <p className="page-description"><strong>Title:</strong> {detailTask?.title || '—'}</p>
+        <p className="page-description"><strong>Candidate:</strong> {detailTask?.candidate || '—'}</p>
+        <p className="page-description"><strong>Company:</strong> {detailTask?.client || '—'}</p>
+        <p className="page-description"><strong>Status:</strong> {detailTask?.status || '—'}</p>
         <p className="page-description"><strong>Description:</strong></p>
-        <div className="card" dangerouslySetInnerHTML={{ __html: viewingTask?.description || '—' }} />
+        <div className="card" dangerouslySetInnerHTML={{ __html: detailTask?.description || '—' }} />
       </AnimatedModal>
     </section>
   )
