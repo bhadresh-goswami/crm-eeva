@@ -1,4 +1,4 @@
-import { apiRequest } from '../../../api/client'
+import { apiRequest, apiRequestWithFallback } from '../../../api/client'
 const FILE_BASE_URL = 'https://support.bsquareg-developers.com/supporting-document'
 
 export type TaskRecord = {
@@ -133,7 +133,7 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
 })
 
 export const getTasks = async () => {
-  const response = await apiRequest<unknown>('/tasks/list')
+  const response = await apiRequestWithFallback<unknown>(['/tasks/list', '/tasks'])
 
   return getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
