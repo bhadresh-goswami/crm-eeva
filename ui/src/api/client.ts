@@ -1,7 +1,7 @@
 let unauthorizedHandler: (() => void) | undefined
 
 const AUTH_STORAGE_KEY = 'crm_auth'
-const API_BASE_URL = 'https://support.bsquareg-developers.com/api'
+const API_BASE_URL = '/api'
 
 const getStoredToken = () => {
   const raw = localStorage.getItem(AUTH_STORAGE_KEY) ?? sessionStorage.getItem(AUTH_STORAGE_KEY)
@@ -43,7 +43,10 @@ export const apiRequest = async <TResponse = unknown>(
     headers.set('Content-Type', 'application/json')
   }
 
-  if (token) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const isAuthRoute = normalizedPath === '/login'
+
+  if (token && !isAuthRoute) {
     headers.set('Authorization', `Bearer ${token}`)
   }
 

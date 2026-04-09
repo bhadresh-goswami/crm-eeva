@@ -1,3 +1,4 @@
+import axios, { type RequestConfig } from 'axios'
 import { apiRequest } from '../../../api/client'
 
 export type DashboardTask = {
@@ -24,6 +25,12 @@ export type DashboardSummary = {
   totalClients: number
   expertsPresent: number
   expertsTotal: number
+}
+
+type ManagerDashboardPayload = {
+  summary: DashboardSummary
+  pendingTasks: DashboardTask[]
+  assignedTasks: DashboardTask[]
 }
 
 const asArray = <T>(payload: unknown): T[] => {
@@ -69,18 +76,37 @@ const requestTaskPath = async (path: string) => {
   return asArray<Record<string, unknown>>(response).map(normalizeTask)
 }
 
-export const getDashboardSummary = async () => {
-  const response = await apiRequest<Record<string, unknown>>('/dashboard/summary')
+const normalizeSummary = (response: Record<string, unknown>) => ({
+  totalTasks: asNumber(response.totalTasks ?? response.total_tasks),
+  pendingTasks: asNumber(response.pendingTasks ?? response.pending_tasks),
+  assignedTasks: asNumber(response.assignedTasks ?? response.assigned_tasks),
+  completedTasks: asNumber(response.completedTasks ?? response.completed_tasks),
+  totalClients: asNumber(response.totalClients ?? response.total_clients ?? response.clients),
+  expertsPresent: asNumber(response.expertsPresent ?? response.experts_present),
+  expertsTotal: asNumber(response.expertsTotal ?? response.experts_total ?? response.experts),
+})
+
+export const getManagerDashboardData = async (): Promise<ManagerDashboardPayload> => {
+  const [summaryResponse, pendingResponse, assignedResponse] = await Promise.all([
+    apiRequest<Record<string, unknown>>('/dashboard/summary'),
+    apiRequest<unknown>('/tasks/list?status=pending'),
+    apiRequest<unknown>('/tasks/list?status=assigned'),
+  ])
 
   return {
-    totalTasks: asNumber(response.totalTasks ?? response.total_tasks),
-    pendingTasks: asNumber(response.pendingTasks ?? response.pending_tasks),
-    assignedTasks: asNumber(response.assignedTasks ?? response.assigned_tasks),
-    completedTasks: asNumber(response.completedTasks ?? response.completed_tasks),
-    totalClients: asNumber(response.totalClients ?? response.total_clients),
-    expertsPresent: asNumber(response.expertsPresent ?? response.experts_present),
-    expertsTotal: asNumber(response.expertsTotal ?? response.experts_total),
-  } as DashboardSummary
+    summary: normalizeSummary(summaryResponse),
+    pendingTasks: asArray<Record<string, unknown>>(pendingResponse).map((task) =>
+      normalizeTask({ ...task, status: task.status ?? 'pending' }),
+    ),
+    assignedTasks: asArray<Record<string, unknown>>(assignedResponse).map((task) =>
+      normalizeTask({ ...task, status: task.status ?? 'assigned' }),
+    ),
+  }
+}
+
+export const getDashboardSummary = async () => {
+  const response = await apiRequest<Record<string, unknown>>('/dashboard/summary')
+  return normalizeSummary(response) as DashboardSummary
 }
 
 export const getDashboardTasks = async (scope: 'all' | 'my' | 'team' = 'all') => {
@@ -114,7 +140,6 @@ export const assignDashboardTask = async (taskId: string, expertId: string) => {
     body: JSON.stringify({ taskId, expertId }),
   })
 }
-
 
 export const updateDashboardTaskStatus = async (taskId: string, status: string) => {
   await apiRequest('/dashboard/update-status', {
