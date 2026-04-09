@@ -541,11 +541,14 @@ p {
 }
 
 .tasks-table__wrapper {
-  max-height: 500px;
   overflow-y: auto;
   overflow-x: auto;
   border-radius: 1rem;
   padding: 0;
+}
+
+.tasks-table__wrapper--loaded {
+  max-height: 500px;
 }
 
 .tasks-table__wrapper--modal {
@@ -566,7 +569,7 @@ p {
 }
 
 @media (max-width: 768px) {
-  .tasks-table__wrapper {
+  .tasks-table__wrapper--loaded {
     max-height: 420px;
   }
 }

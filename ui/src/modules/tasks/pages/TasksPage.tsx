@@ -219,6 +219,7 @@ const TasksPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isTableLoaded, setIsTableLoaded] = useState(false)
 
   const [candidateFilter, setCandidateFilter] = useState('')
   const [companyFilter, setCompanyFilter] = useState('')
@@ -280,6 +281,14 @@ const TasksPage = () => {
   useEffect(() => {
     void loadPage()
   }, [loadPage])
+
+  useEffect(() => {
+    if (loading) {
+      setIsTableLoaded(false)
+      return
+    }
+    setIsTableLoaded(true)
+  }, [loading, tasks.length])
 
   useEffect(() => {
     const nextEnd = calcEndTime(formState.start_time, formState.duration)
@@ -650,7 +659,7 @@ const TasksPage = () => {
         </button>
       </div>
 
-      <div className="card tasks-table__wrapper">
+      <div className={`card tasks-table__wrapper ${isTableLoaded ? 'tasks-table__wrapper--loaded' : ''}`}>
         {loading ? <p className="users-loader">Loading tasks...</p> : null}
         {!loading && filteredTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
         {!loading && filteredTasks.length > 0 ? (
