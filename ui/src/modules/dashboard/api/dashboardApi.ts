@@ -33,40 +33,6 @@ type ManagerDashboardPayload = {
   assignedTasks: DashboardTask[]
 }
 
-const AUTH_STORAGE_KEY = 'crm_auth'
-
-const managerDashboardClient = axios.create({
-  baseURL: '/api',
-})
-
-const getStoredToken = () => {
-  const raw = localStorage.getItem(AUTH_STORAGE_KEY)
-
-  if (!raw) {
-    return null
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as { token?: string }
-    return parsed.token ?? null
-  } catch {
-    return null
-  }
-}
-
-managerDashboardClient.interceptors.request.use((config: RequestConfig) => {
-  const token = getStoredToken()
-
-  if (token) {
-    config.headers = {
-      ...(config.headers ?? {}),
-      Authorization: `Bearer ${token}`,
-    }
-  }
-
-  return config
-})
-
 const asArray = <T>(payload: unknown): T[] => {
   if (Array.isArray(payload)) {
     return payload as T[]
@@ -122,17 +88,17 @@ const normalizeSummary = (response: Record<string, unknown>) => ({
 
 export const getManagerDashboardData = async (): Promise<ManagerDashboardPayload> => {
   const [summaryResponse, pendingResponse, assignedResponse] = await Promise.all([
-    managerDashboardClient.get<Record<string, unknown>>('/dashboard/summary'),
-    managerDashboardClient.get<unknown>('/tasks/list?status=pending'),
-    managerDashboardClient.get<unknown>('/tasks/list?status=assigned'),
+    apiRequest<Record<string, unknown>>('/dashboard/summary'),
+    apiRequest<unknown>('/tasks/list?status=pending'),
+    apiRequest<unknown>('/tasks/list?status=assigned'),
   ])
 
   return {
-    summary: normalizeSummary(summaryResponse.data),
-    pendingTasks: asArray<Record<string, unknown>>(pendingResponse.data).map((task) =>
+    summary: normalizeSummary(summaryResponse),
+    pendingTasks: asArray<Record<string, unknown>>(pendingResponse).map((task) =>
       normalizeTask({ ...task, status: task.status ?? 'pending' }),
     ),
-    assignedTasks: asArray<Record<string, unknown>>(assignedResponse.data).map((task) =>
+    assignedTasks: asArray<Record<string, unknown>>(assignedResponse).map((task) =>
       normalizeTask({ ...task, status: task.status ?? 'assigned' }),
     ),
   }
