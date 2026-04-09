@@ -4,7 +4,7 @@ const AUTH_STORAGE_KEY = 'crm_auth'
 const API_BASE_URL = 'https://support.bsquareg-developers.com/api'
 
 const getStoredToken = () => {
-  const raw = localStorage.getItem(AUTH_STORAGE_KEY)
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY) ?? sessionStorage.getItem(AUTH_STORAGE_KEY)
 
   if (!raw) {
     return null
@@ -14,7 +14,8 @@ const getStoredToken = () => {
     const parsed = JSON.parse(raw) as { token?: string }
     return parsed.token ?? null
   } catch {
-    return null
+    const directToken = raw.trim()
+    return directToken || null
   }
 }
 
@@ -38,7 +39,7 @@ export const apiRequest = async <TResponse = unknown>(
   const token = getStoredToken()
   const headers = new Headers(init.headers)
 
-  if (!headers.has('Content-Type') && init.body) {
+  if (!headers.has('Content-Type') && init.body && !(init.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
 
