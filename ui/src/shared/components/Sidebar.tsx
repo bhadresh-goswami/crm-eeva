@@ -17,16 +17,19 @@ const roleNavigation: Record<UserRole, SidebarItem[]> = {
     { label: 'Roles', to: '/roles' },
     { label: 'Client', to: '/clients' },
     { label: 'POC', to: '/pocs' },
+    { label: 'Candidate', to: '/candidates' },
   ],
   manager: [
     { label: 'Dashboard', to: roleDashboardPath.manager },
     { label: 'Tasks', to: '/tasks' },
     { label: 'Client', to: '/clients' },
     { label: 'POC', to: '/pocs' },
+    { label: 'Candidate', to: '/candidates' },
   ],
   coordinator: [
     { label: 'Dashboard', to: roleDashboardPath.coordinator },
     { label: 'Tasks', to: '/tasks' },
+    { label: 'Candidate', to: '/candidates' },
   ],
   expert: [
     { label: 'Dashboard', to: roleDashboardPath.expert },
