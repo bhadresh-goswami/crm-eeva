@@ -659,7 +659,7 @@ const TasksPage = () => {
         </button>
       </div>
 
-      <div className={`card tasks-table__wrapper ${isTableLoaded ? 'tasks-table__wrapper--loaded' : ''}`}>
+      <div className="card table-container tasks-table__wrapper">
         {loading ? <p className="users-loader">Loading tasks...</p> : null}
         {!loading && filteredTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
         {!loading && filteredTasks.length > 0 ? (

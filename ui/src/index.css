@@ -540,15 +540,18 @@ p {
   flex-wrap: wrap;
 }
 
+.table-container {
+  max-height: min(500px, calc(100vh - 300px));
+  overflow-y: auto;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+}
+
 .tasks-table__wrapper {
   overflow-y: auto;
   overflow-x: auto;
   border-radius: 1rem;
   padding: 0;
-}
-
-.tasks-table__wrapper--loaded {
-  max-height: 500px;
 }
 
 .tasks-table__wrapper--modal {
@@ -569,7 +572,7 @@ p {
 }
 
 @media (max-width: 768px) {
-  .tasks-table__wrapper--loaded {
+  .table-container {
     max-height: 420px;
   }
 }
