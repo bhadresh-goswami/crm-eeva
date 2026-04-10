@@ -57,8 +57,9 @@ class DashboardController {
         $conn = $db->connect();
 
         $status = $_GET['status'] ?? 'Pending';
+        $date = $_GET['date'] ?? null;
 
-        $stmt = $conn->prepare("
+        $query = "
             SELECT 
                 t.id,
                 t.title,
@@ -71,6 +72,7 @@ class DashboardController {
                 cand.name as candidate_name,
 
                 ts.name as status,
+                ta.user_id as assigned_to_id,
                 u.name as assigned_to_name
 
             FROM tasks t
@@ -82,11 +84,22 @@ class DashboardController {
             LEFT JOIN task_assignments ta ON t.id = ta.task_id
             LEFT JOIN users u ON ta.user_id = u.id
 
-            WHERE ts.name = ?
-            ORDER BY t.id DESC
-        ");
+            WHERE LOWER(ts.name) = LOWER(?)
+        ";
 
-        $stmt->execute([$status]);
+        $params = [$status];
+        if ($date) {
+            $query .= " AND DATE(t.due_date) = ?";
+            $params[] = $date;
+        }
+
+        $query .= "
+            ORDER BY t.id DESC
+        ";
+
+        $stmt = $conn->prepare($query);
+
+        $stmt->execute($params);
 
         $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -94,7 +107,11 @@ class DashboardController {
             $task['short_description'] = substr(strip_tags($task['description']), 0, 80) . '...';
         }
 
+        error_log("[DashboardController::tasksByStatus] input_status={$status}; input_date={$date}; rows=" . count($tasks));
+        error_log("[DashboardController::tasksByStatus] sql=" . preg_replace('/\s+/', ' ', trim($query)));
+
         echo json_encode([
+            "success" => true,
             "data" => $tasks
         ]);
     }
