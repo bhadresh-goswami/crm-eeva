@@ -287,9 +287,9 @@ const ManagerDashboard = () => {
           setAssigningTask(null)
           setSelectedExpertId('')
         }}
-        title={assigningTask?.status === 'assigned' ? 'Reassign Task' : 'Assign Task'}
+        title={assigningTask?.status === 'assigned' ? '🧑‍💻 Reassign Expert' : '🧑‍💻 Assign Expert'}
       >
-        <h3 className="modal-title">{assigningTask?.status === 'assigned' ? 'Reassign Task' : 'Assign Task'}</h3>
+        <h3 className="modal-title">{assigningTask?.status === 'assigned' ? '🧑‍💻 Reassign Expert' : '🧑‍💻 Assign Expert'}</h3>
         {loadingExperts ? (
           <p className="card-text">Loading experts...</p>
         ) : (
@@ -307,17 +307,32 @@ const ManagerDashboard = () => {
                   availableExperts.map((expert) => (
                     <tr key={expert.id}>
                       <td>{expert.name}</td>
-                      <td><span className="status-pill status-pill--active">Available</span></td>
                       <td>
-                        <button type="button" className="button" onClick={() => setSelectedExpertId(expert.id)}>
-                          {selectedExpertId === expert.id ? 'Selected' : 'Select'}
+                        {expert.status === 'available' ? (
+                          <span className="status-pill status-pill--active">🟢 Available</span>
+                        ) : (
+                          <span className="status-pill status-pill--cancelled">🔴 Busy</span>
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="button"
+                          disabled={expert.status !== 'available'}
+                          onClick={() => setSelectedExpertId(expert.id)}
+                        >
+                          {expert.status === 'available'
+                            ? selectedExpertId === expert.id
+                              ? '✔ Selected'
+                              : '✔ Select'
+                            : '✕ Busy'}
                         </button>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={3} className="dashboard-empty">No available experts found</td>
+                    <td colSpan={3} className="dashboard-empty">⚠️ No experts available for selected time</td>
                   </tr>
                 )}
               </tbody>

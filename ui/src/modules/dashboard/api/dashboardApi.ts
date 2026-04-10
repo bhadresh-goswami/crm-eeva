@@ -19,6 +19,7 @@ export type DashboardTask = {
 export type DashboardExpert = {
   id: string
   name: string
+  status?: 'available' | 'not_available'
   isPresent: boolean
   isAvailable?: boolean
 }
@@ -85,8 +86,15 @@ const normalizeTask = (task: Record<string, unknown>): DashboardTask => ({
 const normalizeExpert = (expert: Record<string, unknown>): DashboardExpert => ({
   id: String(expert.id ?? expert.userId ?? expert.user_id ?? expert._id),
   name: String(expert.name ?? expert.fullName ?? expert.full_name ?? expert.email ?? 'Unknown Expert'),
+  status:
+    String(expert.status ?? '').toLowerCase() === 'not_available'
+      ? 'not_available'
+      : 'available',
   isPresent: Boolean(expert.isPresent ?? expert.present ?? expert.isOnline),
-  isAvailable: Boolean(expert.isAvailable ?? expert.available ?? expert.is_available),
+  isAvailable:
+    String(expert.status ?? '').toLowerCase() === 'not_available'
+      ? false
+      : Boolean(expert.isAvailable ?? expert.available ?? expert.is_available ?? true),
 })
 
 const normalizeSummary = (response: Record<string, unknown>) => ({
