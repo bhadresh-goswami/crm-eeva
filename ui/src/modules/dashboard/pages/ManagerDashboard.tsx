@@ -44,6 +44,7 @@ const ManagerDashboard = () => {
   const [assignError, setAssignError] = useState<string | null>(null)
   const [selectedExpertId, setSelectedExpertId] = useState<string>('')
   const [submittingAssign, setSubmittingAssign] = useState(false)
+  const isAssignModalOpen = Boolean(assigningTask)
 
   const [detailTask, setDetailTask] = useState<DashboardTask | null>(null)
 
@@ -90,7 +91,7 @@ const ManagerDashboard = () => {
     let mounted = true
 
     const loadExperts = async () => {
-      if (!assigningTask) {
+      if (!isAssignModalOpen || !assigningTask) {
         setAvailableExperts([])
         setAssignError(null)
         setSelectedExpertId('')
@@ -105,11 +106,11 @@ const ManagerDashboard = () => {
           startTime: assigningTask.startTime ?? '',
           endTime: assigningTask.endTime ?? '',
         })
+        console.log('Assign modal experts API response:', response)
 
         if (!mounted) return
 
-        const onlyAvailable = response.filter((expert) => expert.isAvailable)
-        setAvailableExperts(onlyAvailable)
+        setAvailableExperts(Array.isArray(response) ? response : [])
         setSelectedExpertId('')
       } catch (error) {
         console.error('Failed to load experts for assign modal', error)
@@ -128,7 +129,7 @@ const ManagerDashboard = () => {
     return () => {
       mounted = false
     }
-  }, [assigningTask])
+  }, [assigningTask, isAssignModalOpen])
 
   const cards = useMemo(
     () => [
@@ -166,6 +167,8 @@ const ManagerDashboard = () => {
       setSubmittingAssign(false)
     }
   }
+
+  console.log('Experts State:', availableExperts)
 
   return (
     <section>
@@ -279,7 +282,7 @@ const ManagerDashboard = () => {
       </div>
 
       <AnimatedModal
-        isOpen={Boolean(assigningTask)}
+        isOpen={isAssignModalOpen}
         onClose={() => {
           setAssigningTask(null)
           setSelectedExpertId('')
@@ -300,11 +303,7 @@ const ManagerDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {availableExperts.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="dashboard-empty">No available experts found</td>
-                  </tr>
-                ) : (
+                {Array.isArray(availableExperts) && availableExperts.length > 0 ? (
                   availableExperts.map((expert) => (
                     <tr key={expert.id}>
                       <td>{expert.name}</td>
@@ -316,6 +315,10 @@ const ManagerDashboard = () => {
                       </td>
                     </tr>
                   ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="dashboard-empty">No available experts found</td>
+                  </tr>
                 )}
               </tbody>
             </table>
