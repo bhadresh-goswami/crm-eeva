@@ -259,7 +259,7 @@ elseif ($uri === "/tasks/list") {
     authorize($user,['admin','manager','coordinator','expert','expertlead']);
     (new TaskController())->list();
 }
-elseif ($uri === "/expert/tasks" && $method === "GET") {
+elseif (preg_match('#/expert/tasks$#', $uri) && $method === "GET") {
     authorize($user,['expert']);
     (new TaskController())->expertTasks($user->id);
 }
