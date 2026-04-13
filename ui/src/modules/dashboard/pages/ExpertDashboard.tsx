@@ -21,19 +21,24 @@ const ExpertDashboard = () => {
     { month: 'Mar', value: 85 },
   ])
 
+  const loadTasks = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await getExpertTasks({ activeOnly: true })
+      setTasks(result)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Unable to fetch tasks.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     let mounted = true
     const load = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const result = await getExpertTasks({ activeOnly: true })
-        if (mounted) setTasks(result)
-      } catch (loadError) {
-        if (mounted) setError(loadError instanceof Error ? loadError.message : 'Unable to fetch tasks.')
-      } finally {
-        if (mounted) setLoading(false)
-      }
+      if (!mounted) return
+      await loadTasks()
     }
     void load()
     return () => {
@@ -138,6 +143,7 @@ const ExpertDashboard = () => {
         error={error}
         emptyText="No active tasks assigned"
         currentUserId={Number(user?.id ?? 0)}
+        onTaskUpdated={loadTasks}
       />
     </section>
   )
