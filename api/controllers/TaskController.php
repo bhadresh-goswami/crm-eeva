@@ -6,7 +6,28 @@ class TaskController {
     public function expertTasks($user_id) {
         $db = new Database();
         $conn = $db->connect();
-        $activeOnly = isset($_GET['active_only']) && (string)$_GET['active_only'] === '1';
+
+        $visibleUserIds = $this->getHierarchyUserIds($conn, (int)$user_id);
+        if (empty($visibleUserIds)) {
+            $visibleUserIds = [(int)$user_id];
+        }
+
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $assignedByColumn = null;
+        foreach (['assigned_by', 'assigned_by_id'] as $columnName) {
+            if (in_array($columnName, $assignmentColumns, true)) {
+                $assignedByColumn = $columnName;
+                break;
+            }
+        }
+
+        $placeholders = implode(',', array_fill(0, count($visibleUserIds), '?'));
+        $assignedByJoin = $assignedByColumn
+            ? "LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.{$assignedByColumn}"
+            : "";
+        $assignedBySelect = $assignedByColumn
+            ? "COALESCE(assigned_by_user.name, '') AS assigned_by_name,"
+            : "'' AS assigned_by_name,";
 
         $query = "
             SELECT
@@ -20,25 +41,29 @@ class TaskController {
                 t.end_time,
                 t.status_id,
                 COALESCE(ts.name, '') AS status_name,
+                ta.user_id AS assigned_to_id,
+                COALESCE(assigned_to_user.name, '') AS assigned_to_name,
+                CASE WHEN ta.user_id = ? THEN 1 ELSE 0 END AS is_own_task,
+                {$assignedBySelect}
                 tf.file_url
             FROM task_assignments ta
             INNER JOIN tasks t ON t.id = ta.task_id
             LEFT JOIN candidates cand ON cand.id = t.candidate_id
             LEFT JOIN clients c ON c.id = t.client_id
             LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN users assigned_to_user ON assigned_to_user.id = ta.user_id
+            {$assignedByJoin}
             LEFT JOIN task_files tf
               ON tf.id = (
                   SELECT id FROM task_files
                   WHERE task_id = t.id
                   ORDER BY id DESC LIMIT 1
               )
-            WHERE ta.user_id = ?
+            WHERE ta.user_id IN ({$placeholders})
+              AND ta.is_active = 1
         ";
 
-        $params = [$user_id];
-        if ($activeOnly) {
-            $query .= " AND ta.is_active = 1";
-        }
+        $params = array_merge([(int)$user_id], $visibleUserIds);
 
         $query .= "
             ORDER BY t.due_date ASC, t.start_time ASC, t.id DESC
@@ -52,6 +77,42 @@ class TaskController {
             "success" => true,
             "data" => $tasks
         ]);
+    }
+
+    private function getTableColumns(PDO $conn, string $tableName): array {
+        $stmt = $conn->prepare("SHOW COLUMNS FROM {$tableName}");
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(static fn ($row) => (string)$row['Field'], $rows);
+    }
+
+    private function getHierarchyUserIds(PDO $conn, int $rootUserId): array {
+        $allUserIds = [$rootUserId];
+        $queue = [$rootUserId];
+
+        while (!empty($queue)) {
+            $levelUserIds = [];
+            foreach ($queue as $id) {
+                $levelUserIds[] = (int)$id;
+            }
+            $queue = [];
+
+            $placeholders = implode(',', array_fill(0, count($levelUserIds), '?'));
+            $stmt = $conn->prepare("SELECT id FROM users WHERE parent_id IN ({$placeholders})");
+            $stmt->execute($levelUserIds);
+            $children = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            foreach ($children as $childId) {
+                $childId = (int)$childId;
+                if (!in_array($childId, $allUserIds, true)) {
+                    $allUserIds[] = $childId;
+                    $queue[] = $childId;
+                }
+            }
+        }
+
+        return $allUserIds;
     }
 
     public function cancelTask() {
