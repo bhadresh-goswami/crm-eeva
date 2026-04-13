@@ -132,7 +132,13 @@ const ExpertDashboard = () => {
         </div>
       </div>
 
-      <ExpertTaskTable tasks={tasks} loading={loading} error={error} emptyText="No active tasks assigned" />
+      <ExpertTaskTable
+        tasks={tasks}
+        loading={loading}
+        error={error}
+        emptyText="No active tasks assigned"
+        currentUserId={Number(user?.id ?? 0)}
+      />
     </section>
   )
 }

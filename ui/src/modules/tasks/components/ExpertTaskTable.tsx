@@ -84,7 +84,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId }: Ex
       const searchable = `${task.title} ${task.candidate_name} ${task.company_name} ${task.assigned_to_name} ${task.assigned_by_name}`.toLowerCase()
       const matchesSearch = searchable.includes(search.toLowerCase())
       const matchesStatus = statusFilter === 'all' || task.displayStatus === statusFilter
-      const isMine = task.is_own_task === 1
+      const isMine = task.is_own_task === 1 || (currentUserId > 0 && task.assigned_to_id === currentUserId)
       const matchesAssignment = assignmentFilter === 'all' || (assignmentFilter === 'my' ? isMine : !isMine)
       return matchesSearch && matchesStatus && matchesAssignment
     })
