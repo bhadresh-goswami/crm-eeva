@@ -59,6 +59,13 @@ const formatTimeZone = (dateValue: string, startTime: string, endTime: string, t
   return `${formatter.format(start)} – ${formatter.format(end)}`
 }
 
+const formatDateAndTimeZone = (dateValue: string, startTime: string, endTime: string, timeZone: 'Asia/Kolkata' | 'America/New_York') => {
+  const dateText = formatDate(dateValue)
+  const timeText = formatTimeZone(dateValue, startTime, endTime, timeZone)
+  if (dateText === '—' || timeText === '—') return '—'
+  return `${dateText} | ${timeText}`
+}
+
 const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId }: ExpertTaskTableProps) => {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -221,14 +228,16 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId }: Ex
             <div className="card" style={{ marginBottom: '1rem' }}>
               <h4 style={{ marginBottom: '0.6rem' }}>Basic Info</h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(240px, 1fr))', gap: '0.7rem 1rem' }}>
-                <p><strong>Candidate:</strong> {selectedTask.candidate_name || '—'}</p>
-                <p><strong>Company:</strong> {selectedTask.company_name || '—'}</p>
-                <p><strong>Status:</strong> <span style={badgeStyle(selectedTask.displayStatus)}>{selectedTask.displayStatus}</span></p>
-                <p><strong>Date:</strong> {formatDate(selectedTask.due_date)}</p>
-                <p><strong>IST:</strong> {formatTimeZone(selectedTask.due_date, selectedTask.start_time, selectedTask.end_time, 'Asia/Kolkata')}</p>
-                <p><strong>EST:</strong> {formatTimeZone(selectedTask.due_date, selectedTask.start_time, selectedTask.end_time, 'America/New_York')}</p>
-                <p><strong>Assigned To:</strong> {selectedTask.is_own_task === 1 ? 'Me' : (selectedTask.assigned_to_name || '—')}</p>
-                <p><strong>Assigned By:</strong> {selectedTask.assigned_by_name || '—'}</p>
+                <div style={{ display: 'grid', gap: '0.7rem' }}>
+                  <p><strong>Candidate:</strong> {selectedTask.candidate_name || '—'}</p>
+                  <p><strong>Status:</strong> <span style={badgeStyle(selectedTask.displayStatus)}>{selectedTask.displayStatus}</span></p>
+                  <p><strong>IST:</strong> {formatDateAndTimeZone(selectedTask.due_date, selectedTask.start_time, selectedTask.end_time, 'Asia/Kolkata')}</p>
+                </div>
+                <div style={{ display: 'grid', gap: '0.7rem' }}>
+                  <p><strong>Date:</strong> {formatDate(selectedTask.due_date)}</p>
+                  <p><strong>EST:</strong> {formatDateAndTimeZone(selectedTask.due_date, selectedTask.start_time, selectedTask.end_time, 'America/New_York')}</p>
+                  <p><strong>Assigned By:</strong> {selectedTask.assigned_by_name || '-'}</p>
+                </div>
               </div>
             </div>
 
