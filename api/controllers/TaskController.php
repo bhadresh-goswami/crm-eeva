@@ -210,10 +210,15 @@ public function downloadFile() {
 
         $status = $_GET['status'] ?? null;
         $client_id = $_GET['client_id'] ?? null;
+        $date = $_GET['date'] ?? null;
 
         $query = "
             SELECT 
                 t.id,
+                t.client_id,
+                t.candidate_id,
+                t.poc_id,
+                t.task_type_id,
                 t.title,
                 t.description,
                 t.due_date,
@@ -229,6 +234,8 @@ public function downloadFile() {
                 ts.name AS status,
                 tt.name AS task_type,
                 ps.name AS payment_status,
+                ta.user_id AS assigned_to_id,
+                u.name AS assigned_to_name,
 
                 tf.file_url
 
@@ -239,6 +246,8 @@ public function downloadFile() {
             LEFT JOIN task_status_master ts ON t.status_id = ts.id
             LEFT JOIN task_types tt ON t.task_type_id = tt.id
             LEFT JOIN payment_status_master ps ON t.payment_status_id = ps.id
+            LEFT JOIN task_assignments ta ON ta.task_id = t.id
+            LEFT JOIN users u ON ta.user_id = u.id
 
             LEFT JOIN task_files tf 
             ON tf.id = (
@@ -253,7 +262,7 @@ public function downloadFile() {
         $params = [];
 
         if ($status) {
-            $query .= " AND ts.name = ?";
+            $query .= " AND LOWER(ts.name) = LOWER(?)";
             $params[] = $status;
         }
 
@@ -262,13 +271,23 @@ public function downloadFile() {
             $params[] = $client_id;
         }
 
+        if ($date) {
+            $query .= " AND DATE(t.due_date) = ?";
+            $params[] = $date;
+        }
+
         $query .= " ORDER BY t.id DESC";
 
         $stmt = $conn->prepare($query);
         $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        error_log("[TaskController::list] input_status={$status}; input_date={$date}; rows=" . count($rows));
+        error_log("[TaskController::list] sql=" . preg_replace('/\s+/', ' ', trim($query)));
 
         echo json_encode([
-            "data" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+            "success" => true,
+            "data" => $rows
         ]);
     }
 

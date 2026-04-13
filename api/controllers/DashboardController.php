@@ -57,8 +57,9 @@ class DashboardController {
         $conn = $db->connect();
 
         $status = $_GET['status'] ?? 'Pending';
+        $date = $_GET['date'] ?? null;
 
-        $stmt = $conn->prepare("
+        $query = "
             SELECT 
                 t.id,
                 t.title,
@@ -71,6 +72,7 @@ class DashboardController {
                 cand.name as candidate_name,
 
                 ts.name as status,
+                ta.user_id as assigned_to_id,
                 u.name as assigned_to_name
 
             FROM tasks t
@@ -82,11 +84,22 @@ class DashboardController {
             LEFT JOIN task_assignments ta ON t.id = ta.task_id
             LEFT JOIN users u ON ta.user_id = u.id
 
-            WHERE ts.name = ?
-            ORDER BY t.id DESC
-        ");
+            WHERE LOWER(ts.name) = LOWER(?)
+        ";
 
-        $stmt->execute([$status]);
+        $params = [$status];
+        if ($date) {
+            $query .= " AND DATE(t.due_date) = ?";
+            $params[] = $date;
+        }
+
+        $query .= "
+            ORDER BY t.id DESC
+        ";
+
+        $stmt = $conn->prepare($query);
+
+        $stmt->execute($params);
 
         $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -94,7 +107,11 @@ class DashboardController {
             $task['short_description'] = substr(strip_tags($task['description']), 0, 80) . '...';
         }
 
+        error_log("[DashboardController::tasksByStatus] input_status={$status}; input_date={$date}; rows=" . count($tasks));
+        error_log("[DashboardController::tasksByStatus] sql=" . preg_replace('/\s+/', ' ', trim($query)));
+
         echo json_encode([
+            "success" => true,
             "data" => $tasks
         ]);
     }
@@ -112,28 +129,44 @@ class DashboardController {
     $end = $_GET['end_time'];
 
     $stmt = $conn->prepare("
-        SELECT u.id, u.name
+        SELECT 
+            u.id,
+            u.name,
+            CASE
+                WHEN overlap.task_id IS NULL THEN 'available'
+                ELSE 'not_available'
+            END AS status
         FROM users u
         JOIN roles r ON u.role_id = r.id
-        WHERE r.name = 'technical expert'
-        AND u.status = 1
-        AND u.id NOT IN (
-            SELECT ta.user_id
+        LEFT JOIN (
+            SELECT ta.user_id, ta.task_id
             FROM task_assignments ta
             JOIN tasks t ON ta.task_id = t.id
-            WHERE t.due_date = ?
-            AND NOT (
-                t.end_time <= ? 
-                OR t.start_time >= ?
-            )
-        )
+            LEFT JOIN task_status_master ts ON t.status_id = ts.id
+            WHERE DATE(t.due_date) = ?
+              AND NOT (
+                  t.end_time <= ? 
+                  OR t.start_time >= ?
+              )
+              AND (
+                  ts.id IS NULL
+                  OR LOWER(ts.name) <> 'cancelled'
+              )
+        ) overlap ON overlap.user_id = u.id
+        WHERE r.name = 'technical expert'
+        AND u.status = 1
+        ORDER BY u.name ASC
     ");
 
-    // NOTE order changed
     $stmt->execute([$date, $start, $end]);
 
+    $experts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($experts as &$expert) {
+        $expert['is_available'] = $expert['status'] === 'available';
+    }
+
     echo json_encode([
-        "data" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+        "data" => $experts
     ]);
 }
 
