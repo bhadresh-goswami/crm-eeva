@@ -9,6 +9,7 @@ export type ExpertTaskItem = {
   due_date: string
   start_time: string
   end_time: string
+  support_type: string
   status_id: number
   status_name: string
   assigned_to_id: number
@@ -17,6 +18,8 @@ export type ExpertTaskItem = {
   is_own_task: number
   file_url: string
 }
+
+export type EndTaskStatus = 'Completed' | 'Cancelled' | 'No Show' | 'Rescheduled'
 
 const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   task_id: Number(item.task_id ?? 0),
@@ -27,6 +30,7 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   due_date: String(item.due_date ?? '').trim(),
   start_time: String(item.start_time ?? '').trim(),
   end_time: String(item.end_time ?? '').trim(),
+  support_type: String(item.support_type ?? '').trim(),
   status_id: Number(item.status_id ?? 0),
   status_name: String(item.status_name ?? '').trim(),
   assigned_to_id: Number(item.assigned_to_id ?? 0),
@@ -44,4 +48,26 @@ export const getExpertTasks = async ({ activeOnly = false }: { activeOnly?: bool
   return list
     .map((item) => (item && typeof item === 'object' ? asTask(item as Record<string, unknown>) : null))
     .filter((item): item is ExpertTaskItem => Boolean(item && item.task_id > 0))
+}
+
+export const checkExpertActiveTask = async () => {
+  const response = await apiRequest<{ has_active_task?: boolean; active_task_id?: number | null }>('/expert/tasks/active-check')
+  return {
+    hasActiveTask: Boolean(response?.has_active_task),
+    activeTaskId: Number(response?.active_task_id ?? 0) || null,
+  }
+}
+
+export const startExpertTask = async (taskId: number) => {
+  await apiRequest('/expert/start-task', {
+    method: 'POST',
+    body: JSON.stringify({ task_id: taskId }),
+  })
+}
+
+export const endExpertTask = async (taskId: number, status: EndTaskStatus, comment: string) => {
+  await apiRequest('/expert/tasks/end', {
+    method: 'POST',
+    body: JSON.stringify({ task_id: taskId, status, comment }),
+  })
 }
