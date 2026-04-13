@@ -1,4 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react'
+import { apiFetch } from '../../../api/client'
 import type { ExpertTaskItem } from '../api/expertTasksApi'
 
 type ExpertTaskTableProps = {
@@ -10,19 +11,14 @@ type ExpertTaskTableProps = {
 
 const pageSizes = [5, 10, 20]
 
-const normalizeStatus = (statusName: string, statusId: number) => {
+const statusLabel = (statusName: string) => {
   const value = statusName.trim().toLowerCase()
-  if (value) return value
-  return String(statusId)
-}
-
-const statusLabel = (status: string) => {
-  if (status.includes('pending')) return 'Pending'
-  if (status.includes('assign')) return 'Assigned'
-  if (status.includes('progress')) return 'In Progress'
-  if (status.includes('complete')) return 'Completed'
-  if (status.includes('cancel')) return 'Cancelled'
-  if (status.includes('show')) return 'No Show'
+  if (value.includes('pending')) return 'Pending'
+  if (value.includes('assign')) return 'Assigned'
+  if (value.includes('progress')) return 'In Progress'
+  if (value.includes('complete')) return 'Completed'
+  if (value.includes('cancel')) return 'Cancelled'
+  if (value.includes('show')) return 'No Show'
   return 'Unknown'
 }
 
@@ -37,23 +33,30 @@ const badgeStyle = (label: string): CSSProperties => {
     Unknown: { bg: '#f3f4f6', color: '#4b5563' },
   }
   const style = map[label] ?? map.Unknown
-  return {
-    background: style.bg,
-    color: style.color,
-    borderRadius: 999,
-    padding: '0.2rem 0.65rem',
-    fontSize: 12,
-    fontWeight: 600,
-    display: 'inline-block',
-  }
+  return { background: style.bg, color: style.color, borderRadius: 999, padding: '0.22rem 0.7rem', fontWeight: 600, fontSize: 12 }
 }
 
-const formatDate = (value: string) => {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value || '—' : date.toLocaleDateString()
+const toUtcFromIst = (dateValue: string, timeValue: string) => {
+  const [y, m, d] = dateValue.split('-').map(Number)
+  const [hh, mm, ss = 0] = timeValue.split(':').map(Number)
+  if (!y || !m || !d || Number.isNaN(hh) || Number.isNaN(mm)) return null
+  const utcMs = Date.UTC(y, m - 1, d, hh, mm, ss) - 330 * 60 * 1000
+  return new Date(utcMs)
 }
 
-const formatTime = (value: string) => (value ? value.slice(0, 5) : '—')
+const formatDate = (dateValue: string) => {
+  const start = toUtcFromIst(dateValue, '00:00:00')
+  if (!start) return '—'
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(start)
+}
+
+const formatTimeZone = (dateValue: string, startTime: string, endTime: string, timeZone: 'Asia/Kolkata' | 'America/New_York') => {
+  const start = toUtcFromIst(dateValue, startTime)
+  const end = toUtcFromIst(dateValue, endTime)
+  if (!start || !end) return '—'
+  const formatter = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone })
+  return `${formatter.format(start)} - ${formatter.format(end)}`
+}
 
 const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTableProps) => {
   const [search, setSearch] = useState('')
@@ -63,33 +66,41 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
   const [viewTaskId, setViewTaskId] = useState<number | null>(null)
 
   const mapped = useMemo(
-    () =>
-      tasks.map((task) => {
-        const key = normalizeStatus(task.status_name, task.status_id)
-        const label = statusLabel(key)
-        return { ...task, statusKey: key, statusLabel: label }
-      }),
+    () => tasks.map((task) => ({ ...task, displayStatus: statusLabel(task.status_name) })),
     [tasks],
   )
 
   const filtered = useMemo(() => {
     return mapped.filter((task) => {
-      const searchValue = `${task.task_id} ${task.title} ${task.candidate_name}`.toLowerCase()
-      const passSearch = searchValue.includes(search.trim().toLowerCase())
-      const passStatus = statusFilter === 'all' || task.statusLabel === statusFilter
-      return passSearch && passStatus
+      const searchable = `${task.title} ${task.candidate_name} ${task.company_name}`.toLowerCase()
+      return searchable.includes(search.toLowerCase()) && (statusFilter === 'all' || task.displayStatus === statusFilter)
     })
   }, [mapped, search, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages)
   const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
-  const statusOptions = Array.from(new Set(mapped.map((item) => item.statusLabel)))
   const selectedTask = mapped.find((task) => task.task_id === viewTaskId) ?? null
+  const statusOptions = Array.from(new Set(mapped.map((item) => item.displayStatus)))
+
+  const downloadFile = async (fileName: string) => {
+    if (!fileName) return
+    const response = await apiFetch(`/tasks/file?file=${encodeURIComponent(fileName)}`)
+    if (!response.ok) return
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
 
   return (
-    <div className="card" style={{ borderRadius: 12, padding: 0, overflow: 'hidden' }}>
-      <div style={{ padding: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
+    <div className="card" style={{ borderRadius: 12, overflow: 'hidden', padding: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', padding: '1rem', flexWrap: 'wrap' }}>
         <input
           value={search}
           onChange={(event) => {
@@ -97,7 +108,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
             setPage(1)
           }}
           placeholder="Search..."
-          style={{ border: 'none', borderBottom: '2px solid #d1d5db', padding: '0.5rem 0.25rem', minWidth: 220, outline: 'none' }}
+          style={{ border: 'none', borderBottom: '2px solid #d1d5db', minWidth: 230, padding: '0.45rem 0.3rem', outline: 'none', background: 'transparent' }}
         />
         <select
           value={statusFilter}
@@ -105,13 +116,11 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
             setStatusFilter(event.target.value)
             setPage(1)
           }}
-          style={{ padding: '0.5rem', borderRadius: 8, border: '1px solid #d1d5db' }}
+          style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '0.45rem' }}
         >
           <option value="all">All Status</option>
           {statusOptions.map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
+            <option key={status} value={status}>{status}</option>
           ))}
         </select>
       </div>
@@ -120,42 +129,32 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ background: '#f8fafc' }}>
             <tr>
-              <th style={{ padding: '0.75rem', width: 44 }}><input type="checkbox" aria-label="Select all" /></th>
-              <th style={{ textAlign: 'left', padding: '0.75rem' }}>ID</th>
               <th style={{ textAlign: 'left', padding: '0.75rem' }}>Title</th>
               <th style={{ textAlign: 'left', padding: '0.75rem' }}>Date</th>
-              <th style={{ textAlign: 'left', padding: '0.75rem' }}>Time</th>
+              <th style={{ textAlign: 'left', padding: '0.75rem' }}>Time (IST / EST)</th>
               <th style={{ textAlign: 'left', padding: '0.75rem' }}>Status</th>
               <th style={{ textAlign: 'right', padding: '0.75rem' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={7} style={{ padding: '1rem' }}>Loading tasks...</td></tr>
-            ) : null}
-            {!loading && error ? (
-              <tr><td colSpan={7} style={{ padding: '1rem', color: '#b91c1c' }}>{error}</td></tr>
-            ) : null}
-            {!loading && !error && paged.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: '1rem' }}>{emptyText}</td></tr>
-            ) : null}
+            {loading ? <tr><td colSpan={5} style={{ padding: '1rem' }}>Loading tasks...</td></tr> : null}
+            {!loading && error ? <tr><td colSpan={5} style={{ padding: '1rem', color: '#b91c1c' }}>{error}</td></tr> : null}
+            {!loading && !error && paged.length === 0 ? <tr><td colSpan={5} style={{ padding: '1rem' }}>{emptyText}</td></tr> : null}
             {!loading && !error
               ? paged.map((task) => (
                   <tr key={task.task_id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                    <td style={{ padding: '0.75rem' }}><input type="checkbox" aria-label={`Select task ${task.task_id}`} /></td>
-                    <td style={{ padding: '0.75rem' }}>{task.task_id}</td>
-                    <td style={{ padding: '0.75rem', maxWidth: 260, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={`${task.candidate_name} - ${task.title}`}>
-                      {task.candidate_name ? `${task.candidate_name} - ` : ''}{task.title}
-                    </td>
+                    <td style={{ padding: '0.75rem', maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={task.title}>{task.title || '—'}</td>
                     <td style={{ padding: '0.75rem' }}>{formatDate(task.due_date)}</td>
-                    <td style={{ padding: '0.75rem' }}>{formatTime(task.start_time)} - {formatTime(task.end_time)}</td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <span style={badgeStyle(task.statusLabel)}>{task.statusLabel}</span>
+                    <td style={{ padding: '0.75rem', fontSize: 13 }}>
+                      <div>IST: {formatTimeZone(task.due_date, task.start_time, task.end_time, 'Asia/Kolkata')}</div>
+                      <div>EST: {formatTimeZone(task.due_date, task.start_time, task.end_time, 'America/New_York')}</div>
                     </td>
+                    <td style={{ padding: '0.75rem' }}><span style={badgeStyle(task.displayStatus)}>{task.displayStatus}</span></td>
                     <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                      <button className="button" title="View" style={{ marginRight: 6 }} onClick={() => setViewTaskId(task.task_id)}>👁</button>
-                      <button className="button" title="Start (future)" style={{ marginRight: 6 }}>▶</button>
-                      <button className="button" title="End (future)">⏹</button>
+                      <button className="button" title="View" onClick={() => setViewTaskId(task.task_id)} style={{ marginRight: 6 }}>👁</button>
+                      {task.file_url ? (
+                        <button className="button" title="Download file" onClick={() => void downloadFile(task.file_url)}>⬇</button>
+                      ) : null}
                     </td>
                   </tr>
                 ))
@@ -164,17 +163,10 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
         </table>
       </div>
 
-      <div style={{ padding: '0.9rem 1rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem', alignItems: 'center' }}>
+      <div style={{ borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', alignItems: 'center', padding: '0.85rem 1rem' }}>
         <label>
           Rows per page
-          <select
-            value={pageSize}
-            onChange={(event) => {
-              setPageSize(Number(event.target.value))
-              setPage(1)
-            }}
-            style={{ marginLeft: 8 }}
-          >
+          <select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }} style={{ marginLeft: 8 }}>
             {pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
           </select>
         </label>
@@ -184,38 +176,37 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
       </div>
 
       {selectedTask ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 60,
-            background: 'rgba(15, 23, 42, 0.5)',
-            display: 'grid',
-            placeItems: 'center',
-            padding: '1.5rem',
-          }}
-          onClick={() => setViewTaskId(null)}
-        >
-          <div
-            className="card"
-            style={{ width: 'min(960px, 100%)', borderRadius: 12, padding: '1.25rem', display: 'grid', gap: '1rem' }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-              <h2 style={{ margin: 0 }}>Task Details</h2>
-              <button className="button" onClick={() => setViewTaskId(null)} title="Close">✕</button>
+        <div className="modal-overlay" onClick={() => setViewTaskId(null)}>
+          <div className="modal-card" style={{ width: 'min(1100px, 100%)', maxHeight: '88vh', overflowY: 'auto' }} onClick={(event) => event.stopPropagation()}>
+            <div className="modal-head" style={{ justifyContent: 'space-between' }}>
+              <h3 className="modal-title" style={{ marginBottom: 0 }}>{selectedTask.title || 'Task Details'}</h3>
+              <button className="button" onClick={() => setViewTaskId(null)}>✕</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: '0.85rem 1.25rem' }}>
-              <p><strong>ID:</strong> {selectedTask.task_id}</p>
-              <p><strong>Status:</strong> <span style={badgeStyle(selectedTask.statusLabel)}>{selectedTask.statusLabel}</span></p>
-              <p><strong>Candidate:</strong> {selectedTask.candidate_name || '—'}</p>
-              <p><strong>Title:</strong> {selectedTask.title || '—'}</p>
-              <p><strong>Date:</strong> {formatDate(selectedTask.due_date)}</p>
-              <p><strong>Time:</strong> {formatTime(selectedTask.start_time)} - {formatTime(selectedTask.end_time)}</p>
+            <div className="card" style={{ marginBottom: '1rem' }}>
+              <h4 style={{ marginBottom: '0.6rem' }}>Basic Info</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(240px, 1fr))', gap: '0.7rem 1rem' }}>
+                <p><strong>Candidate:</strong> {selectedTask.candidate_name || '—'}</p>
+                <p><strong>Company:</strong> {selectedTask.company_name || '—'}</p>
+                <p><strong>Status:</strong> <span style={badgeStyle(selectedTask.displayStatus)}>{selectedTask.displayStatus}</span></p>
+                <p><strong>Date:</strong> {formatDate(selectedTask.due_date)}</p>
+                <p><strong>IST:</strong> {formatTimeZone(selectedTask.due_date, selectedTask.start_time, selectedTask.end_time, 'Asia/Kolkata')}</p>
+                <p><strong>EST:</strong> {formatTimeZone(selectedTask.due_date, selectedTask.start_time, selectedTask.end_time, 'America/New_York')}</p>
+              </div>
             </div>
+
+            <div className="card" style={{ marginBottom: '1rem' }}>
+              <h4 style={{ marginBottom: '0.6rem' }}>Description</h4>
+              <div style={{ maxHeight: 280, overflow: 'auto' }} dangerouslySetInnerHTML={{ __html: selectedTask.description || '<p>—</p>' }} />
+            </div>
+
+            {selectedTask.file_url ? (
+              <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
+                <button className="button button--primary" onClick={() => void downloadFile(selectedTask.file_url)}>
+                  ⬇ Download File
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

@@ -12,16 +12,26 @@ class TaskController {
             SELECT
                 t.id AS task_id,
                 cand.name AS candidate_name,
+                c.name AS company_name,
                 t.title,
+                t.description,
                 t.due_date,
                 t.start_time,
                 t.end_time,
                 t.status_id,
-                COALESCE(ts.name, '') AS status_name
+                COALESCE(ts.name, '') AS status_name,
+                tf.file_url
             FROM task_assignments ta
             INNER JOIN tasks t ON t.id = ta.task_id
             LEFT JOIN candidates cand ON cand.id = t.candidate_id
+            LEFT JOIN clients c ON c.id = t.client_id
             LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN task_files tf
+              ON tf.id = (
+                  SELECT id FROM task_files
+                  WHERE task_id = t.id
+                  ORDER BY id DESC LIMIT 1
+              )
             WHERE ta.user_id = ?
         ";
 
