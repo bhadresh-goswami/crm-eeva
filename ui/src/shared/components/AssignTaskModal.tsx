@@ -64,8 +64,14 @@ const AssignTaskModal = ({
                   </td>
                   <td>
                     {isAvailable ? (
-                      <button type="button" className="button" onClick={() => onSelect(expert.id)}>
-                        {selectedExpertId === expert.id ? 'Selected' : 'Select'}
+                      <button
+                        type="button"
+                        className="button users-icon-btn"
+                        title={selectedExpertId === expert.id ? 'Selected expert' : 'Select expert'}
+                        aria-label={selectedExpertId === expert.id ? 'Selected expert' : 'Select expert'}
+                        onClick={() => onSelect(expert.id)}
+                      >
+                        {selectedExpertId === expert.id ? '✅' : '✔️'}
                       </button>
                     ) : (
                       <span className="card-text">Not Available</span>

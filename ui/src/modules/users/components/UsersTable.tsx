@@ -234,29 +234,24 @@ const UsersTable = ({
                           🔄
                         </button>
 
-                        <details className="users-more-actions">
-                          <summary className="button users-icon-btn" aria-label="More actions" title="More actions">
-                            ⋮
-                          </summary>
-                          <div className="users-more-actions__menu">
-                            <button
-                              className="button users-menu-btn"
-                              onClick={() => onUpdatePassword(user)}
-                              disabled={activeActionId === user.id}
-                              title="Update Password"
-                            >
-                              🔒 Update Password
-                            </button>
-                            <button
-                              className="button button--danger users-menu-btn"
-                              onClick={() => onDelete(user)}
-                              disabled={activeActionId === user.id}
-                              title="Delete"
-                            >
-                              🗑️ Delete
-                            </button>
-                          </div>
-                        </details>
+                        <button
+                          className="button users-icon-btn"
+                          onClick={() => onUpdatePassword(user)}
+                          disabled={activeActionId === user.id}
+                          title="Update password"
+                          aria-label="Update password"
+                        >
+                          🔒
+                        </button>
+                        <button
+                          className="button button--danger users-icon-btn"
+                          onClick={() => onDelete(user)}
+                          disabled={activeActionId === user.id}
+                          title="Delete"
+                          aria-label="Delete"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </td>
                   </tr>
