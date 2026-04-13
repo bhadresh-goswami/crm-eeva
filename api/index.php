@@ -260,7 +260,7 @@ elseif ($uri === "/tasks/list") {
     (new TaskController())->list();
 }
 elseif ($uri === "/expert/tasks" && $method === "GET") {
-    authorize($user,['expert','technical expert']);
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
     $expertUserId = null;
     if (is_array($user) && isset($user['id'])) {
         $expertUserId = $user['id'];
@@ -269,6 +269,17 @@ elseif ($uri === "/expert/tasks" && $method === "GET") {
     }
 
     (new TaskController())->expertTasks($expertUserId);
+}
+elseif ($uri === "/expert/tasks/status" && $method === "POST") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    $expertUserId = null;
+    if (is_array($user) && isset($user['id'])) {
+        $expertUserId = $user['id'];
+    } elseif (is_object($user) && isset($user->id)) {
+        $expertUserId = $user->id;
+    }
+
+    (new TaskController())->updateExpertTaskStatus($expertUserId);
 }
 elseif ($uri === "/tasks/create" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);

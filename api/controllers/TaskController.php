@@ -10,14 +10,18 @@ class TaskController {
         $stmt = $conn->prepare("
             SELECT
                 t.id AS task_id,
+                cand.name AS candidate_name,
                 t.title,
                 t.description,
                 t.due_date,
                 t.start_time,
                 t.end_time,
-                t.status_id
+                t.status_id,
+                COALESCE(ts.name, '') AS status_name
             FROM task_assignments ta
             INNER JOIN tasks t ON t.id = ta.task_id
+            LEFT JOIN candidates cand ON cand.id = t.candidate_id
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
             WHERE ta.user_id = ?
               AND ta.is_active = 1
             ORDER BY t.due_date ASC, t.start_time ASC, t.id DESC
@@ -29,6 +33,67 @@ class TaskController {
         echo json_encode([
             "success" => true,
             "data" => $tasks
+        ]);
+    }
+
+    public function updateExpertTaskStatus($user_id) {
+        $data = json_decode(file_get_contents("php://input"), true);
+        $task_id = isset($data['task_id']) ? (int)$data['task_id'] : 0;
+        $action = strtolower(trim((string)($data['action'] ?? '')));
+
+        if ($task_id <= 0 || !in_array($action, ['start', 'end'])) {
+            http_response_code(400);
+            echo json_encode(["error" => "task_id and valid action are required"]);
+            return;
+        }
+
+        $db = new Database();
+        $conn = $db->connect();
+
+        $check = $conn->prepare("
+            SELECT COUNT(*)
+            FROM task_assignments ta
+            WHERE ta.task_id = ?
+              AND ta.user_id = ?
+              AND ta.is_active = 1
+        ");
+        $check->execute([$task_id, $user_id]);
+
+        if ((int)$check->fetchColumn() === 0) {
+            http_response_code(403);
+            echo json_encode(["error" => "Access denied"]);
+            return;
+        }
+
+        if ($action === 'start') {
+            $status_id = $conn->query("
+                SELECT id
+                FROM task_status_master
+                WHERE LOWER(name) IN ('in progress','assigned')
+                ORDER BY CASE WHEN LOWER(name) = 'in progress' THEN 0 ELSE 1 END
+                LIMIT 1
+            ")->fetchColumn();
+        } else {
+            $status_id = $conn->query("
+                SELECT id
+                FROM task_status_master
+                WHERE LOWER(name) = 'completed'
+                LIMIT 1
+            ")->fetchColumn();
+        }
+
+        if (!$status_id) {
+            http_response_code(400);
+            echo json_encode(["error" => "Status not configured"]);
+            return;
+        }
+
+        $stmt = $conn->prepare("UPDATE tasks SET status_id = ? WHERE id = ?");
+        $stmt->execute([$status_id, $task_id]);
+
+        echo json_encode([
+            "success" => true,
+            "message" => $action === 'start' ? "Task started" : "Task completed"
         ]);
     }
 
