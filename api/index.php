@@ -22,6 +22,7 @@ require_once "middleware/role.php";
 
 // ---------------- LOAD CONTROLLERS ----------------
 require_once "controllers/AuthController.php";
+require_once "controllers/PasswordController.php";
 require_once "controllers/ClientController.php";
 require_once "controllers/PocController.php";
 require_once "controllers/CandidateController.php";
@@ -57,6 +58,10 @@ if ($uri === "/login" && $method === "POST") {
     (new AuthController())->login();
     exit;
 }
+elseif ($uri === "/forgot-password" && $method === "POST") {
+    (new PasswordController())->forgotPassword();
+    exit;
+}
 
 elseif ($uri === "/logout" && $method === "POST") {
     (new AuthController())->logout();
@@ -87,6 +92,9 @@ $user = authenticate();
 
 if ($uri === "/users/list" && $method === "GET") {
     (new UserController())->list();
+}
+elseif ($uri === "/change-password" && $method === "POST") {
+    (new PasswordController())->changePassword($user->id);
 }
 elseif ($uri === "/users/create" && $method === "POST") {
     (new UserController())->create();
