@@ -7,6 +7,7 @@ type ExpertTaskTableProps = {
   loading: boolean
   error: string | null
   emptyText: string
+  currentUserId: number
 }
 
 const pageSizes = [5, 10, 20]
@@ -58,9 +59,10 @@ const formatTimeZone = (dateValue: string, startTime: string, endTime: string, t
   return `${formatter.format(start)} - ${formatter.format(end)}`
 }
 
-const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTableProps) => {
+const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId }: ExpertTaskTableProps) => {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'my' | 'sub'>('all')
   const [pageSize, setPageSize] = useState(10)
   const [page, setPage] = useState(1)
   const [viewTaskId, setViewTaskId] = useState<number | null>(null)
@@ -72,10 +74,14 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
 
   const filtered = useMemo(() => {
     return mapped.filter((task) => {
-      const searchable = `${task.title} ${task.candidate_name} ${task.company_name}`.toLowerCase()
-      return searchable.includes(search.toLowerCase()) && (statusFilter === 'all' || task.displayStatus === statusFilter)
+      const searchable = `${task.title} ${task.candidate_name} ${task.company_name} ${task.assigned_to_name} ${task.assigned_by_name}`.toLowerCase()
+      const matchesSearch = searchable.includes(search.toLowerCase())
+      const matchesStatus = statusFilter === 'all' || task.displayStatus === statusFilter
+      const isMine = task.assigned_to_id === currentUserId
+      const matchesAssignment = assignmentFilter === 'all' || (assignmentFilter === 'my' ? isMine : !isMine)
+      return matchesSearch && matchesStatus && matchesAssignment
     })
-  }, [mapped, search, statusFilter])
+  }, [assignmentFilter, currentUserId, mapped, search, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages)
@@ -123,33 +129,57 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
             <option key={status} value={status}>{status}</option>
           ))}
         </select>
+        <select
+          value={assignmentFilter}
+          onChange={(event) => {
+            setAssignmentFilter(event.target.value as 'all' | 'my' | 'sub')
+            setPage(1)
+          }}
+          style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '0.45rem' }}
+        >
+          <option value="all">All Tasks</option>
+          <option value="my">My Tasks</option>
+          <option value="sub">Sub-user Tasks</option>
+        </select>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ background: '#f8fafc' }}>
             <tr>
+              <th style={{ textAlign: 'left', padding: '0.75rem' }}>Candidate Name</th>
               <th style={{ textAlign: 'left', padding: '0.75rem' }}>Title</th>
               <th style={{ textAlign: 'left', padding: '0.75rem' }}>Date</th>
-              <th style={{ textAlign: 'left', padding: '0.75rem' }}>Time (IST / EST)</th>
+              <th style={{ textAlign: 'left', padding: '0.75rem' }}>Time (IST)</th>
+              <th style={{ textAlign: 'left', padding: '0.75rem' }}>Time (EST)</th>
               <th style={{ textAlign: 'left', padding: '0.75rem' }}>Status</th>
+              <th style={{ textAlign: 'left', padding: '0.75rem' }}>Assigned To</th>
+              <th style={{ textAlign: 'left', padding: '0.75rem' }}>Assigned By</th>
               <th style={{ textAlign: 'right', padding: '0.75rem' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={5} style={{ padding: '1rem' }}>Loading tasks...</td></tr> : null}
-            {!loading && error ? <tr><td colSpan={5} style={{ padding: '1rem', color: '#b91c1c' }}>{error}</td></tr> : null}
-            {!loading && !error && paged.length === 0 ? <tr><td colSpan={5} style={{ padding: '1rem' }}>{emptyText}</td></tr> : null}
+            {loading ? <tr><td colSpan={9} style={{ padding: '1rem' }}>Loading tasks...</td></tr> : null}
+            {!loading && error ? <tr><td colSpan={9} style={{ padding: '1rem', color: '#b91c1c' }}>{error}</td></tr> : null}
+            {!loading && !error && paged.length === 0 ? <tr><td colSpan={9} style={{ padding: '1rem' }}>{emptyText}</td></tr> : null}
             {!loading && !error
               ? paged.map((task) => (
-                  <tr key={task.task_id} style={{ borderTop: '1px solid #e5e7eb' }}>
+                  <tr key={task.task_id} style={{ borderTop: '1px solid #e5e7eb', background: task.assigned_to_id === currentUserId ? '#f8fafc' : 'transparent' }}>
+                    <td style={{ padding: '0.75rem' }}>{task.candidate_name || '—'}</td>
                     <td style={{ padding: '0.75rem', maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={task.title}>{task.title || '—'}</td>
                     <td style={{ padding: '0.75rem' }}>{formatDate(task.due_date)}</td>
-                    <td style={{ padding: '0.75rem', fontSize: 13 }}>
-                      <div>IST: {formatTimeZone(task.due_date, task.start_time, task.end_time, 'Asia/Kolkata')}</div>
-                      <div>EST: {formatTimeZone(task.due_date, task.start_time, task.end_time, 'America/New_York')}</div>
-                    </td>
+                    <td style={{ padding: '0.75rem', fontSize: 13 }}>{formatTimeZone(task.due_date, task.start_time, task.end_time, 'Asia/Kolkata')}</td>
+                    <td style={{ padding: '0.75rem', fontSize: 13 }}>{formatTimeZone(task.due_date, task.start_time, task.end_time, 'America/New_York')}</td>
                     <td style={{ padding: '0.75rem' }}><span style={badgeStyle(task.displayStatus)}>{task.displayStatus}</span></td>
+                    <td style={{ padding: '0.75rem' }}>
+                      {task.assigned_to_name || '—'}
+                      {task.assigned_to_id !== currentUserId ? (
+                        <span style={{ marginLeft: 8, background: '#eef2ff', color: '#3730a3', borderRadius: 999, padding: '0.1rem 0.45rem', fontSize: 11, fontWeight: 600 }}>
+                          Sub-task
+                        </span>
+                      ) : null}
+                    </td>
+                    <td style={{ padding: '0.75rem' }}>{task.assigned_by_name || '—'}</td>
                     <td style={{ padding: '0.75rem', textAlign: 'right' }}>
                       <button className="button" title="View" onClick={() => setViewTaskId(task.task_id)} style={{ marginRight: 6 }}>👁</button>
                       {task.file_url ? (
@@ -192,6 +222,8 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
                 <p><strong>Date:</strong> {formatDate(selectedTask.due_date)}</p>
                 <p><strong>IST:</strong> {formatTimeZone(selectedTask.due_date, selectedTask.start_time, selectedTask.end_time, 'Asia/Kolkata')}</p>
                 <p><strong>EST:</strong> {formatTimeZone(selectedTask.due_date, selectedTask.start_time, selectedTask.end_time, 'America/New_York')}</p>
+                <p><strong>Assigned To:</strong> {selectedTask.assigned_to_name || '—'}</p>
+                <p><strong>Assigned By:</strong> {selectedTask.assigned_by_name || '—'}</p>
               </div>
             </div>
 
