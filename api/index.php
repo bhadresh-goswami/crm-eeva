@@ -94,7 +94,14 @@ if ($uri === "/users/list" && $method === "GET") {
     (new UserController())->list();
 }
 elseif ($uri === "/change-password" && $method === "POST") {
-    (new PasswordController())->changePassword($user->id);
+    $userId = null;
+    if (is_object($user) && isset($user->id)) {
+        $userId = $user->id;
+    } elseif (is_array($user) && isset($user['id'])) {
+        $userId = $user['id'];
+    }
+
+    (new PasswordController())->changePassword($userId);
 }
 elseif ($uri === "/users/create" && $method === "POST") {
     (new UserController())->create();

@@ -8,6 +8,15 @@ class PasswordController {
     public function changePassword($userId) {
         $data = json_decode(file_get_contents("php://input"));
 
+        if (empty($userId)) {
+            http_response_code(401);
+            echo json_encode([
+                "success" => false,
+                "message" => "Invalid token payload"
+            ]);
+            return;
+        }
+
         if (
             !isset($data->current_password) ||
             !isset($data->new_password) ||
