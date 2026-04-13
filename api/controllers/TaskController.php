@@ -3,6 +3,35 @@
 require_once dirname(__DIR__) . "/config/database.php";
 
 class TaskController {
+    public function expertTasks($user_id) {
+        $db = new Database();
+        $conn = $db->connect();
+
+        $stmt = $conn->prepare("
+            SELECT
+                t.id AS task_id,
+                t.title,
+                t.description,
+                t.due_date,
+                t.start_time,
+                t.end_time,
+                t.status_id
+            FROM task_assignments ta
+            INNER JOIN tasks t ON t.id = ta.task_id
+            WHERE ta.user_id = ?
+              AND ta.is_active = 1
+            ORDER BY t.due_date ASC, t.start_time ASC, t.id DESC
+        ");
+
+        $stmt->execute([$user_id]);
+        $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            "success" => true,
+            "data" => $tasks
+        ]);
+    }
+
     public function cancelTask() {
 
     $data = json_decode(file_get_contents("php://input"));
