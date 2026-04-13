@@ -3,6 +3,47 @@
 require_once dirname(__DIR__) . "/config/database.php";
 
 class TaskController {
+    public function expertTasks($user_id) {
+        $db = new Database();
+        $conn = $db->connect();
+        $activeOnly = isset($_GET['active_only']) && (string)$_GET['active_only'] === '1';
+
+        $query = "
+            SELECT
+                t.id AS task_id,
+                cand.name AS candidate_name,
+                t.title,
+                t.due_date,
+                t.start_time,
+                t.end_time,
+                t.status_id,
+                COALESCE(ts.name, '') AS status_name
+            FROM task_assignments ta
+            INNER JOIN tasks t ON t.id = ta.task_id
+            LEFT JOIN candidates cand ON cand.id = t.candidate_id
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            WHERE ta.user_id = ?
+        ";
+
+        $params = [$user_id];
+        if ($activeOnly) {
+            $query .= " AND ta.is_active = 1";
+        }
+
+        $query .= "
+            ORDER BY t.due_date ASC, t.start_time ASC, t.id DESC
+        ";
+
+        $stmt = $conn->prepare($query);
+        $stmt->execute($params);
+        $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            "success" => true,
+            "data" => $tasks
+        ]);
+    }
+
     public function cancelTask() {
 
     $data = json_decode(file_get_contents("php://input"));
