@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { useAuth } from '../../../context/AuthContext'
 import { apiFetch } from '../../../api/client'
+import AssignTaskModal from '../../../shared/components/AssignTaskModal'
 import {
   assignTask,
   bulkAssignTasks,
@@ -166,6 +167,21 @@ const formatDisplayDate = (value: string) => {
 
 const todayString = () => new Date().toISOString().slice(0, 10)
 const formatTime = (value: string) => (value ? value.slice(0, 5) : '—')
+const toMinutes = (value: string) => {
+  if (!value) return null
+  const [hour, minute] = value.slice(0, 5).split(':').map(Number)
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null
+  return hour * 60 + minute
+}
+
+const hasTimeOverlap = (startA: string, endA: string, startB: string, endB: string) => {
+  const aStart = toMinutes(startA)
+  const aEnd = toMinutes(endA)
+  const bStart = toMinutes(startB)
+  const bEnd = toMinutes(endB)
+  if (aStart === null || aEnd === null || bStart === null || bEnd === null) return false
+  return aStart < bEnd && bStart < aEnd
+}
 
 const normalizeError = (error: unknown, fallback: string) => {
   const message = error instanceof Error ? error.message.trim() : fallback
@@ -219,7 +235,6 @@ const TasksPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [isTableLoaded, setIsTableLoaded] = useState(false)
 
   const [candidateFilter, setCandidateFilter] = useState('')
   const [companyFilter, setCompanyFilter] = useState('')
@@ -247,8 +262,8 @@ const TasksPage = () => {
   const [experts, setExperts] = useState<ExpertRecord[]>([])
   const [assignError, setAssignError] = useState<string | null>(null)
   const [assignLoading, setAssignLoading] = useState(false)
+  const [assignSubmitting, setAssignSubmitting] = useState(false)
   const [selectedExpertId, setSelectedExpertId] = useState<number | null>(null)
-  const [reassignReason, setReassignReason] = useState('')
   const [isBulkAssign, setIsBulkAssign] = useState(false)
 
   const showSuccess = useCallback((message: string) => {
@@ -281,14 +296,6 @@ const TasksPage = () => {
   useEffect(() => {
     void loadPage()
   }, [loadPage])
-
-  useEffect(() => {
-    if (loading) {
-      setIsTableLoaded(false)
-      return
-    }
-    setIsTableLoaded(true)
-  }, [loading, tasks.length])
 
   useEffect(() => {
     const nextEnd = calcEndTime(formState.start_time, formState.duration)
@@ -474,10 +481,10 @@ const TasksPage = () => {
           task.id !== assignTarget.id &&
           task.assigned_to_id === expertId &&
           task.due_date.slice(0, 10) === assignTarget.due_date.slice(0, 10) &&
-          task.time_start === assignTarget.time_start &&
-          task.time_end === assignTarget.time_end,
+          task.status !== 'cancelled' &&
+          hasTimeOverlap(task.time_start, task.time_end, assignTarget.time_start, assignTarget.time_end),
       )
-      return blockingTask ? 'busy' : 'available'
+      return blockingTask ? 'not_available' : 'available'
     },
     [assignTarget, tasks],
   )
@@ -486,7 +493,6 @@ const TasksPage = () => {
     setAssignTarget(task ?? null)
     setIsBulkAssign(!task)
     setSelectedExpertId(null)
-    setReassignReason('')
     setAssignError(null)
     setAssignLoading(true)
     try {
@@ -503,12 +509,13 @@ const TasksPage = () => {
       setAssignError('Please select an available expert.')
       return
     }
-    if (assignTarget?.assigned_to_id && !reassignReason.trim()) {
-      setAssignError('Reassign reason is required.')
+    if (assignTarget && checkAvailability(selectedExpertId) === 'not_available') {
+      setAssignError('Selected expert is not available in this time slot.')
       return
     }
 
     setAssignError(null)
+    setAssignSubmitting(true)
     if (assignTarget) {
       setActionTaskId(assignTarget.id)
     }
@@ -519,8 +526,22 @@ const TasksPage = () => {
         await assignTask({
           task_id: assignTarget.id,
           user_id: selectedExpertId,
-          reason: assignTarget.assigned_to_id ? reassignReason.trim() : undefined,
         })
+        const selectedExpert = experts.find((expert) => expert.id === selectedExpertId)
+        if (selectedExpert) {
+          setTasks((previous) =>
+            previous.map((task) =>
+              task.id === assignTarget.id
+                ? {
+                    ...task,
+                    status: 'assigned',
+                    assigned_to_id: selectedExpert.id,
+                    assigned_to_name: selectedExpert.name,
+                  }
+                : task,
+            ),
+          )
+        }
       }
       setAssignTarget(null)
       setSelectedTaskIds([])
@@ -529,6 +550,7 @@ const TasksPage = () => {
     } catch (err) {
       setAssignError(normalizeError(err, 'Failed to assign task.'))
     } finally {
+      setAssignSubmitting(false)
       setActionTaskId(null)
     }
   }
@@ -728,7 +750,20 @@ const TasksPage = () => {
                       <button className="button users-icon-btn" title="View" onClick={() => void openEdit(task)}>👁</button>
                       <button className="button users-icon-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
                       <button className="button users-icon-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
-                      <button className="button users-icon-btn" title={task.assigned_to_id ? 'Reassign' : 'Assign'} disabled={!task.can_assign || !canManage || isCancelled} onClick={() => void openAssign(task)}>👤</button>
+                      <button
+                        className="button users-icon-btn"
+                        title={
+                          task.status === 'assigned'
+                            ? 'Reassign'
+                            : task.status === 'pending'
+                              ? 'Assign'
+                              : 'Assign disabled'
+                        }
+                        disabled={!task.can_assign || !canManage || isCancelled || !['pending', 'assigned'].includes(task.status)}
+                        onClick={() => void openAssign(task)}
+                      >
+                        👤
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -899,19 +934,25 @@ const TasksPage = () => {
         <div className="modal-overlay"><div className="modal-card"><h3 className="modal-title">Delete Task</h3><p className="card-text">Are you sure you want to delete this task?</p><div className="modal-actions"><button className="button" onClick={() => setDeleteTarget(null)}>Cancel</button><button className="button button--danger" onClick={() => void handleDelete()} disabled={actionTaskId === deleteTarget.id}>{actionTaskId === deleteTarget.id ? 'Deleting...' : 'Delete'}</button></div></div></div>
       ) : null}
 
-      {assignTarget || isBulkAssign ? (
-        <div className="modal-overlay">
-          <div className="modal-card" style={{ width: 'min(700px, 100%)' }}>
-            <h3 className="modal-title">{isBulkAssign ? 'Bulk Assign Tasks' : assignTarget?.assigned_to_id ? 'Reassign Task' : 'Assign Task'}</h3>
-            {assignTarget?.assigned_to_id ? <label className="auth-card__field" style={{ marginBottom: 8 }}>Reassign reason (required)<input value={reassignReason} onChange={(event) => setReassignReason(event.target.value)} /></label> : null}
-            {assignLoading ? <p className="card-text">Loading experts...</p> : (
-              <table className="roles-table"><thead><tr><th>Expert Name</th><th>Status</th><th>Action</th></tr></thead><tbody>{experts.map((expert) => { const availability = checkAvailability(expert.id); return <tr key={expert.id}><td>{expert.name}</td><td><span className={`status-pill ${availability === 'available' ? 'status-pill--active' : 'status-pill--inactive'}`}>{availability}</span></td><td><button className="button" disabled={availability === 'busy'} onClick={() => setSelectedExpertId(expert.id)}>{selectedExpertId === expert.id ? 'Selected' : 'Select'}</button></td></tr> })}</tbody></table>
-            )}
-            {assignError ? <p className="auth-card__error">{assignError}</p> : null}
-            <div className="modal-actions"><button className="button" onClick={() => { setAssignTarget(null); setIsBulkAssign(false) }}>Cancel</button><button className="button button--primary" onClick={() => void handleAssign()} disabled={Boolean(assignTarget?.id) && actionTaskId === assignTarget?.id}>{Boolean(assignTarget?.id) && actionTaskId === assignTarget?.id ? 'Submitting...' : isBulkAssign ? 'Assign Selected' : assignTarget?.assigned_to_id ? 'Reassign' : 'Assign'}</button></div>
-          </div>
-        </div>
-      ) : null}
+      <AssignTaskModal
+        isOpen={Boolean(assignTarget || isBulkAssign)}
+        title={isBulkAssign ? 'Bulk Assign Tasks' : assignTarget?.status === 'assigned' ? 'Reassign Task' : 'Assign Task'}
+        experts={experts}
+        loading={assignLoading}
+        error={assignError}
+        submitting={assignSubmitting}
+        selectedExpertId={selectedExpertId}
+        onSelect={(expertId) => setSelectedExpertId(Number(expertId))}
+        getAvailability={(expertId) => (assignTarget ? checkAvailability(Number(expertId)) : 'available')}
+        onClose={() => {
+          setAssignTarget(null)
+          setIsBulkAssign(false)
+          setAssignError(null)
+          setSelectedExpertId(null)
+        }}
+        onConfirm={() => void handleAssign()}
+        confirmLabel={isBulkAssign ? 'Assign Selected' : assignTarget?.status === 'assigned' ? 'Reassign' : 'Assign'}
+      />
 
       {descriptionPreview ? (
         <div className="modal-overlay">
@@ -975,11 +1016,13 @@ const TasksPage = () => {
                         </td>
                         <td>
                           <button
-                            className="button button--primary"
+                            className="button button--primary users-icon-btn"
                             disabled={statusActionTaskId === task.id}
+                            title={statusActionTaskId === task.id ? 'Updating task status' : 'Move task to pending'}
+                            aria-label={statusActionTaskId === task.id ? 'Updating task status' : 'Move task to pending'}
                             onClick={() => void handleMoveToPending(task.id)}
                           >
-                            {statusActionTaskId === task.id ? 'Updating...' : 'Move to Pending'}
+                            {statusActionTaskId === task.id ? '⏳' : '↩️'}
                           </button>
                         </td>
                       </tr>

@@ -44,23 +44,33 @@ const RolesTable = ({ roles, isLoading, actionRoleId, onEdit, onDelete, onToggle
               <td>{role.name}</td>
               <td>{role.isActive ? 'Active' : 'Inactive'}</td>
               <td>
-                <div className="roles-table__actions">
-                  <button className="button" onClick={() => onEdit(role)} disabled={actionRoleId === role.id}>
-                    Edit
+                <div className="roles-table__actions users-actions">
+                  <button
+                    className="button users-icon-btn"
+                    onClick={() => onEdit(role)}
+                    disabled={actionRoleId === role.id}
+                    title="Edit role"
+                    aria-label="Edit role"
+                  >
+                    ✏️
                   </button>
                   <button
-                    className="button button--danger"
+                    className="button button--danger users-icon-btn"
                     onClick={() => onDelete(role)}
                     disabled={actionRoleId === role.id}
+                    title="Delete role"
+                    aria-label="Delete role"
                   >
-                    Delete
+                    🗑️
                   </button>
                   <button
-                    className="button"
+                    className="button users-icon-btn"
                     onClick={() => onToggle(role)}
                     disabled={actionRoleId === role.id}
+                    title={role.isActive ? 'Deactivate role' : 'Activate role'}
+                    aria-label={role.isActive ? 'Deactivate role' : 'Activate role'}
                   >
-                    {role.isActive ? 'Deactivate' : 'Activate'}
+                    🔄
                   </button>
                 </div>
               </td>
