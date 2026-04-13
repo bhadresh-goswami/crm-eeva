@@ -7,6 +7,7 @@ type ExpertTaskTableProps = {
   loading: boolean
   error: string | null
   emptyText: string
+  currentUserId: number
 }
 
 const pageSizes = [5, 10, 20]
@@ -58,7 +59,7 @@ const formatTimeZone = (dateValue: string, startTime: string, endTime: string, t
   return `${formatter.format(start)} – ${formatter.format(end)}`
 }
 
-const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTableProps) => {
+const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId }: ExpertTaskTableProps) => {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'my' | 'sub'>('all')
