@@ -60,6 +60,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
   const [statusFilter, setStatusFilter] = useState('all')
   const [pageSize, setPageSize] = useState(10)
   const [page, setPage] = useState(1)
+  const [viewTaskId, setViewTaskId] = useState<number | null>(null)
 
   const mapped = useMemo(
     () =>
@@ -84,6 +85,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
   const safePage = Math.min(page, totalPages)
   const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
   const statusOptions = Array.from(new Set(mapped.map((item) => item.statusLabel)))
+  const selectedTask = mapped.find((task) => task.task_id === viewTaskId) ?? null
 
   return (
     <div className="card" style={{ borderRadius: 12, padding: 0, overflow: 'hidden' }}>
@@ -151,7 +153,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
                       <span style={badgeStyle(task.statusLabel)}>{task.statusLabel}</span>
                     </td>
                     <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                      <button className="button" title="View" style={{ marginRight: 6 }}>👁</button>
+                      <button className="button" title="View" style={{ marginRight: 6 }} onClick={() => setViewTaskId(task.task_id)}>👁</button>
                       <button className="button" title="Start (future)" style={{ marginRight: 6 }}>▶</button>
                       <button className="button" title="End (future)">⏹</button>
                     </td>
@@ -180,6 +182,43 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText }: ExpertTaskTablePr
         <button className="button" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={safePage <= 1}>‹</button>
         <button className="button" onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))} disabled={safePage >= totalPages}>›</button>
       </div>
+
+      {selectedTask ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 60,
+            background: 'rgba(15, 23, 42, 0.5)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: '1.5rem',
+          }}
+          onClick={() => setViewTaskId(null)}
+        >
+          <div
+            className="card"
+            style={{ width: 'min(960px, 100%)', borderRadius: 12, padding: '1.25rem', display: 'grid', gap: '1rem' }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+              <h2 style={{ margin: 0 }}>Task Details</h2>
+              <button className="button" onClick={() => setViewTaskId(null)} title="Close">✕</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: '0.85rem 1.25rem' }}>
+              <p><strong>ID:</strong> {selectedTask.task_id}</p>
+              <p><strong>Status:</strong> <span style={badgeStyle(selectedTask.statusLabel)}>{selectedTask.statusLabel}</span></p>
+              <p><strong>Candidate:</strong> {selectedTask.candidate_name || '—'}</p>
+              <p><strong>Title:</strong> {selectedTask.title || '—'}</p>
+              <p><strong>Date:</strong> {formatDate(selectedTask.due_date)}</p>
+              <p><strong>Time:</strong> {formatTime(selectedTask.start_time)} - {formatTime(selectedTask.end_time)}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
