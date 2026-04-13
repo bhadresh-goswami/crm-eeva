@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import ExpertTaskTable from '../../tasks/components/ExpertTaskTable'
 import { getExpertTasks, type ExpertTaskItem } from '../../tasks/api/expertTasksApi'
+import { useAuth } from '../../../context/AuthContext'
 
 const ExpertDashboard = () => {
+  const { user } = useAuth()
   const [tasks, setTasks] = useState<ExpertTaskItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
