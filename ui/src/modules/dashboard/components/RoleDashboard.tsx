@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import AssignTaskModal from '../../../shared/components/AssignTaskModal'
-import TaskCommentsPanel from '../../../shared/components/TaskCommentsPanel'
+import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import {
   assignDashboardTask,
   getDashboardTasksByStatus,
@@ -560,22 +560,24 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
         confirmLabel={assigningTask?.status.includes('assign') ? 'Reassign' : 'Assign'}
       />
 
-      <AnimatedModal isOpen={Boolean(viewingTask)} onClose={() => setViewingTask(null)} title="Task details">
-        <h3 className="modal-title">Task details</h3>
-        <p className="page-description"><strong>Title:</strong> {viewingTask?.title}</p>
-        <p className="page-description"><strong>Company:</strong> {viewingTask?.client || '—'}</p>
-        <p className="page-description"><strong>Candidate:</strong> {viewingTask?.candidate || '—'}</p>
-        <p className="page-description"><strong>Schedule:</strong> {viewingTask?.scheduleTime || '—'}</p>
-        <p className="page-description"><strong>Status:</strong> {viewingTask?.status || '—'}</p>
-        <p className="page-description"><strong>Description:</strong></p>
-        <div className="card" dangerouslySetInnerHTML={{ __html: viewingTask?.description || '—' }} />
-        <TaskCommentsPanel taskId={viewingTask ? Number(viewingTask.id) : null} />
-        {viewingTask?.fileUrl ? (
-          <p className="page-description">
-            <strong>File:</strong> <a href={viewingTask.fileUrl} target="_blank" rel="noreferrer">Open attachment</a>
-          </p>
-        ) : null}
-      </AnimatedModal>
+      <TaskDetailsModal
+        isOpen={Boolean(viewingTask)}
+        role={mode === 'expert' ? 'expert' : 'admin'}
+        task={viewingTask ? {
+          taskId: Number(viewingTask.id),
+          title: viewingTask.title,
+          status: viewingTask.status,
+          candidateName: viewingTask.candidate || '—',
+          companyName: viewingTask.client || '—',
+          supportType: viewingTask.supportType || '—',
+          assignedTo: viewingTask.assignedToName || '—',
+          dueDate: viewingTask.dueDate,
+          startTime: viewingTask.startTime,
+          endTime: viewingTask.endTime,
+          description: viewingTask.description || '',
+        } : null}
+        onClose={() => setViewingTask(null)}
+      />
 
       <AnimatedModal isOpen={Boolean(cardModal)} onClose={() => setCardModal(null)} title="Task list">
         <h3 className="modal-title">{cardModal?.label}</h3>
@@ -609,53 +611,6 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
         </div>
       </AnimatedModal>
 
-      <AnimatedModal isOpen={Boolean(viewingTask)} onClose={() => setViewingTask(null)} title="Task details">
-        <h3 className="modal-title">Task details</h3>
-        <p className="page-description"><strong>Title:</strong> {viewingTask?.title}</p>
-        <p className="page-description"><strong>Company:</strong> {viewingTask?.client || '—'}</p>
-        <p className="page-description"><strong>Candidate:</strong> {viewingTask?.candidate || '—'}</p>
-        <p className="page-description"><strong>Schedule:</strong> {viewingTask?.scheduleTime || '—'}</p>
-        <p className="page-description"><strong>Status:</strong> {viewingTask?.status || '—'}</p>
-        <p className="page-description"><strong>Description:</strong> {viewingTask?.description || '—'}</p>
-        <TaskCommentsPanel taskId={viewingTask ? Number(viewingTask.id) : null} />
-        {viewingTask?.fileUrl ? (
-          <p className="page-description">
-            <strong>File:</strong> <a href={viewingTask.fileUrl} target="_blank" rel="noreferrer">Open attachment</a>
-          </p>
-        ) : null}
-      </AnimatedModal>
-
-      <AnimatedModal isOpen={Boolean(cardModal)} onClose={() => setCardModal(null)} title="Task list">
-        <h3 className="modal-title">{cardModal?.label}</h3>
-        <div className="roles-table__wrapper dashboard-table-wrap">
-          <table className="roles-table dashboard-table">
-            <thead>
-              <tr>
-                <th>Task Title</th>
-                <th>Client</th>
-                <th>Candidate</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(cardModal?.tasks.length ?? 0) === 0 ? (
-                <tr>
-                  <td colSpan={4} className="dashboard-empty">No tasks found for this view.</td>
-                </tr>
-              ) : (
-                cardModal?.tasks.map((task) => (
-                  <tr key={`${cardModal?.label}-${task.id}`}>
-                    <td>{task.title}</td>
-                    <td>{task.client}</td>
-                    <td>{task.candidate}</td>
-                    <td><span className="status-pill">{task.status}</span></td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </AnimatedModal>
     </section>
   )
 }

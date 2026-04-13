@@ -889,6 +889,12 @@ p {
   white-space: pre-wrap;
 }
 
+.task-details-modal__description-scroll {
+  max-height: 200px;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
 .task-details-modal__description-html {
   color: #1f2937;
   line-height: 1.5;
@@ -932,7 +938,7 @@ p {
 }
 
 .task-comments-panel {
-  max-height: 340px;
+  max-height: 300px;
   overflow-y: auto;
   display: grid;
   gap: 0.65rem;

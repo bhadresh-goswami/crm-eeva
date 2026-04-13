@@ -14,6 +14,7 @@ export type DashboardTask = {
   dueDate?: string
   startTime?: string
   endTime?: string
+  supportType?: string
 }
 
 export type DashboardExpert = {
@@ -81,6 +82,7 @@ const normalizeTask = (task: Record<string, unknown>): DashboardTask => ({
   dueDate: String(task.task_date ?? task.due_date ?? task.date ?? ''),
   startTime: String(task.start_time ?? task.time_start ?? ''),
   endTime: String(task.end_time ?? task.time_end ?? ''),
+  supportType: String(task.support_type ?? task.task_type ?? ''),
 })
 
 const normalizeExpert = (expert: Record<string, unknown>): DashboardExpert => ({

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { apiFetch } from '../../../api/client'
 import { checkExpertActiveTask, endExpertTask, startExpertTask, type EndTaskStatus, type ExpertTaskItem } from '../api/expertTasksApi'
-import TaskCommentsPanel from '../../../shared/components/TaskCommentsPanel'
+import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 
 type ExpertTaskTableProps = {
   tasks: ExpertTaskItem[]
@@ -314,49 +314,40 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
         <button className="button" onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))} disabled={safePage >= totalPages}>›</button>
       </div>
 
-      {selectedTask ? (
-        <div className="modal-overlay" onClick={() => setViewTaskId(null)}>
-          <div className="modal-card" style={{ width: 'min(980px, 100%)', maxHeight: '88vh', overflowY: 'auto', padding: '1rem 1.2rem' }} onClick={(event) => event.stopPropagation()}>
-            <div className="modal-head" style={{ justifyContent: 'space-between', position: 'sticky', top: 0, background: '#fff', zIndex: 5, paddingBottom: '0.6rem' }}>
-              <h3 className="modal-title" style={{ marginBottom: 0, fontSize: 18 }}>{selectedTask.title || 'Task Details'}</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {(selectedTask.displayStatus === 'Pending' || selectedTask.displayStatus === 'Assigned') ? (
-                  <button className="button button--primary" title={hasActiveTask && activeTaskId !== selectedTask.task_id ? 'Another task is already in progress' : 'Start task'} disabled={!canStartTask(selectedTask)} onClick={() => setStartTaskId(selectedTask.task_id)} style={{ borderRadius: 8 }}>▶ Start Task</button>
-                ) : null}
-                {canEndTask(selectedTask) ? (
-                  <button className="button button--primary" onClick={() => openEndTaskModal(selectedTask.task_id)} style={{ borderRadius: 8 }}>✅ End Task</button>
-                ) : null}
-                <button className="button" onClick={() => setViewTaskId(null)}>✕</button>
-              </div>
+      <TaskDetailsModal
+        isOpen={Boolean(selectedTask)}
+        role="expert"
+        task={selectedTask ? {
+          taskId: selectedTask.task_id,
+          title: selectedTask.title || 'Task Details',
+          status: selectedTask.displayStatus,
+          candidateName: selectedTask.candidate_name || '—',
+          supportType: selectedTask.support_type || '—',
+          assignedTo: selectedTask.is_own_task === 1 ? 'Me' : (selectedTask.assigned_to_name || '—'),
+          assignedBy: selectedTask.assigned_by_name || '—',
+          dueDate: selectedTask.due_date,
+          startTime: selectedTask.start_time,
+          endTime: selectedTask.end_time,
+          description: selectedTask.description || '',
+        } : null}
+        onClose={() => setViewTaskId(null)}
+        commentsRefreshKey={commentsRefreshKey}
+        headerActions={
+          selectedTask ? (
+            <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+              {(selectedTask.displayStatus === 'Pending' || selectedTask.displayStatus === 'Assigned') ? (
+                <button className="button button--primary" title={hasActiveTask && activeTaskId !== selectedTask.task_id ? 'Another task is already in progress' : 'Start task'} disabled={!canStartTask(selectedTask)} onClick={() => setStartTaskId(selectedTask.task_id)} style={{ borderRadius: 8 }}>▶ Start Task</button>
+              ) : null}
+              {canEndTask(selectedTask) ? (
+                <button className="button button--primary" onClick={() => openEndTaskModal(selectedTask.task_id)} style={{ borderRadius: 8 }}>✅ End Task</button>
+              ) : null}
+              {selectedTask.file_url ? (
+                <button className="button" onClick={() => void downloadFile(selectedTask.file_url)} title="Download file">⬇</button>
+              ) : null}
             </div>
-
-            <div className="card" style={{ marginBottom: '1rem' }}>
-              <h4 style={{ marginBottom: '0.6rem', fontSize: 16 }}>Basic Info</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem 1rem' }}>
-                <div style={{ display: 'grid', gap: '0.7rem' }}>
-                  <p><strong>Candidate:</strong> {selectedTask.candidate_name || '—'}</p>
-                  <p><strong>Status:</strong> <span style={badgeStyle(selectedTask.displayStatus)}>{selectedTask.displayStatus}</span></p>
-                  <p><strong>IST:</strong> {formatDateAndTimeZone(selectedTask.due_date, selectedTask.start_time, selectedTask.end_time, 'Asia/Kolkata')}</p>
-                </div>
-                <div style={{ display: 'grid', gap: '0.7rem' }}>
-                  <p><strong>Date:</strong> {formatDate(selectedTask.due_date)}</p>
-                  <p><strong>EST:</strong> {formatDateAndTimeZone(selectedTask.due_date, selectedTask.start_time, selectedTask.end_time, 'America/New_York')}</p>
-                  <p><strong>Assigned By:</strong> {selectedTask.assigned_by_name || '-'}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="card" style={{ marginBottom: '1rem' }}>
-              <h4 style={{ marginBottom: '0.6rem', fontSize: 16 }}>Description</h4>
-              <div style={{ maxHeight: 280, overflow: 'auto' }} dangerouslySetInnerHTML={{ __html: selectedTask.description || '<p>—</p>' }} />
-            </div>
-
-            <TaskCommentsPanel taskId={selectedTask.task_id} refreshKey={commentsRefreshKey} />
-
-            {selectedTask.file_url ? <div className="modal-actions" style={{ justifyContent: 'flex-end' }}><button className="button button--primary" onClick={() => void downloadFile(selectedTask.file_url)}>⬇ Download File</button></div> : null}
-          </div>
-        </div>
-      ) : null}
+          ) : null
+        }
+      />
 
       {startTaskId ? (
         <div className="modal-overlay" onClick={() => setStartTaskId(null)}>

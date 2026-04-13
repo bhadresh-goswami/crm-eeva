@@ -9,6 +9,7 @@ export type ExpertTaskItem = {
   due_date: string
   start_time: string
   end_time: string
+  support_type: string
   status_id: number
   status_name: string
   assigned_to_id: number
@@ -29,6 +30,7 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   due_date: String(item.due_date ?? '').trim(),
   start_time: String(item.start_time ?? '').trim(),
   end_time: String(item.end_time ?? '').trim(),
+  support_type: String(item.support_type ?? '').trim(),
   status_id: Number(item.status_id ?? 0),
   status_name: String(item.status_name ?? '').trim(),
   assigned_to_id: Number(item.assigned_to_id ?? 0),

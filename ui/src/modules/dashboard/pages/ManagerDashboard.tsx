@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
-import TaskCommentsPanel from '../../../shared/components/TaskCommentsPanel'
+import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import {
   assignManagerTask,
   getManagerAvailableExperts,
@@ -48,11 +48,6 @@ const ManagerDashboard = () => {
   const isAssignModalOpen = Boolean(assigningTask)
 
   const [detailTask, setDetailTask] = useState<DashboardTask | null>(null)
-
-  const detailDescription = detailTask?.description?.trim() ?? ''
-  const hasDetailDescription = Boolean(detailDescription)
-  const descriptionLooksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(detailDescription)
-  const descriptionContainsTable = /<table[\s\S]*?>/i.test(detailDescription)
 
   const loadSummary = async () => {
     try {
@@ -386,77 +381,24 @@ const ManagerDashboard = () => {
         </div>
       </AnimatedModal>
 
-      <AnimatedModal
+      <TaskDetailsModal
         isOpen={Boolean(detailTask)}
+        role="manager"
+        task={detailTask ? {
+          taskId: Number(detailTask.id),
+          title: detailTask.title,
+          status: detailTask.status,
+          candidateName: detailTask.candidate || '—',
+          companyName: detailTask.client || '—',
+          supportType: detailTask.supportType || '—',
+          assignedTo: detailTask.assignedToName || '—',
+          dueDate: detailTask.dueDate,
+          startTime: detailTask.startTime,
+          endTime: detailTask.endTime,
+          description: detailTask.description || '',
+        } : null}
         onClose={() => setDetailTask(null)}
-        title="Task Details"
-        cardClassName="task-details-modal-card"
-      >
-        <div className="task-details-modal">
-          <div className="task-details-modal__header">
-            <h3 className="modal-title">Task Details</h3>
-            <button
-              type="button"
-              className="button users-icon-btn"
-              title="Close"
-              aria-label="Close task details"
-              onClick={() => setDetailTask(null)}
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="task-details-modal__body">
-            <section className="task-details-modal__section">
-              <h4 className="task-details-modal__section-title">Basic Info</h4>
-              <div className="task-details-modal__grid">
-                <div className="task-details-modal__meta">
-                  <span className="task-details-modal__label">Title</span>
-                  <span className="task-details-modal__value">{detailTask?.title || '—'}</span>
-                </div>
-                <div className="task-details-modal__meta">
-                  <span className="task-details-modal__label">Candidate</span>
-                  <span className="task-details-modal__value">{detailTask?.candidate || '—'}</span>
-                </div>
-                <div className="task-details-modal__meta">
-                  <span className="task-details-modal__label">Company</span>
-                  <span className="task-details-modal__value">{detailTask?.client || '—'}</span>
-                </div>
-                <div className="task-details-modal__meta">
-                  <span className="task-details-modal__label">Time</span>
-                  <span className="task-details-modal__value">
-                    {detailTask?.startTime && detailTask?.endTime
-                      ? `${detailTask.startTime} - ${detailTask.endTime}`
-                      : detailTask?.scheduleTime || '—'}
-                  </span>
-                </div>
-                <div className="task-details-modal__meta">
-                  <span className="task-details-modal__label">Status</span>
-                  <span className="status-pill">{detailTask?.status || '—'}</span>
-                </div>
-              </div>
-            </section>
-
-            <section className="task-details-modal__section">
-              <h4 className="task-details-modal__section-title">Description</h4>
-              {!hasDetailDescription ? <p className="task-details-modal__empty">No description available</p> : null}
-              {hasDetailDescription && !descriptionLooksLikeHtml ? (
-                <p className="task-details-modal__description-text">{detailDescription}</p>
-              ) : null}
-              {hasDetailDescription && descriptionLooksLikeHtml ? (
-                <div
-                  className={`task-details-modal__description-html ${
-                    descriptionContainsTable ? 'task-details-modal__description-html--table' : ''
-                  }`}
-                  dangerouslySetInnerHTML={{ __html: detailDescription }}
-                />
-              ) : null}
-            </section>
-
-            <TaskCommentsPanel taskId={detailTask ? Number(detailTask.id) : null} />
-          </div>
-        </div>
-      </AnimatedModal>
+      />
     </section>
   )
 }

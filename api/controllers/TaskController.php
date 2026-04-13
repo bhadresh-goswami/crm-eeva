@@ -40,6 +40,7 @@ class TaskController {
                 t.due_date,
                 t.start_time,
                 t.end_time,
+                COALESCE(tt.name, '') AS support_type,
                 t.status_id,
                 COALESCE(ts.name, '') AS status_name,
                 ta.user_id AS assigned_to_id,
@@ -52,6 +53,7 @@ class TaskController {
             LEFT JOIN candidates cand ON cand.id = t.candidate_id
             LEFT JOIN clients c ON c.id = t.client_id
             LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN users assigned_to_user ON assigned_to_user.id = ta.user_id
             {$assignedByJoin}
             LEFT JOIN task_files tf
