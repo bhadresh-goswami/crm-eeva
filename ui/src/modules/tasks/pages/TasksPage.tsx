@@ -1016,11 +1016,13 @@ const TasksPage = () => {
                         </td>
                         <td>
                           <button
-                            className="button button--primary"
+                            className="button button--primary users-icon-btn"
                             disabled={statusActionTaskId === task.id}
+                            title={statusActionTaskId === task.id ? 'Updating task status' : 'Move task to pending'}
+                            aria-label={statusActionTaskId === task.id ? 'Updating task status' : 'Move task to pending'}
                             onClick={() => void handleMoveToPending(task.id)}
                           >
-                            {statusActionTaskId === task.id ? 'Updating...' : 'Move to Pending'}
+                            {statusActionTaskId === task.id ? '⏳' : '↩️'}
                           </button>
                         </td>
                       </tr>

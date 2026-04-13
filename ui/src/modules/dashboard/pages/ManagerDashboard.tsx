@@ -259,8 +259,14 @@ const ManagerDashboard = () => {
                     <td><span className="status-pill">{task.status}</span></td>
                     <td>{task.assignedToName || '—'}</td>
                     <td>
-                      <button type="button" className="button users-icon-btn" onClick={() => setDetailTask(task)}>
-                        View
+                      <button
+                        type="button"
+                        className="button users-icon-btn"
+                        title="View task details"
+                        aria-label="View task details"
+                        onClick={() => setDetailTask(task)}
+                      >
+                        👁
                       </button>
                     </td>
                     <td>
@@ -268,9 +274,11 @@ const ManagerDashboard = () => {
                         type="button"
                         className="button users-icon-btn"
                         disabled={action.disabled}
+                        title={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
+                        aria-label={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
                         onClick={() => setAssigningTask(task)}
                       >
-                        {action.label}
+                        👤
                       </button>
                     </td>
                   </tr>
@@ -317,15 +325,25 @@ const ManagerDashboard = () => {
                       <td>
                         <button
                           type="button"
-                          className="button"
+                          className="button users-icon-btn"
                           disabled={expert.status !== 'available'}
+                          title={
+                            expert.status === 'available'
+                              ? selectedExpertId === expert.id
+                                ? 'Selected expert'
+                                : 'Select expert'
+                              : 'Expert unavailable'
+                          }
+                          aria-label={
+                            expert.status === 'available'
+                              ? selectedExpertId === expert.id
+                                ? 'Selected expert'
+                                : 'Select expert'
+                              : 'Expert unavailable'
+                          }
                           onClick={() => setSelectedExpertId(expert.id)}
                         >
-                          {expert.status === 'available'
-                            ? selectedExpertId === expert.id
-                              ? '✔ Selected'
-                              : '✔ Select'
-                            : '✕ Busy'}
+                          {expert.status === 'available' ? (selectedExpertId === expert.id ? '✅' : '✔️') : '⛔'}
                         </button>
                       </td>
                     </tr>

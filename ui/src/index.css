@@ -201,6 +201,22 @@ p {
   font-size: 0.9rem;
 }
 
+.auth-card__success {
+  color: #166534;
+  font-size: 0.9rem;
+}
+
+.auth-card__link {
+  color: #3730a3;
+  font-size: 0.9rem;
+  text-decoration: none;
+  justify-self: start;
+}
+
+.auth-card__link:hover {
+  text-decoration: underline;
+}
+
 .field-error {
   border-color: #dc2626 !important;
   box-shadow: 0 0 0 1px #dc2626 inset;
@@ -321,6 +337,10 @@ p {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.roles-table td:last-child .roles-table__actions {
+  justify-content: flex-end;
 }
 
 @media (max-width: 960px) {

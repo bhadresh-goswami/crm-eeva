@@ -1,21 +1,20 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Navigate, NavLink } from 'react-router-dom'
-import { getRoleDashboardPath } from '../../../routes/roleDashboard'
 import { useAuth } from '../../../context/AuthContext'
+import { requestPasswordReset } from '../api/passwordApi'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const LoginPage = () => {
-  const { isAuthenticated, login, user } = useAuth()
-
+const ForgotPasswordPage = () => {
+  const { isAuthenticated } = useAuth()
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const validationError = useMemo(() => {
-    if (!email || !password) {
-      return 'Email and password are required.'
+    if (!email.trim()) {
+      return 'Email is required.'
     }
 
     if (!emailPattern.test(email)) {
@@ -23,10 +22,10 @@ const LoginPage = () => {
     }
 
     return null
-  }, [email, password])
+  }, [email])
 
-  if (isAuthenticated && user) {
-    return <Navigate replace to={getRoleDashboardPath(user.role)} />
+  if (isAuthenticated) {
+    return <Navigate replace to="/" />
   }
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -40,9 +39,11 @@ const LoginPage = () => {
     try {
       setSubmitting(true)
       setError(null)
-      await login({ email, password })
-    } catch (loginError) {
-      setError(loginError instanceof Error ? loginError.message : 'Login failed. Please retry.')
+      await requestPasswordReset({ email: email.trim() })
+      setSuccessMessage('Reset link sent to your email')
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to send reset link. Please retry.')
+      setSuccessMessage(null)
     } finally {
       setSubmitting(false)
     }
@@ -51,7 +52,7 @@ const LoginPage = () => {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={onSubmit}>
-        <h1 className="auth-card__title">CRM Login</h1>
+        <h1 className="auth-card__title">Forgot Password</h1>
         <label className="auth-card__field">
           Email
           <input
@@ -62,26 +63,20 @@ const LoginPage = () => {
             autoComplete="email"
           />
         </label>
-        <label className="auth-card__field">
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="••••••••"
-            autoComplete="current-password"
-          />
-        </label>
+
         {error ? <p className="auth-card__error">{error}</p> : null}
+        {successMessage ? <p className="auth-card__success">{successMessage}</p> : null}
+
         <button type="submit" disabled={submitting} className="button button--primary">
-          {submitting ? 'Signing in...' : 'Login'}
+          {submitting ? 'Submitting...' : 'Send reset link'}
         </button>
-        <NavLink className="auth-card__link" to="/forgot-password">
-          Forgot Password?
+
+        <NavLink className="auth-card__link" to="/login">
+          Back to Login
         </NavLink>
       </form>
     </div>
   )
 }
 
-export default LoginPage
+export default ForgotPasswordPage

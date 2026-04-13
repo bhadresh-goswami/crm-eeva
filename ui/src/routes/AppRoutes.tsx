@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from '../modules/auth/pages/LoginPage'
+import ForgotPasswordPage from '../modules/auth/pages/ForgotPasswordPage'
 import CandidatesPage from '../modules/candidates/pages/CandidatesPage'
 import ClientsPage from '../modules/clients/pages/ClientsPage'
 import DashboardPage from '../modules/dashboard/pages/DashboardPage'
@@ -28,6 +29,7 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
