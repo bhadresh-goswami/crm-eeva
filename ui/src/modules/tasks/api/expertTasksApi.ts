@@ -57,7 +57,7 @@ export const checkExpertActiveTask = async () => {
 }
 
 export const startExpertTask = async (taskId: number) => {
-  await apiRequest('/expert/tasks/start', {
+  await apiRequest('/expert/start-task', {
     method: 'POST',
     body: JSON.stringify({ task_id: taskId }),
   })

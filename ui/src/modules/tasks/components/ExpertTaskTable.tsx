@@ -171,7 +171,8 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
       await onTaskUpdated()
       await refreshActiveTaskState()
     } catch (startError) {
-      setActionError(startError instanceof Error ? startError.message : 'Unable to start task.')
+      console.error('Start task failed:', startError)
+      setActionError('Unable to start task. Please try again.')
     } finally {
       setActionLoading(false)
     }

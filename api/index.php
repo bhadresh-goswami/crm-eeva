@@ -275,7 +275,7 @@ elseif ($uri === "/expert/tasks/active-check" && $method === "GET") {
     $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
     (new TaskController())->checkActiveTask($expertUserId);
 }
-elseif ($uri === "/expert/tasks/start" && $method === "POST") {
+elseif (($uri === "/expert/tasks/start" || $uri === "/expert/start-task") && $method === "POST") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
     $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
     (new TaskController())->startTask($expertUserId);
