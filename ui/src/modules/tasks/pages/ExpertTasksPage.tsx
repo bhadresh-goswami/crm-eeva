@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import ExpertTaskTable from '../components/ExpertTaskTable'
 import { getExpertTasks, type ExpertTaskItem } from '../api/expertTasksApi'
+import { useAuth } from '../../../context/AuthContext'
 
 const ExpertTasksPage = () => {
+  const { user } = useAuth()
   const [tasks, setTasks] = useState<ExpertTaskItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -30,8 +32,14 @@ const ExpertTasksPage = () => {
   return (
     <section style={{ display: 'grid', gap: '1rem' }}>
       <h1 className="page-title">My Tasks</h1>
-      <p className="page-description">Task history and current assignments.</p>
-      <ExpertTaskTable tasks={tasks} loading={loading} error={error} emptyText="No tasks assigned" />
+      <p className="page-description">Task history and current assignments (including visible sub-user tasks).</p>
+      <ExpertTaskTable
+        tasks={tasks}
+        loading={loading}
+        error={error}
+        emptyText="No active tasks available"
+        currentUserId={Number(user?.id ?? 0)}
+      />
     </section>
   )
 }
