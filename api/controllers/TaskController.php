@@ -29,28 +29,6 @@ class TaskController {
             ? "COALESCE(assigned_by_user.name, '') AS assigned_by_name,"
             : "'' AS assigned_by_name,";
 
-        $visibleUserIds = $this->getHierarchyUserIds($conn, (int)$user_id);
-        if (empty($visibleUserIds)) {
-            $visibleUserIds = [(int)$user_id];
-        }
-
-        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
-        $assignedByColumn = null;
-        foreach (['assigned_by', 'assigned_by_id', 'created_by', 'created_by_id'] as $columnName) {
-            if (in_array($columnName, $assignmentColumns, true)) {
-                $assignedByColumn = $columnName;
-                break;
-            }
-        }
-
-        $placeholders = implode(',', array_fill(0, count($visibleUserIds), '?'));
-        $assignedByJoin = $assignedByColumn
-            ? "LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.{$assignedByColumn}"
-            : "";
-        $assignedBySelect = $assignedByColumn
-            ? "COALESCE(assigned_by_user.name, '') AS assigned_by_name,"
-            : "'' AS assigned_by_name,";
-
         $query = "
             SELECT
                 t.id AS task_id,
@@ -110,31 +88,11 @@ class TaskController {
     }
 
     private function getHierarchyUserIds(PDO $conn, int $rootUserId): array {
-        $allUserIds = [$rootUserId];
-        $queue = [$rootUserId];
+        $stmt = $conn->prepare("SELECT id FROM users WHERE team_lead_id = ?");
+        $stmt->execute([$rootUserId]);
+        $subUserIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 
-        while (!empty($queue)) {
-            $levelUserIds = [];
-            foreach ($queue as $id) {
-                $levelUserIds[] = (int)$id;
-            }
-            $queue = [];
-
-            $placeholders = implode(',', array_fill(0, count($levelUserIds), '?'));
-            $stmt = $conn->prepare("SELECT id FROM users WHERE parent_id IN ({$placeholders})");
-            $stmt->execute($levelUserIds);
-            $children = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-            foreach ($children as $childId) {
-                $childId = (int)$childId;
-                if (!in_array($childId, $allUserIds, true)) {
-                    $allUserIds[] = $childId;
-                    $queue[] = $childId;
-                }
-            }
-        }
-
-        return $allUserIds;
+        return array_values(array_unique(array_merge([$rootUserId], $subUserIds)));
     }
 
     public function cancelTask() {
