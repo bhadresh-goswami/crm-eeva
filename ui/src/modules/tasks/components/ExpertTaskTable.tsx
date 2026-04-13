@@ -77,11 +77,11 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId }: Ex
       const searchable = `${task.title} ${task.candidate_name} ${task.company_name} ${task.assigned_to_name} ${task.assigned_by_name}`.toLowerCase()
       const matchesSearch = searchable.includes(search.toLowerCase())
       const matchesStatus = statusFilter === 'all' || task.displayStatus === statusFilter
-      const isMine = task.assigned_to_id === currentUserId
+      const isMine = task.is_own_task === 1
       const matchesAssignment = assignmentFilter === 'all' || (assignmentFilter === 'my' ? isMine : !isMine)
       return matchesSearch && matchesStatus && matchesAssignment
     })
-  }, [assignmentFilter, currentUserId, mapped, search, statusFilter])
+  }, [assignmentFilter, mapped, search, statusFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage = Math.min(page, totalPages)
@@ -164,7 +164,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId }: Ex
             {!loading && !error && paged.length === 0 ? <tr><td colSpan={9} style={{ padding: '1rem' }}>{emptyText}</td></tr> : null}
             {!loading && !error
               ? paged.map((task) => (
-                  <tr key={task.task_id} style={{ borderTop: '1px solid #e5e7eb', background: task.assigned_to_id === currentUserId ? '#f8fafc' : 'transparent' }}>
+                  <tr key={task.task_id} style={{ borderTop: '1px solid #e5e7eb', background: task.is_own_task === 1 ? '#f8fafc' : 'transparent' }}>
                     <td style={{ padding: '0.75rem' }}>{task.candidate_name || '—'}</td>
                     <td style={{ padding: '0.75rem', maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={task.title}>{task.title || '—'}</td>
                     <td style={{ padding: '0.75rem' }}>{formatDate(task.due_date)}</td>
@@ -172,8 +172,8 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId }: Ex
                     <td style={{ padding: '0.75rem', fontSize: 13 }}>{formatTimeZone(task.due_date, task.start_time, task.end_time, 'America/New_York')}</td>
                     <td style={{ padding: '0.75rem' }}><span style={badgeStyle(task.displayStatus)}>{task.displayStatus}</span></td>
                     <td style={{ padding: '0.75rem' }}>
-                      {task.assigned_to_name || '—'}
-                      {task.assigned_to_id !== currentUserId ? (
+                      {task.is_own_task === 1 ? 'Me' : (task.assigned_to_name || '—')}
+                      {task.is_own_task === 0 ? (
                         <span style={{ marginLeft: 8, background: '#eef2ff', color: '#3730a3', borderRadius: 999, padding: '0.1rem 0.45rem', fontSize: 11, fontWeight: 600 }}>
                           Sub-task
                         </span>

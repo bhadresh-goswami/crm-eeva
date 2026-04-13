@@ -14,6 +14,7 @@ export type ExpertTaskItem = {
   assigned_to_id: number
   assigned_to_name: string
   assigned_by_name: string
+  is_own_task: number
   file_url: string
 }
 
@@ -31,6 +32,7 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   assigned_to_id: Number(item.assigned_to_id ?? 0),
   assigned_to_name: String(item.assigned_to_name ?? '').trim(),
   assigned_by_name: String(item.assigned_by_name ?? '').trim(),
+  is_own_task: Number(item.is_own_task ?? 0),
   file_url: String(item.file_url ?? '').trim(),
 })
 

@@ -33,7 +33,7 @@ const ExpertTasksPage = () => {
     <section style={{ display: 'grid', gap: '1rem' }}>
       <h1 className="page-title">My Tasks</h1>
       <p className="page-description">Task history and current assignments (including visible sub-user tasks).</p>
-      <ExpertTaskTable tasks={tasks} loading={loading} error={error} emptyText="No tasks assigned" currentUserId={Number(user?.id ?? 0)} />
+      <ExpertTaskTable tasks={tasks} loading={loading} error={error} emptyText="No tasks assigned" />
     </section>
   )
 }
