@@ -5,9 +5,10 @@ type AnimatedModalProps = {
   title: string
   onClose: () => void
   children: ReactNode
+  cardClassName?: string
 }
 
-const AnimatedModal = ({ isOpen, title, onClose, children }: AnimatedModalProps) => {
+const AnimatedModal = ({ isOpen, title, onClose, children, cardClassName }: AnimatedModalProps) => {
   if (!isOpen) {
     return null
   }
@@ -15,7 +16,7 @@ const AnimatedModal = ({ isOpen, title, onClose, children }: AnimatedModalProps)
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
       <div
-        className="modal-card"
+        className={cardClassName ? `modal-card ${cardClassName}` : 'modal-card'}
         role="dialog"
         aria-modal="true"
         aria-label={title}
