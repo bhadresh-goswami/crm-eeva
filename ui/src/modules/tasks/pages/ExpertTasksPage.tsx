@@ -9,19 +9,24 @@ const ExpertTasksPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const loadTasks = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await getExpertTasks()
+      setTasks(result)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Unable to fetch tasks.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     let mounted = true
     const load = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const result = await getExpertTasks()
-        if (mounted) setTasks(result)
-      } catch (loadError) {
-        if (mounted) setError(loadError instanceof Error ? loadError.message : 'Unable to fetch tasks.')
-      } finally {
-        if (mounted) setLoading(false)
-      }
+      if (!mounted) return
+      await loadTasks()
     }
     void load()
     return () => {
@@ -39,6 +44,7 @@ const ExpertTasksPage = () => {
         error={error}
         emptyText="No active tasks available"
         currentUserId={Number(user?.id ?? 0)}
+        onTaskUpdated={loadTasks}
       />
     </section>
   )
