@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import AssignTaskModal from '../../../shared/components/AssignTaskModal'
+import TaskCommentsPanel from '../../../shared/components/TaskCommentsPanel'
 import {
   assignDashboardTask,
   getDashboardTasksByStatus,
@@ -562,12 +563,13 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
       <AnimatedModal isOpen={Boolean(viewingTask)} onClose={() => setViewingTask(null)} title="Task details">
         <h3 className="modal-title">Task details</h3>
         <p className="page-description"><strong>Title:</strong> {viewingTask?.title}</p>
-        <p className="page-description"><strong>Client:</strong> {viewingTask?.client || '—'}</p>
+        <p className="page-description"><strong>Company:</strong> {viewingTask?.client || '—'}</p>
         <p className="page-description"><strong>Candidate:</strong> {viewingTask?.candidate || '—'}</p>
         <p className="page-description"><strong>Schedule:</strong> {viewingTask?.scheduleTime || '—'}</p>
         <p className="page-description"><strong>Status:</strong> {viewingTask?.status || '—'}</p>
         <p className="page-description"><strong>Description:</strong></p>
         <div className="card" dangerouslySetInnerHTML={{ __html: viewingTask?.description || '—' }} />
+        <TaskCommentsPanel taskId={viewingTask ? Number(viewingTask.id) : null} />
         {viewingTask?.fileUrl ? (
           <p className="page-description">
             <strong>File:</strong> <a href={viewingTask.fileUrl} target="_blank" rel="noreferrer">Open attachment</a>
@@ -610,11 +612,12 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
       <AnimatedModal isOpen={Boolean(viewingTask)} onClose={() => setViewingTask(null)} title="Task details">
         <h3 className="modal-title">Task details</h3>
         <p className="page-description"><strong>Title:</strong> {viewingTask?.title}</p>
-        <p className="page-description"><strong>Client:</strong> {viewingTask?.client || '—'}</p>
+        <p className="page-description"><strong>Company:</strong> {viewingTask?.client || '—'}</p>
         <p className="page-description"><strong>Candidate:</strong> {viewingTask?.candidate || '—'}</p>
         <p className="page-description"><strong>Schedule:</strong> {viewingTask?.scheduleTime || '—'}</p>
         <p className="page-description"><strong>Status:</strong> {viewingTask?.status || '—'}</p>
         <p className="page-description"><strong>Description:</strong> {viewingTask?.description || '—'}</p>
+        <TaskCommentsPanel taskId={viewingTask ? Number(viewingTask.id) : null} />
         {viewingTask?.fileUrl ? (
           <p className="page-description">
             <strong>File:</strong> <a href={viewingTask.fileUrl} target="_blank" rel="noreferrer">Open attachment</a>

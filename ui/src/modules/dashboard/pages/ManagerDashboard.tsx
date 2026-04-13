@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
+import TaskCommentsPanel from '../../../shared/components/TaskCommentsPanel'
 import {
   assignManagerTask,
   getManagerAvailableExperts,
@@ -451,6 +452,8 @@ const ManagerDashboard = () => {
                 />
               ) : null}
             </section>
+
+            <TaskCommentsPanel taskId={detailTask ? Number(detailTask.id) : null} />
           </div>
         </div>
       </AnimatedModal>

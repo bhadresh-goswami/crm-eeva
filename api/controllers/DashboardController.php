@@ -68,7 +68,8 @@ class DashboardController {
                 t.start_time,
                 t.end_time,
 
-                c.name as client_name,
+                c.company_name as company_name,
+                c.company_name as client_name,
                 cand.name as candidate_name,
 
                 ts.name as status,
