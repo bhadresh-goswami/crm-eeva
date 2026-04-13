@@ -184,7 +184,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
 
     clearAuthState()
-    window.location.replace('/login')
   }, [clearAuthState, token])
 
   const breakIn = useCallback(async () => {
