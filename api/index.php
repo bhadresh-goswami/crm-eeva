@@ -259,6 +259,10 @@ elseif ($uri === "/tasks/list") {
     authorize($user,['admin','manager','coordinator','expert','expertlead']);
     (new TaskController())->list();
 }
+elseif ($uri === "/expert/tasks" && $method === "GET") {
+    authorize($user,['expert']);
+    (new TaskController())->expertTasks($user->id);
+}
 elseif ($uri === "/tasks/create" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->create();
