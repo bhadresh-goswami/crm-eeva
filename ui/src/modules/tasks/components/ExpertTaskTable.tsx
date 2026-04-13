@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { apiFetch } from '../../../api/client'
 import { checkExpertActiveTask, endExpertTask, startExpertTask, type EndTaskStatus, type ExpertTaskItem } from '../api/expertTasksApi'
+import TaskCommentsPanel from '../../../shared/components/TaskCommentsPanel'
 
 type ExpertTaskTableProps = {
   tasks: ExpertTaskItem[]
@@ -93,6 +94,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
   const [hasActiveTask, setHasActiveTask] = useState(false)
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null)
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
+  const [commentsRefreshKey, setCommentsRefreshKey] = useState(0)
 
   const mapped = useMemo(() => tasks.map((task) => ({ ...task, displayStatus: statusLabel(task.status_name) })), [tasks])
 
@@ -196,6 +198,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
       setActionLoading(true)
       setActionError(null)
       await endExpertTask(endTaskId, endStatus, endComment.trim())
+      setCommentsRefreshKey((current) => current + 1)
       setEndTaskId(null)
       setViewTaskId(null)
       await onTaskUpdated()
@@ -347,6 +350,8 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
               <h4 style={{ marginBottom: '0.6rem', fontSize: 16 }}>Description</h4>
               <div style={{ maxHeight: 280, overflow: 'auto' }} dangerouslySetInnerHTML={{ __html: selectedTask.description || '<p>—</p>' }} />
             </div>
+
+            <TaskCommentsPanel taskId={selectedTask.task_id} refreshKey={commentsRefreshKey} />
 
             {selectedTask.file_url ? <div className="modal-actions" style={{ justifyContent: 'flex-end' }}><button className="button button--primary" onClick={() => void downloadFile(selectedTask.file_url)}>⬇ Download File</button></div> : null}
           </div>

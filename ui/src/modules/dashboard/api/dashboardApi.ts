@@ -61,7 +61,7 @@ const asNumber = (value: unknown) => {
 const normalizeTask = (task: Record<string, unknown>): DashboardTask => ({
   id: String(task.id ?? task.task_id ?? task.taskId ?? task._id ?? `${Date.now()}`),
   title: String(task.title ?? task.task_title ?? task.taskTitle ?? task.name ?? 'Untitled Task'),
-  client: String(task.client_name ?? task.clientName ?? task.client ?? task.client_company ?? task.company ?? '—'),
+  client: String(task.company_name ?? task.client_name ?? task.clientName ?? task.client ?? task.client_company ?? task.company ?? '—'),
   candidate: String(task.candidate_name ?? task.candidateName ?? task.candidate ?? '—'),
   scheduleTime: String(
     task.scheduleTime ??

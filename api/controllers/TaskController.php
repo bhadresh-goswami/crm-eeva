@@ -693,6 +693,38 @@ public function downloadFile() {
         }
     }
 
+    public function comments() {
+        $taskId = isset($_GET['task_id']) ? (int)$_GET['task_id'] : 0;
+        if ($taskId <= 0) {
+            http_response_code(400);
+            echo json_encode(["error" => "task_id required"]);
+            return;
+        }
+
+        $db = new Database();
+        $conn = $db->connect();
+
+        $stmt = $conn->prepare("
+            SELECT
+                tc.id,
+                tc.task_id,
+                tc.user_id,
+                COALESCE(u.name, '') AS user_name,
+                tc.comment,
+                tc.created_at
+            FROM task_comments tc
+            LEFT JOIN users u ON u.id = tc.user_id
+            WHERE tc.task_id = ?
+            ORDER BY tc.created_at DESC, tc.id DESC
+        ");
+        $stmt->execute([$taskId]);
+
+        echo json_encode([
+            "success" => true,
+            "comments" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        ]);
+    }
+
     private function getStatusIdByName(PDO $conn, string $statusName) {
         $stmt = $conn->prepare("SELECT id FROM task_status_master WHERE name = ? LIMIT 1");
         $stmt->execute([$statusName]);
