@@ -48,6 +48,11 @@ const ManagerDashboard = () => {
 
   const [detailTask, setDetailTask] = useState<DashboardTask | null>(null)
 
+  const detailDescription = detailTask?.description?.trim() ?? ''
+  const hasDetailDescription = Boolean(detailDescription)
+  const descriptionLooksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(detailDescription)
+  const descriptionContainsTable = /<table[\s\S]*?>/i.test(detailDescription)
+
   const loadSummary = async () => {
     try {
       setLoadingSummary(true)
@@ -380,14 +385,74 @@ const ManagerDashboard = () => {
         </div>
       </AnimatedModal>
 
-      <AnimatedModal isOpen={Boolean(detailTask)} onClose={() => setDetailTask(null)} title="Task details">
-        <h3 className="modal-title">Task details</h3>
-        <p className="page-description"><strong>Title:</strong> {detailTask?.title || '—'}</p>
-        <p className="page-description"><strong>Candidate:</strong> {detailTask?.candidate || '—'}</p>
-        <p className="page-description"><strong>Company:</strong> {detailTask?.client || '—'}</p>
-        <p className="page-description"><strong>Status:</strong> {detailTask?.status || '—'}</p>
-        <p className="page-description"><strong>Description:</strong></p>
-        <div className="card" dangerouslySetInnerHTML={{ __html: detailTask?.description || '—' }} />
+      <AnimatedModal
+        isOpen={Boolean(detailTask)}
+        onClose={() => setDetailTask(null)}
+        title="Task Details"
+        cardClassName="task-details-modal-card"
+      >
+        <div className="task-details-modal">
+          <div className="task-details-modal__header">
+            <h3 className="modal-title">Task Details</h3>
+            <button
+              type="button"
+              className="button users-icon-btn"
+              title="Close"
+              aria-label="Close task details"
+              onClick={() => setDetailTask(null)}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="task-details-modal__body">
+            <section className="task-details-modal__section">
+              <h4 className="task-details-modal__section-title">Basic Info</h4>
+              <div className="task-details-modal__grid">
+                <div className="task-details-modal__meta">
+                  <span className="task-details-modal__label">Title</span>
+                  <span className="task-details-modal__value">{detailTask?.title || '—'}</span>
+                </div>
+                <div className="task-details-modal__meta">
+                  <span className="task-details-modal__label">Candidate</span>
+                  <span className="task-details-modal__value">{detailTask?.candidate || '—'}</span>
+                </div>
+                <div className="task-details-modal__meta">
+                  <span className="task-details-modal__label">Company</span>
+                  <span className="task-details-modal__value">{detailTask?.client || '—'}</span>
+                </div>
+                <div className="task-details-modal__meta">
+                  <span className="task-details-modal__label">Time</span>
+                  <span className="task-details-modal__value">
+                    {detailTask?.startTime && detailTask?.endTime
+                      ? `${detailTask.startTime} - ${detailTask.endTime}`
+                      : detailTask?.scheduleTime || '—'}
+                  </span>
+                </div>
+                <div className="task-details-modal__meta">
+                  <span className="task-details-modal__label">Status</span>
+                  <span className="status-pill">{detailTask?.status || '—'}</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="task-details-modal__section">
+              <h4 className="task-details-modal__section-title">Description</h4>
+              {!hasDetailDescription ? <p className="task-details-modal__empty">No description available</p> : null}
+              {hasDetailDescription && !descriptionLooksLikeHtml ? (
+                <p className="task-details-modal__description-text">{detailDescription}</p>
+              ) : null}
+              {hasDetailDescription && descriptionLooksLikeHtml ? (
+                <div
+                  className={`task-details-modal__description-html ${
+                    descriptionContainsTable ? 'task-details-modal__description-html--table' : ''
+                  }`}
+                  dangerouslySetInnerHTML={{ __html: detailDescription }}
+                />
+              ) : null}
+            </section>
+          </div>
+        </div>
       </AnimatedModal>
     </section>
   )
