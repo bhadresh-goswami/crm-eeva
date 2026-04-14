@@ -5,6 +5,7 @@ import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { AlertProvider } from './shared/alerts/AlertProvider'
 import './index.css'
+import './styles/theme.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
