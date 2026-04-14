@@ -52,7 +52,7 @@ type AuthContextValue = {
   isAuthenticated: boolean
   sessionStatus: SessionStatus
   login: (payload: LoginPayload) => Promise<void>
-  logout: () => Promise<void>
+  logout: () => Promise<{ success: boolean; serverStatus: 'success' | 'warning' }>
   breakIn: () => Promise<void>
   breakOut: () => Promise<void>
 }
@@ -175,15 +175,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [])
 
   const logout = useCallback(async () => {
+    let serverStatus: 'success' | 'warning' = 'success'
     if (token) {
       try {
-        await apiRequest('/logout', { method: 'POST' })
+        const response = await apiRequest<{ success?: boolean }>('/logout', { method: 'POST' })
+        if (response?.success !== true) {
+          serverStatus = 'warning'
+        }
       } catch {
-        // Backend may return an error for an already expired token.
+        serverStatus = 'warning'
       }
     }
 
     clearAuthState()
+    return { success: true, serverStatus }
   }, [clearAuthState, token])
 
   const breakIn = useCallback(async () => {
@@ -192,7 +197,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setSessionStatus('logged_in')
       localStorage.setItem(SESSION_STATUS_STORAGE_KEY, 'logged_in')
     } catch (error) {
-      console.error('breakIn failed', error)
       throw error
     }
   }, [])
@@ -203,7 +207,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setSessionStatus('break')
       localStorage.setItem(SESSION_STATUS_STORAGE_KEY, 'break')
     } catch (error) {
-      console.error('breakOut failed', error)
       throw error
     }
   }, [])

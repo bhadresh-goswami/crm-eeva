@@ -1,12 +1,13 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from '../modules/auth/pages/LoginPage'
 import ForgotPasswordPage from '../modules/auth/pages/ForgotPasswordPage'
+import NotFoundPage from '../modules/auth/pages/NotFoundPage'
 import CandidatesPage from '../modules/candidates/pages/CandidatesPage'
 import ClientsPage from '../modules/clients/pages/ClientsPage'
 import DashboardPage from '../modules/dashboard/pages/DashboardPage'
 import RolesPage from '../modules/roles/pages/RolesPage'
 import PocsPage from '../modules/pocs/pages/PocsPage'
-import TasksPage from '../modules/tasks/pages/TasksPage'
+import TasksEntryPage from '../modules/tasks/pages/TasksEntryPage'
 import UsersPage from '../modules/users/pages/UsersPage'
 import { useAuth } from '../context/AuthContext'
 import AdminDashboard from '../modules/dashboard/pages/AdminDashboard'
@@ -30,6 +31,7 @@ const AppRoutes = () => {
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/404" element={<NotFoundPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
@@ -51,7 +53,7 @@ const AppRoutes = () => {
             <Route path="/expert/dashboard" element={<ExpertDashboard />} />
           </Route>
 
-          <Route path="/tasks" element={<TasksPage />} />
+          <Route path="/tasks" element={<TasksEntryPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/pocs" element={<PocsPage />} />
           <Route path="/candidates" element={<CandidatesPage />} />
@@ -62,7 +64,7 @@ const AppRoutes = () => {
         </Route>
       </Route>
 
-      <Route path="*" element={<RootRedirect />} />
+      <Route path="*" element={<Navigate replace to="/404" />} />
     </Routes>
   )
 }

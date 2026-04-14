@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
+import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
+import { useAlert } from '../../../shared/alerts/useAlert'
 import {
   assignManagerTask,
   getManagerAvailableExperts,
@@ -30,6 +32,7 @@ const tabLabels: Record<ManagerTaskStatus, string> = {
 }
 
 const ManagerDashboard = () => {
+  const { showToast, showAlert } = useAlert()
   const [summaryData, setSummaryData] = useState<DashboardSummary>(defaultSummary)
   const [tasksData, setTasksData] = useState<DashboardTask[]>([])
   const [activeTab, setActiveTab] = useState<ManagerTaskStatus>('pending')
@@ -48,20 +51,13 @@ const ManagerDashboard = () => {
 
   const [detailTask, setDetailTask] = useState<DashboardTask | null>(null)
 
-  const detailDescription = detailTask?.description?.trim() ?? ''
-  const hasDetailDescription = Boolean(detailDescription)
-  const descriptionLooksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(detailDescription)
-  const descriptionContainsTable = /<table[\s\S]*?>/i.test(detailDescription)
-
   const loadSummary = async () => {
     try {
       setLoadingSummary(true)
       setSummaryError(null)
       const response = await getManagerDashboardSummary()
-      console.log('Summary API:', response)
       setSummaryData(response)
     } catch (error) {
-      console.error('Failed to load dashboard summary', error)
       setSummaryError(error instanceof Error ? error.message : 'Unable to load summary data.')
     } finally {
       setLoadingSummary(false)
@@ -73,10 +69,8 @@ const ManagerDashboard = () => {
       setLoadingTasks(true)
       setTasksError(null)
       const response = await getManagerTasksByStatus(status)
-      console.log('Tasks API:', response)
       setTasksData(response)
     } catch (error) {
-      console.error(`Failed to load tasks for ${status}`, error)
       setTasksError(error instanceof Error ? error.message : 'Unable to load tasks for this tab.')
       setTasksData([])
     } finally {
@@ -111,14 +105,12 @@ const ManagerDashboard = () => {
           startTime: assigningTask.startTime ?? '',
           endTime: assigningTask.endTime ?? '',
         })
-        console.log('Assign modal experts API response:', response)
 
         if (!mounted) return
 
         setAvailableExperts(Array.isArray(response) ? response : [])
         setSelectedExpertId('')
       } catch (error) {
-        console.error('Failed to load experts for assign modal', error)
         if (!mounted) return
         setAssignError(error instanceof Error ? error.message : 'Unable to load experts.')
         setAvailableExperts([])
@@ -160,20 +152,24 @@ const ManagerDashboard = () => {
     try {
       setSubmittingAssign(true)
       setAssignError(null)
-      await assignManagerTask(assigningTask.id, selectedExpertId)
+      const response = await assignManagerTask(assigningTask.id, selectedExpertId)
+      showToast({ type: 'success', message: 'Task assigned successfully.' })
+      if (response?.email_status === 'failed') {
+        showToast({ type: 'warning', message: 'Task assigned but email failed.' })
+      }
       setAssigningTask(null)
       setSelectedExpertId('')
       await loadTasksByStatus(activeTab)
       await loadSummary()
     } catch (error) {
-      console.error('Failed to assign task', error)
-      setAssignError(error instanceof Error ? error.message : 'Unable to assign task.')
+      const message = error instanceof Error ? error.message : 'Unable to assign task.'
+      setAssignError(message)
+      showAlert({ type: 'error', title: 'Assignment failed', message })
     } finally {
       setSubmittingAssign(false)
     }
   }
 
-  console.log('Experts State:', availableExperts)
 
   return (
     <section>
@@ -385,75 +381,24 @@ const ManagerDashboard = () => {
         </div>
       </AnimatedModal>
 
-      <AnimatedModal
+      <TaskDetailsModal
         isOpen={Boolean(detailTask)}
+        role="manager"
+        task={detailTask ? {
+          taskId: Number(detailTask.id),
+          title: detailTask.title,
+          status: detailTask.status,
+          candidateName: detailTask.candidate || '—',
+          companyName: detailTask.client || '—',
+          supportType: detailTask.supportType || '—',
+          assignedTo: detailTask.assignedToName || '—',
+          dueDate: detailTask.dueDate,
+          startTime: detailTask.startTime,
+          endTime: detailTask.endTime,
+          description: detailTask.description || '',
+        } : null}
         onClose={() => setDetailTask(null)}
-        title="Task Details"
-        cardClassName="task-details-modal-card"
-      >
-        <div className="task-details-modal">
-          <div className="task-details-modal__header">
-            <h3 className="modal-title">Task Details</h3>
-            <button
-              type="button"
-              className="button users-icon-btn"
-              title="Close"
-              aria-label="Close task details"
-              onClick={() => setDetailTask(null)}
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="task-details-modal__body">
-            <section className="task-details-modal__section">
-              <h4 className="task-details-modal__section-title">Basic Info</h4>
-              <div className="task-details-modal__grid">
-                <div className="task-details-modal__meta">
-                  <span className="task-details-modal__label">Title</span>
-                  <span className="task-details-modal__value">{detailTask?.title || '—'}</span>
-                </div>
-                <div className="task-details-modal__meta">
-                  <span className="task-details-modal__label">Candidate</span>
-                  <span className="task-details-modal__value">{detailTask?.candidate || '—'}</span>
-                </div>
-                <div className="task-details-modal__meta">
-                  <span className="task-details-modal__label">Company</span>
-                  <span className="task-details-modal__value">{detailTask?.client || '—'}</span>
-                </div>
-                <div className="task-details-modal__meta">
-                  <span className="task-details-modal__label">Time</span>
-                  <span className="task-details-modal__value">
-                    {detailTask?.startTime && detailTask?.endTime
-                      ? `${detailTask.startTime} - ${detailTask.endTime}`
-                      : detailTask?.scheduleTime || '—'}
-                  </span>
-                </div>
-                <div className="task-details-modal__meta">
-                  <span className="task-details-modal__label">Status</span>
-                  <span className="status-pill">{detailTask?.status || '—'}</span>
-                </div>
-              </div>
-            </section>
-
-            <section className="task-details-modal__section">
-              <h4 className="task-details-modal__section-title">Description</h4>
-              {!hasDetailDescription ? <p className="task-details-modal__empty">No description available</p> : null}
-              {hasDetailDescription && !descriptionLooksLikeHtml ? (
-                <p className="task-details-modal__description-text">{detailDescription}</p>
-              ) : null}
-              {hasDetailDescription && descriptionLooksLikeHtml ? (
-                <div
-                  className={`task-details-modal__description-html ${
-                    descriptionContainsTable ? 'task-details-modal__description-html--table' : ''
-                  }`}
-                  dangerouslySetInnerHTML={{ __html: detailDescription }}
-                />
-              ) : null}
-            </section>
-          </div>
-        </div>
-      </AnimatedModal>
+      />
     </section>
   )
 }

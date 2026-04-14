@@ -14,6 +14,7 @@ export type DashboardTask = {
   dueDate?: string
   startTime?: string
   endTime?: string
+  supportType?: string
 }
 
 export type DashboardExpert = {
@@ -61,7 +62,7 @@ const asNumber = (value: unknown) => {
 const normalizeTask = (task: Record<string, unknown>): DashboardTask => ({
   id: String(task.id ?? task.task_id ?? task.taskId ?? task._id ?? `${Date.now()}`),
   title: String(task.title ?? task.task_title ?? task.taskTitle ?? task.name ?? 'Untitled Task'),
-  client: String(task.client_name ?? task.clientName ?? task.client ?? task.client_company ?? task.company ?? '—'),
+  client: String(task.company_name ?? task.client_name ?? task.clientName ?? task.client ?? task.client_company ?? task.company ?? '—'),
   candidate: String(task.candidate_name ?? task.candidateName ?? task.candidate ?? '—'),
   scheduleTime: String(
     task.scheduleTime ??
@@ -81,6 +82,7 @@ const normalizeTask = (task: Record<string, unknown>): DashboardTask => ({
   dueDate: String(task.task_date ?? task.due_date ?? task.date ?? ''),
   startTime: String(task.start_time ?? task.time_start ?? ''),
   endTime: String(task.end_time ?? task.time_end ?? ''),
+  supportType: String(task.support_type ?? task.task_type ?? ''),
 })
 
 const normalizeExpert = (expert: Record<string, unknown>): DashboardExpert => ({
@@ -147,7 +149,7 @@ export const getManagerAvailableExperts = async ({
 }
 
 export const assignManagerTask = async (taskId: string, expertId: string) => {
-  await apiRequest('/dashboard/assign-task', {
+  return apiRequest<{ success?: boolean; email_status?: 'sent' | 'failed'; email_error?: string; message?: string }>('/dashboard/assign-task', {
     method: 'POST',
     body: JSON.stringify({
       task_id: taskId,
