@@ -1,3 +1,5 @@
+import { alertBus } from '../shared/alerts/alertBus'
+
 let unauthorizedHandler: (() => void) | undefined
 
 const AUTH_STORAGE_KEY = 'crm_auth'
@@ -112,7 +114,9 @@ export const apiRequest = async <TResponse = unknown>(
   const response = await apiFetch(path, init)
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    const message = await readErrorMessage(response)
+    alertBus.showToast({ type: 'error', message, title: 'Request failed' })
+    throw new Error(message)
   }
 
   if (response.status === 204) {

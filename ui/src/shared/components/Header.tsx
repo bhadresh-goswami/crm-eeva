@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { changePassword } from '../../modules/auth/api/passwordApi'
 import { useAuth } from '../../context/AuthContext'
+import { useAlert } from '../alerts/useAlert'
 import ChangePasswordModal from './ChangePasswordModal'
 
 const sessionStatusLabel: Record<'logged_in' | 'break' | 'logged_out', string> = {
@@ -12,6 +13,7 @@ const sessionStatusLabel: Record<'logged_in' | 'break' | 'logged_out', string> =
 
 const Header = () => {
   const { user, sessionStatus, breakIn, breakOut, logout } = useAuth()
+  const { showToast, showConfirm } = useAlert()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [redirectToLogin, setRedirectToLogin] = useState(false)
@@ -33,6 +35,7 @@ const Header = () => {
 
     try {
       await breakIn()
+      showToast({ type: 'success', message: 'Session marked as logged in.' })
     } catch (nextError) {
       setError('Unable to mark session as logged in. Please try again.')
     } finally {
@@ -46,6 +49,7 @@ const Header = () => {
 
     try {
       await breakOut()
+      showToast({ type: 'info', message: 'Session marked as break.' })
     } catch (nextError) {
       setError('Unable to mark session as break. Please try again.')
     } finally {
@@ -54,17 +58,25 @@ const Header = () => {
   }
 
   const handleLogout = async () => {
-    setError(null)
-    setIsSubmitting(true)
-
-    try {
-      await logout()
-      setRedirectToLogin(true)
-    } catch (nextError) {
-      setError('Unable to logout right now. Please try again.')
-    } finally {
-      setIsSubmitting(false)
-    }
+    showConfirm({
+      title: 'Confirm Logout',
+      message: 'Are you sure you want to logout?',
+      confirmText: 'Logout',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        setError(null)
+        setIsSubmitting(true)
+        try {
+          await logout()
+          showToast({ type: 'success', message: 'Logged out successfully.' })
+          setRedirectToLogin(true)
+        } catch {
+          setError('Unable to logout right now. Please try again.')
+        } finally {
+          setIsSubmitting(false)
+        }
+      },
+    })
   }
 
   const handleChangePassword = async ({
@@ -85,7 +97,7 @@ const Header = () => {
         confirm_password: confirmPassword,
       })
       setIsPasswordModalOpen(false)
-      setError('Password changed successfully.')
+      showToast({ type: 'success', message: 'Password changed successfully.' })
     } catch (submitError) {
       setPasswordSubmitError(submitError instanceof Error ? submitError.message : 'Unable to change password.')
     } finally {
