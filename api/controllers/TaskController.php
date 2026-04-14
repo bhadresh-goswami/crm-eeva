@@ -707,7 +707,7 @@ public function downloadFile() {
                 ->execute([$assignmentId]);
 
             $conn->commit();
-            EmailService::sendTaskNotification((int)$data->task_id, 'started', null, (int)$user_id);
+            EmailService::sendTaskNotification((int)$data->task_id, 'status_update', 'Status moved to In Progress', (int)$user_id);
             echo json_encode(["success" => true, "message" => "Task started"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
@@ -786,7 +786,7 @@ public function downloadFile() {
             $commentStmt->execute([(int)$data->task_id, (int)$user_id, $comment]);
 
             $conn->commit();
-            EmailService::sendTaskNotification((int)$data->task_id, 'status_changed', $comment, (int)$user_id);
+            EmailService::sendTaskNotification((int)$data->task_id, 'status_update', $comment, (int)$user_id);
             echo json_encode(["success" => true, "message" => "Task updated"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
@@ -830,6 +830,25 @@ public function downloadFile() {
         echo json_encode([
             "success" => true,
             "comments" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        ]);
+    }
+
+    public function sendDailyReport($user_id) {
+        $result = EmailService::sendDailyReportForUser((int)$user_id, true);
+        if (($result['email_status'] ?? '') === 'skipped' && ($result['email_error'] ?? '') === 'no_tasks_today') {
+            http_response_code(422);
+            echo json_encode([
+                "success" => false,
+                "message" => "No tasks found for today.",
+            ]);
+            return;
+        }
+
+        echo json_encode([
+            "success" => true,
+            "email_status" => $result['email_status'] ?? 'failed',
+            "email_error" => $result['email_error'] ?? null,
+            "message" => "Daily report processed",
         ]);
     }
 

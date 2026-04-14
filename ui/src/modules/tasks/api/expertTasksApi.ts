@@ -71,3 +71,10 @@ export const endExpertTask = async (taskId: number, status: EndTaskStatus, comme
     body: JSON.stringify({ task_id: taskId, status, comment }),
   })
 }
+
+export const sendDailyReportNow = async () => {
+  return apiRequest<{ success?: boolean; email_status?: 'sent' | 'failed' | 'skipped'; email_error?: string; message?: string }>('/expert/send-daily-report', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}

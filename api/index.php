@@ -3,6 +3,7 @@
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
+date_default_timezone_set('Asia/Kolkata');
 
 // ---------------- HEADERS ----------------
 header("Access-Control-Allow-Origin: *");
@@ -317,6 +318,11 @@ elseif ($uri === "/expert/tasks/end" && $method === "POST") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
     $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
     (new TaskController())->endTask($expertUserId);
+}
+elseif ($uri === "/expert/send-daily-report" && $method === "POST") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->sendDailyReport($expertUserId);
 }
 elseif ($uri === "/tasks/create" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);

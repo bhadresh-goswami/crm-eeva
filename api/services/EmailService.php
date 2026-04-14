@@ -20,7 +20,11 @@ class EmailService
             self::ensureThreadColumnExists($conn);
             $task = self::fetchTaskSnapshot($conn, (int)$taskId);
             if (!$task) {
-                return false;
+                return [
+                    'success' => true,
+                    'email_status' => 'failed',
+                    'email_error' => 'Task not found for email notification',
+                ];
             }
 
             $threadId = self::resolveThreadId($conn, $task, (string)$action);
@@ -31,7 +35,11 @@ class EmailService
 
             $recipients = self::resolveRecipients($conn, $task, $actorUserId);
             if (empty($recipients['to']) && empty($recipients['cc'])) {
-                return false;
+                return [
+                    'success' => true,
+                    'email_status' => 'failed',
+                    'email_error' => 'No recipients found',
+                ];
             }
 
             $subject = self::buildSubject($task);
@@ -85,7 +93,7 @@ class EmailService
 
     private static function fetchTaskSnapshot(PDO $conn, int $taskId)
     {
-        $stmt = $conn->prepare("\n            SELECT\n                t.id,\n                t.title,\n                t.due_date,\n                t.start_time,\n                t.email_thread_id,\n                COALESCE(cand.name, '') AS candidate_name,\n                COALESCE(cl.name, '') AS company_name,\n                COALESCE(tt.name, '') AS support_type,\n                COALESCE(ts.name, '') AS status_name,\n                ta.user_id AS assigned_to_id,\n                COALESCE(assigned_to.name, '') AS assigned_to_name,\n                COALESCE(assigned_to.email, '') AS assigned_to_email,\n                assigned_to.team_lead_id AS assigned_to_team_lead_id\n            FROM tasks t\n            LEFT JOIN candidates cand ON cand.id = t.candidate_id\n            LEFT JOIN clients cl ON cl.id = t.client_id\n            LEFT JOIN task_types tt ON tt.id = t.task_type_id\n            LEFT JOIN task_status_master ts ON ts.id = t.status_id\n            LEFT JOIN task_assignments ta ON ta.id = (\n                SELECT id FROM task_assignments WHERE task_id = t.id ORDER BY id DESC LIMIT 1\n            )\n            LEFT JOIN users assigned_to ON assigned_to.id = ta.user_id\n            WHERE t.id = ?\n            LIMIT 1\n        ");
+        $stmt = $conn->prepare("\n            SELECT\n                t.id,\n                t.title,\n                t.due_date,\n                t.start_time,\n                t.email_thread_id,\n                COALESCE(cand.name, '') AS candidate_name,\n                COALESCE(tt.name, '') AS support_type,\n                COALESCE(ts.name, '') AS status_name,\n                ta.user_id AS assigned_to_id,\n                COALESCE(assigned_to.name, '') AS assigned_to_name,\n                COALESCE(assigned_to.email, '') AS assigned_to_email,\n                assigned_to.team_lead_id AS assigned_to_team_lead_id\n            FROM tasks t\n            LEFT JOIN candidates cand ON cand.id = t.candidate_id\n            LEFT JOIN task_types tt ON tt.id = t.task_type_id\n            LEFT JOIN task_status_master ts ON ts.id = t.status_id\n            LEFT JOIN task_assignments ta ON ta.id = (\n                SELECT id FROM task_assignments WHERE task_id = t.id ORDER BY id DESC LIMIT 1\n            )\n            LEFT JOIN users assigned_to ON assigned_to.id = ta.user_id\n            WHERE t.id = ?\n            LIMIT 1\n        ");
         $stmt->execute([$taskId]);
 
         return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -118,14 +126,6 @@ class EmailService
             $managerEmail = self::fetchUserEmail($conn, (int)$actorUserId);
             if ($managerEmail !== '') {
                 $to[] = $managerEmail;
-            }
-        }
-
-        $teamLeadId = (int)($task['assigned_to_team_lead_id'] ?? 0);
-        if ($teamLeadId > 0) {
-            $teamLeadEmail = self::fetchUserEmail($conn, $teamLeadId);
-            if ($teamLeadEmail !== '') {
-                $to[] = $teamLeadEmail;
             }
         }
 
@@ -195,7 +195,6 @@ class EmailService
                 . '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">'
                 . self::row('Task Title', $task['title'] ?? '-')
                 . self::row('Candidate Name', $task['candidate_name'] ?? '-')
-                . self::row('Company Name', $task['company_name'] ?? '-')
                 . self::row('Support Type', $task['support_type'] ?? '-')
                 . self::row('Status', $task['status_name'] ?? '-')
                 . self::row('IST Date & Time', $dtIst->format('d M Y h:i A'))
@@ -210,6 +209,16 @@ class EmailService
                 . 'Assigned by: ' . $assignedBy;
 
             return [$html, $plain];
+        }
+
+        if (in_array(strtolower($action), ['status_update', 'status_changed', 'started', 'task_started', 'ended', 'task_ended'], true)) {
+            $statusText = trim((string)($task['status_name'] ?? 'Updated'));
+            $message = 'Status updated to ' . htmlspecialchars($statusText, ENT_QUOTES, 'UTF-8') . '.';
+            if (trim((string)$comment) !== '') {
+                $message .= '<br>Comment: ' . htmlspecialchars((string)$comment, ENT_QUOTES, 'UTF-8');
+            }
+
+            return ['<p>' . $message . '</p>', strip_tags(str_replace('<br>', PHP_EOL, $message))];
         }
 
         $message = self::buildTrailMessage($action, $actorName);
@@ -388,5 +397,120 @@ class EmailService
             ]);
             return false;
         }
+    }
+
+    public static function sendUserCreatedEmail(string $email, string $plainPassword): array
+    {
+        $loginUrl = (isset($_SERVER['HTTP_ORIGIN']) ? rtrim((string)$_SERVER['HTTP_ORIGIN'], '/') : 'https://support.bsquareg-developers.com') . '/login';
+        return self::sendRawEmail(
+            [$email],
+            [],
+            'Your account has been created',
+            '<p>Your account is ready.</p><p>Email: ' . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '<br>Password: ' . htmlspecialchars($plainPassword, ENT_QUOTES, 'UTF-8') . '<br>Login URL: ' . htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') . '</p>',
+            "Your account is ready.\nEmail: {$email}\nPassword: {$plainPassword}\nLogin URL: {$loginUrl}"
+        );
+    }
+
+    public static function sendPasswordChangedEmail(string $email): array
+    {
+        return self::sendRawEmail([$email], [], 'Password changed', '<p>Your password has been changed successfully.</p>', 'Your password has been changed successfully.');
+    }
+
+    public static function sendForgotPasswordRequestEmail(string $adminEmail, string $userName, string $userEmail): array
+    {
+        return self::sendRawEmail(
+            [$adminEmail],
+            ['support@bsquareg-developers.com'],
+            'Password Reset Request',
+            '<p>User Name: ' . htmlspecialchars($userName, ENT_QUOTES, 'UTF-8') . '<br>User Email: ' . htmlspecialchars($userEmail, ENT_QUOTES, 'UTF-8') . '</p><p>User has requested password reset. Please update manually.</p>',
+            "User Name: {$userName}\nUser Email: {$userEmail}\nUser has requested password reset. Please update manually."
+        );
+    }
+
+    public static function sendDailyReportForUser(int $userId, bool $manual = false): array
+    {
+        $db = new Database();
+        $conn = $db->connect();
+        $todayIst = (new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y-m-d');
+
+        $sentMap = self::readDailyReportMap();
+        $sentKey = $userId . '|' . $todayIst;
+        if (!$manual && isset($sentMap[$sentKey])) {
+            return ['success' => true, 'email_status' => 'skipped', 'email_error' => 'already_sent'];
+        }
+
+        $userStmt = $conn->prepare('SELECT id, email, name, status FROM users WHERE id = ? LIMIT 1');
+        $userStmt->execute([$userId]);
+        $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$user || (string)$user['status'] !== 'active' || trim((string)$user['email']) === '') {
+            return ['success' => true, 'email_status' => 'skipped', 'email_error' => 'inactive_or_missing_email'];
+        }
+
+        $countStmt = $conn->prepare("
+            SELECT
+              SUM(CASE WHEN LOWER(ts.name) = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+              SUM(CASE WHEN LOWER(ts.name) IN ('pending', 'assigned', 'in progress') THEN 1 ELSE 0 END) AS pending_count
+            FROM tasks t
+            INNER JOIN task_assignments ta ON ta.task_id = t.id
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            WHERE ta.user_id = ?
+              AND ta.is_active = 1
+              AND DATE(t.due_date) = ?
+        ");
+        $countStmt->execute([$userId, $todayIst]);
+        $counts = $countStmt->fetch(PDO::FETCH_ASSOC) ?: ['completed_count' => 0, 'pending_count' => 0];
+        $completed = (int)($counts['completed_count'] ?? 0);
+        $pending = (int)($counts['pending_count'] ?? 0);
+
+        if (($completed + $pending) === 0) {
+            return ['success' => true, 'email_status' => 'skipped', 'email_error' => 'no_tasks_today'];
+        }
+
+        $result = self::sendRawEmail(
+            [trim((string)$user['email'])],
+            ['support@bsquareg-developers.com'],
+            'Daily Task Report - ' . $todayIst,
+            '<p>Completed Tasks (Today): ' . $completed . '<br>Pending Tasks (Today): ' . $pending . '</p>',
+            "Completed Tasks (Today): {$completed}\nPending Tasks (Today): {$pending}"
+        );
+
+        if (($result['email_status'] ?? '') === 'sent') {
+            $sentMap[$sentKey] = gmdate('c');
+            self::writeDailyReportMap($sentMap);
+        }
+
+        return $result;
+    }
+
+    private static function sendRawEmail(array $to, array $cc, string $subject, string $htmlBody, string $plainBody): array
+    {
+        try {
+            $config = self::loadMailConfig();
+            if (!$config) {
+                throw new RuntimeException('Mail configuration is missing');
+            }
+            self::dispatch($config, ['to' => self::sanitizeEmails($to), 'cc' => self::sanitizeEmails($cc)], $subject, $htmlBody, $plainBody, 'generic@bsquareg', 'generic');
+            return ['success' => true, 'email_status' => 'sent', 'email_error' => null];
+        } catch (Throwable $e) {
+            LoggerService::logError('Generic email failed', ['subject' => $subject, 'error' => $e->getMessage()]);
+            return ['success' => true, 'email_status' => 'failed', 'email_error' => $e->getMessage()];
+        }
+    }
+
+    private static function readDailyReportMap(): array
+    {
+        $path = dirname(__DIR__) . '/logs/daily_report_sent.json';
+        if (!file_exists($path)) {
+            return [];
+        }
+        $raw = file_get_contents($path);
+        $decoded = json_decode((string)$raw, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private static function writeDailyReportMap(array $map): void
+    {
+        $path = dirname(__DIR__) . '/logs/daily_report_sent.json';
+        file_put_contents($path, json_encode($map, JSON_PRETTY_PRINT), LOCK_EX);
     }
 }
