@@ -352,6 +352,34 @@ const TasksPage = () => {
     [tasks],
   )
 
+  const taskActivitySummary = useMemo(() => {
+    const pending = tasks.filter((task) => task.status === 'pending').length
+    const assigned = tasks.filter((task) => task.status === 'assigned').length
+    const completed = tasks.filter((task) => task.status === 'completed').length
+    return { pending, assigned, completed }
+  }, [tasks])
+
+  const dailyTaskActivity = useMemo(() => {
+    const grouped = new Map<string, { pending: number; assigned: number; completed: number }>()
+    tasks.forEach((task) => {
+      const dayKey = task.due_date.slice(0, 10)
+      const current = grouped.get(dayKey) ?? { pending: 0, assigned: 0, completed: 0 }
+      if (task.status === 'pending') current.pending += 1
+      if (task.status === 'assigned') current.assigned += 1
+      if (task.status === 'completed') current.completed += 1
+      grouped.set(dayKey, current)
+    })
+
+    return Array.from(grouped.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-7)
+      .map(([date, value]) => ({
+        date,
+        label: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        ...value,
+      }))
+  }, [tasks])
+
   const loadClientDependentOptions = useCallback(async (clientId: number) => {
     setLoadingPocs(true)
     setLoadingCandidates(true)
@@ -690,6 +718,29 @@ const TasksPage = () => {
         <button className="button button--danger" disabled={!selectedTaskIds.length || !canManage} onClick={() => void handleBulkCancel()}>
           🗑 Cancel Selected
         </button>
+      </div>
+
+      <div className="card section tasks-activity">
+        <h3 className="tasks-activity__title">Task Activity</h3>
+        <p className="card-text">
+          Pending {taskActivitySummary.pending} • Assigned {taskActivitySummary.assigned} • Completed {taskActivitySummary.completed}
+        </p>
+        <div className="tasks-activity__chart">
+          {dailyTaskActivity.length === 0 ? (
+            <p className="card-text">No task activity yet.</p>
+          ) : (
+            dailyTaskActivity.map((day) => (
+              <div key={day.date} className="tasks-activity__day">
+                <div className="tasks-activity__bars">
+                  <div className="tasks-activity__bar tasks-activity__bar--pending" style={{ height: `${Math.max(10, day.pending * 14)}px` }} title={`Pending: ${day.pending}`} />
+                  <div className="tasks-activity__bar tasks-activity__bar--assigned" style={{ height: `${Math.max(10, day.assigned * 14)}px` }} title={`Assigned: ${day.assigned}`} />
+                  <div className="tasks-activity__bar tasks-activity__bar--completed" style={{ height: `${Math.max(10, day.completed * 14)}px` }} title={`Completed: ${day.completed}`} />
+                </div>
+                <span className="tasks-activity__label">{day.label}</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       <div className="card table-container tasks-table__wrapper">
