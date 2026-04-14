@@ -1,13 +1,16 @@
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Header from '../components/Header'
 import Sidebar from '../components/Sidebar'
 
 const MainLayout = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
   return (
-    <div className="app-shell">
-      <Header />
-      <div className="app-shell__main">
-        <Sidebar />
+    <div className="app-layout">
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <div className="app-main">
+        <Header onMenuToggle={() => setIsSidebarOpen((prev) => !prev)} />
         <main className="main-content">
           <Outlet />
         </main>
