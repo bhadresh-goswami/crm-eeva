@@ -9,10 +9,11 @@ return [
         'encryption' => 'tls',
         'auth' => true,
         'timeout' => 5,
+        'debug' => true,
     ],
     'from' => [
         'email' => 'support@bsquareg-developers.com',
-        'name' => 'BsquareG Support',
+        'name' => 'Support Team',
     ],
     'always_cc' => [
         'bhadresh@bedgetechinc.com',

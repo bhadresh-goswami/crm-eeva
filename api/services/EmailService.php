@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . '/config/database.php';
+require_once dirname(__DIR__) . '/services/LoggerService.php';
 
 class EmailService
 {
@@ -264,8 +265,17 @@ class EmailService
         $mailer->SMTPSecure = $config['smtp']['encryption'];
         $mailer->Port = (int)$config['smtp']['port'];
         $mailer->Timeout = (int)($config['smtp']['timeout'] ?? 5);
+        if (!empty($config['smtp']['debug'])) {
+            $mailer->SMTPDebug = 2;
+            $mailer->Debugoutput = static function ($debugLine, $level) {
+                LoggerService::logInfo('SMTP debug', [
+                    'level' => $level,
+                    'line' => (string)$debugLine,
+                ]);
+            };
+        }
 
-        $mailer->setFrom($config['from']['email'], $config['from']['name']);
+        $mailer->setFrom('support@bsquareg-developers.com', 'Support Team');
         foreach ($recipients['to'] as $email) {
             $mailer->addAddress($email);
         }
@@ -286,7 +296,18 @@ class EmailService
         $mailer->Subject = $subject;
         $mailer->Body = $htmlBody;
         $mailer->AltBody = $plainBody;
-        $mailer->send();
+        try {
+            $mailer->send();
+        } catch (Exception $e) {
+            LoggerService::logError('Email failed', [
+                'error' => $mailer->ErrorInfo,
+                'exception' => $e->getMessage(),
+                'to' => $recipients['to'],
+                'cc' => $recipients['cc'],
+                'subject' => $subject,
+            ]);
+            throw $e;
+        }
     }
 
     private static function ensurePhpMailerLoaded()
@@ -320,12 +341,47 @@ class EmailService
 
     private static function logFailure(int $taskId, string $action, string $error)
     {
-        error_log(json_encode([
-            'email_notification_failure' => true,
+        LoggerService::logError('Task email notification failure', [
             'task_id' => $taskId,
             'action' => $action,
             'error' => $error,
             'timestamp' => gmdate('Y-m-d H:i:s'),
-        ]));
+        ]);
+    }
+
+    public static function sendTestEmail(string $toEmail): bool
+    {
+        try {
+            $config = self::loadMailConfig();
+            if (!$config) {
+                throw new RuntimeException('Mail configuration is missing');
+            }
+
+            $recipients = [
+                'to' => self::sanitizeEmails([$toEmail]),
+                'cc' => [],
+            ];
+            if (empty($recipients['to'])) {
+                throw new RuntimeException('Invalid test recipient email');
+            }
+
+            self::dispatch(
+                $config,
+                $recipients,
+                'SMTP Test Email',
+                '<p>This is a test email from BsquareG Support.</p>',
+                'This is a test email from BsquareG Support.',
+                'task-test@bsquareg',
+                'test'
+            );
+
+            return true;
+        } catch (Throwable $e) {
+            LoggerService::logError('SMTP test email failed', [
+                'error' => $e->getMessage(),
+                'to' => $toEmail,
+            ]);
+            return false;
+        }
     }
 }

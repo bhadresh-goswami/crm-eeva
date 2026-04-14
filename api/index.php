@@ -36,6 +36,7 @@ require_once "controllers/RoleController.php";
 require_once "controllers/TaskTypeController.php";
 require_once "controllers/TaskStatusController.php";
 require_once "controllers/PaymentStatusController.php";
+require_once "services/EmailService.php";
 
 // ---------------- ROUTE PARSER ----------------
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -320,6 +321,16 @@ elseif ($uri === "/tasks/bulk-assign" && $method === "POST") {
 elseif ($uri === "/tasks/cancel" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->cancelTask();
+}
+elseif ($uri === "/test-email" && $method === "POST") {
+    authorize($user,['admin','manager','coordinator']);
+    $data = json_decode(file_get_contents("php://input"));
+    $to = is_object($data) && isset($data->to) ? (string)$data->to : 'support@bsquareg-developers.com';
+    $sent = EmailService::sendTestEmail($to);
+    echo json_encode([
+        "success" => $sent,
+        "message" => $sent ? "Test email sent" : "Failed to send test email",
+    ]);
 }
 
 
