@@ -131,7 +131,6 @@ const normalizeClient = (raw: Record<string, unknown>): ClientOption => ({
 
 export const getPocs = async () => {
   const response = await apiRequest('/pocs/list')
-  console.log('list '+response);
   
   const extractedList = extractArrayPayload(response)
   const pocs = collectPocRecords(extractedList.length > 0 ? extractedList : response)
