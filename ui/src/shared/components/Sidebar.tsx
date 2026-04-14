@@ -15,7 +15,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const [openGroup, setOpenGroup] = useState<'management' | 'tasks'>('management')
 
   const links = useMemo(() => {
-    if (!user) return { dashboard: '/dashboard', management: [] as MenuLink[], tasks: [] as MenuLink[] }
+    if (!user) return { dashboard: '/dashboard', management: [] as MenuLink[], tasks: [] as MenuLink[], managerMenu: [] as MenuLink[] }
 
     const management: MenuLink[] = []
     if (user.role === 'admin') {
@@ -36,10 +36,22 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       tasks.push({ label: 'All Tasks', to: '/tasks' }, { label: 'Assigned Tasks', to: '/tasks?view=assigned' })
     }
 
+    const managerMenu: MenuLink[] =
+      user.role === 'manager'
+        ? [
+            { label: 'Dashboard', to: roleDashboardPath.manager },
+            { label: 'Tasks', to: '/tasks' },
+            { label: 'Client', to: '/clients' },
+            { label: 'POC', to: '/pocs' },
+            { label: 'Candidate', to: '/candidates' },
+          ]
+        : []
+
     return {
       dashboard: roleDashboardPath[user.role],
       management,
       tasks,
+      managerMenu,
     }
   }, [user])
 
@@ -50,11 +62,19 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       <aside className={`sidebar ${isOpen ? 'sidebar--open' : 'sidebar--closed'}`} aria-label="Role navigation">
         <h2 className="sidebar__title">CRM Suite</h2>
 
-        <NavLink to={links.dashboard} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
-          Dashboard
-        </NavLink>
+        {user.role === 'manager' ? (
+          links.managerMenu.map((item) => (
+            <NavLink key={item.label} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+              {item.label}
+            </NavLink>
+          ))
+        ) : (
+          <NavLink to={links.dashboard} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+            Dashboard
+          </NavLink>
+        )}
 
-        {links.management.length > 0 ? (
+        {user.role !== 'manager' && links.management.length > 0 ? (
           <div>
             <button type="button" className="menu-item sidebar__menu-trigger" onClick={() => setOpenGroup((prev) => (prev === 'management' ? 'tasks' : 'management'))}>
               Management
@@ -71,7 +91,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           </div>
         ) : null}
 
-        {links.tasks.length > 0 ? (
+        {user.role !== 'manager' && links.tasks.length > 0 ? (
           <div>
             <button type="button" className="menu-item sidebar__menu-trigger" onClick={() => setOpenGroup((prev) => (prev === 'tasks' ? 'management' : 'tasks'))}>
               Tasks
