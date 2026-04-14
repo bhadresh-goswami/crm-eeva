@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
+import { useAlert } from '../../../shared/alerts/useAlert'
 import {
   assignManagerTask,
   getManagerAvailableExperts,
@@ -31,6 +32,7 @@ const tabLabels: Record<ManagerTaskStatus, string> = {
 }
 
 const ManagerDashboard = () => {
+  const { showToast, showAlert } = useAlert()
   const [summaryData, setSummaryData] = useState<DashboardSummary>(defaultSummary)
   const [tasksData, setTasksData] = useState<DashboardTask[]>([])
   const [activeTab, setActiveTab] = useState<ManagerTaskStatus>('pending')
@@ -54,10 +56,8 @@ const ManagerDashboard = () => {
       setLoadingSummary(true)
       setSummaryError(null)
       const response = await getManagerDashboardSummary()
-      console.log('Summary API:', response)
       setSummaryData(response)
     } catch (error) {
-      console.error('Failed to load dashboard summary', error)
       setSummaryError(error instanceof Error ? error.message : 'Unable to load summary data.')
     } finally {
       setLoadingSummary(false)
@@ -69,10 +69,8 @@ const ManagerDashboard = () => {
       setLoadingTasks(true)
       setTasksError(null)
       const response = await getManagerTasksByStatus(status)
-      console.log('Tasks API:', response)
       setTasksData(response)
     } catch (error) {
-      console.error(`Failed to load tasks for ${status}`, error)
       setTasksError(error instanceof Error ? error.message : 'Unable to load tasks for this tab.')
       setTasksData([])
     } finally {
@@ -107,14 +105,12 @@ const ManagerDashboard = () => {
           startTime: assigningTask.startTime ?? '',
           endTime: assigningTask.endTime ?? '',
         })
-        console.log('Assign modal experts API response:', response)
 
         if (!mounted) return
 
         setAvailableExperts(Array.isArray(response) ? response : [])
         setSelectedExpertId('')
       } catch (error) {
-        console.error('Failed to load experts for assign modal', error)
         if (!mounted) return
         setAssignError(error instanceof Error ? error.message : 'Unable to load experts.')
         setAvailableExperts([])
@@ -156,20 +152,24 @@ const ManagerDashboard = () => {
     try {
       setSubmittingAssign(true)
       setAssignError(null)
-      await assignManagerTask(assigningTask.id, selectedExpertId)
+      const response = await assignManagerTask(assigningTask.id, selectedExpertId)
+      showToast({ type: 'success', message: 'Task assigned successfully.' })
+      if (response?.email_status === 'failed') {
+        showToast({ type: 'warning', message: 'Task assigned but email failed.' })
+      }
       setAssigningTask(null)
       setSelectedExpertId('')
       await loadTasksByStatus(activeTab)
       await loadSummary()
     } catch (error) {
-      console.error('Failed to assign task', error)
-      setAssignError(error instanceof Error ? error.message : 'Unable to assign task.')
+      const message = error instanceof Error ? error.message : 'Unable to assign task.'
+      setAssignError(message)
+      showAlert({ type: 'error', title: 'Assignment failed', message })
     } finally {
       setSubmittingAssign(false)
     }
   }
 
-  console.log('Experts State:', availableExperts)
 
   return (
     <section>

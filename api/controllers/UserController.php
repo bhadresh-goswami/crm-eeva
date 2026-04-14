@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . "/config/database.php";
+require_once dirname(__DIR__) . "/services/EmailService.php";
 
 class UserController {
 
@@ -73,7 +74,14 @@ class UserController {
             $data->team_lead_id ?? null
         ]);
 
-        echo json_encode(["message" => "User created"]);
+        $emailResult = EmailService::sendUserCreatedEmail((string)$data->email, (string)$data->password);
+
+        echo json_encode([
+            "success" => true,
+            "message" => "User created",
+            "email_status" => $emailResult['email_status'] ?? 'failed',
+            "email_error" => $emailResult['email_error'] ?? null,
+        ]);
     }
 
     // ================= UPDATE =================

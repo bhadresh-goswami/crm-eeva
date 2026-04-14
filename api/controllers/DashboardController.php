@@ -1,6 +1,8 @@
 <?php
 
 require_once dirname(__DIR__) . "/config/database.php";
+require_once dirname(__DIR__) . "/services/EmailService.php";
+require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class DashboardController {
 
@@ -48,6 +50,58 @@ class DashboardController {
         echo json_encode($data);
     }
 
+    // ==============================
+    // ✅ TASKS SUMMARY (SAFE)
+    // ==============================
+    public function tasks() {
+        try {
+            $db = new Database();
+            $conn = $db->connect();
+
+            $stmt = $conn->prepare("
+                SELECT
+                    COUNT(*) as total_tasks,
+                    SUM(CASE WHEN status_id = 1 THEN 1 ELSE 0 END) as pending_tasks,
+                    SUM(CASE WHEN status_id = 2 THEN 1 ELSE 0 END) as assigned_tasks
+                FROM tasks
+            ");
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$result) {
+                echo json_encode([
+                    "success" => true,
+                    "data" => [
+                        "total_tasks" => 0,
+                        "pending_tasks" => 0,
+                        "assigned_tasks" => 0,
+                    ],
+                ]);
+                return;
+            }
+
+            echo json_encode([
+                "success" => true,
+                "data" => [
+                    "total_tasks" => (int)($result['total_tasks'] ?? 0),
+                    "pending_tasks" => (int)($result['pending_tasks'] ?? 0),
+                    "assigned_tasks" => (int)($result['assigned_tasks'] ?? 0),
+                ],
+            ]);
+        } catch (Exception $e) {
+            LoggerService::logError('Dashboard API failed', [
+                'error' => $e->getMessage(),
+            ]);
+            http_response_code(200);
+            echo json_encode([
+                "success" => false,
+                "message" => "Dashboard data failed",
+                "error" => $e->getMessage(),
+            ]);
+            return;
+        }
+    }
+
 
     // ==============================
     // ✅ TASKS BY STATUS (FIXED)
@@ -84,7 +138,7 @@ class DashboardController {
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN task_status_master ts ON t.status_id = ts.id
 
-            LEFT JOIN task_assignments ta ON t.id = ta.task_id
+            LEFT JOIN task_assignments ta ON t.id = ta.task_id AND ta.is_active = 1
             LEFT JOIN users u ON ta.user_id = u.id
 
             WHERE LOWER(ts.name) = LOWER(?)
@@ -177,51 +231,97 @@ class DashboardController {
     // ==============================
     // ✅ ASSIGN / REASSIGN TASK
     // ==============================
-    public function assignTask() {
+    public function assignTask($actorUserId = null) {
         $data = json_decode(file_get_contents("php://input"));
 
         $db = new Database();
         $conn = $db->connect();
 
-        // CHECK EXISTING
-        $check = $conn->prepare("
-            SELECT COUNT(*) FROM task_assignments WHERE task_id = ?
-        ");
-        $check->execute([$data->task_id]);
+        try {
+            $taskId = (int)$data->task_id;
+            $expertId = (int)$data->expert_id;
 
-        if ($check->fetchColumn() > 0) {
-            // REASSIGN
+            $conn->beginTransaction();
+            $conn->prepare("
+                UPDATE task_assignments
+                SET is_active = 0
+                WHERE task_id = ? AND is_active = 1
+            ")->execute([$taskId]);
+
+            $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+            $insertColumns = ['task_id', 'user_id', 'is_active'];
+            $insertValues = [$taskId, $expertId, 1];
+
+            if (in_array('assigned_by', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_by';
+                $insertValues[] = $actorUserId;
+            } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_by_id';
+                $insertValues[] = $actorUserId;
+            }
+
+            if (in_array('assigned_at', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_at';
+            }
+
+            $columnList = implode(', ', $insertColumns);
+            $placeholderList = implode(', ', array_fill(0, count($insertValues), '?'));
+            if (in_array('assigned_at', $assignmentColumns, true)) {
+                $placeholderList .= ', NOW()';
+            }
+
             $stmt = $conn->prepare("
-                UPDATE task_assignments 
-                SET user_id = ?
-                WHERE task_id = ?
+                INSERT INTO task_assignments ({$columnList})
+                VALUES ({$placeholderList})
             ");
-            $stmt->execute([$data->expert_id, $data->task_id]);
-        } else {
-            // NEW ASSIGN
-            $stmt = $conn->prepare("
-                INSERT INTO task_assignments (task_id, user_id)
-                VALUES (?, ?)
+            $stmt->execute($insertValues);
+
+            // UPDATE STATUS → Assigned
+            $status_id = $conn->query("
+                SELECT id FROM task_status_master WHERE name='Assigned' LIMIT 1
+            ")->fetchColumn();
+
+            $stmt2 = $conn->prepare("
+                UPDATE tasks
+                SET status_id = ?
+                WHERE id = ?
             ");
-            $stmt->execute([$data->task_id, $data->expert_id]);
+
+            $stmt2->execute([$status_id, $taskId]);
+            $conn->commit();
+
+            $emailResult = EmailService::sendTaskNotification($taskId, 'assigned', null, $actorUserId);
+
+            echo json_encode([
+                "success" => true,
+                "message" => "Task assigned / reassigned successfully",
+                "email_status" => $emailResult['email_status'] ?? 'failed',
+                "email_error" => $emailResult['email_error'] ?? null,
+            ]);
+        } catch (Exception $e) {
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
+            LoggerService::logError('Dashboard task assign failed', [
+                'task_id' => $data->task_id ?? null,
+                'expert_id' => $data->expert_id ?? null,
+                'assigned_by' => $actorUserId,
+                'error' => $e->getMessage()
+            ]);
+            http_response_code(500);
+            echo json_encode([
+                "success" => false,
+                "message" => "Something went wrong. Please try again."
+            ]);
         }
+    }
 
-        // UPDATE STATUS → Assigned
-        $status_id = $conn->query("
-            SELECT id FROM task_status_master WHERE name='Assigned' LIMIT 1
-        ")->fetchColumn();
+    private function getTableColumns(PDO $conn, string $tableName): array {
+        $stmt = $conn->prepare("SHOW COLUMNS FROM {$tableName}");
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmt2 = $conn->prepare("
-            UPDATE tasks
-            SET status_id = ?
-            WHERE id = ?
-        ");
-
-        $stmt2->execute([$status_id, $data->task_id]);
-
-        echo json_encode([
-            "message" => "Task assigned / reassigned successfully"
-        ]);
+        return array_map(static fn ($row) => (string)$row['Field'], $rows);
     }
 
 

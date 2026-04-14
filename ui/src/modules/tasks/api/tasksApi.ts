@@ -267,7 +267,7 @@ export const getExperts = async () => {
 }
 
 export const assignTask = async (payload: { task_id: number; user_id: number; reason?: string }) => {
-  await apiRequest('/tasks/assign', {
+  return apiRequest<{ success?: boolean; email_status?: 'sent' | 'failed'; email_error?: string; message?: string }>('/tasks/assign', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
