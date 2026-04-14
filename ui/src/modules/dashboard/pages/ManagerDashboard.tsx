@@ -207,6 +207,18 @@ const ManagerDashboard = () => {
           </ChartCard>
         </div>
       </div>
+      <aside className="activity-panel section">
+        <h3 className="tasks-activity__title">Live Activity</h3>
+        {tasksData.slice(0, 4).map((task) => (
+          <div className="activity-item" key={`activity-${task.id}`}>
+            <span className="dot" />
+            <div>
+              <p className="name">{task.title}</p>
+              <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
+            </div>
+          </div>
+        ))}
+      </aside>
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">

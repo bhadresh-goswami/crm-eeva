@@ -1,85 +1,92 @@
+import { useMemo, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { useAuth, type UserRole } from '../../context/AuthContext'
+import { useAuth } from '../../context/AuthContext'
 import { roleDashboardPath } from '../../routes/roleDashboard'
-
-type SidebarItem = {
-  label: string
-  to: string
-  section: 'Navigation' | 'Management'
-  icon: string
-}
 
 type SidebarProps = {
   isOpen: boolean
   onClose: () => void
 }
 
-const navClassName = ({ isActive }: { isActive: boolean }) =>
-  isActive ? 'sidebar__link sidebar__link--active' : 'sidebar__link'
-
-const roleNavigation: Record<UserRole, SidebarItem[]> = {
-  admin: [
-    { label: 'Dashboard', to: roleDashboardPath.admin, section: 'Navigation', icon: '◻' },
-    { label: 'Users', to: '/users', section: 'Management', icon: '◉' },
-    { label: 'Roles', to: '/roles', section: 'Management', icon: '◎' },
-    { label: 'Client', to: '/clients', section: 'Management', icon: '▣' },
-    { label: 'POC', to: '/pocs', section: 'Management', icon: '◌' },
-    { label: 'Candidate', to: '/candidates', section: 'Management', icon: '◇' },
-  ],
-  manager: [
-    { label: 'Dashboard', to: roleDashboardPath.manager, section: 'Navigation', icon: '◻' },
-    { label: 'Tasks', to: '/tasks', section: 'Management', icon: '◉' },
-    { label: 'Client', to: '/clients', section: 'Management', icon: '▣' },
-    { label: 'POC', to: '/pocs', section: 'Management', icon: '◌' },
-    { label: 'Candidate', to: '/candidates', section: 'Management', icon: '◇' },
-  ],
-  coordinator: [
-    { label: 'Dashboard', to: roleDashboardPath.coordinator, section: 'Navigation', icon: '◻' },
-    { label: 'Tasks', to: '/tasks', section: 'Management', icon: '◉' },
-    { label: 'Candidate', to: '/candidates', section: 'Management', icon: '◇' },
-  ],
-  expert: [
-    { label: 'Dashboard', to: roleDashboardPath.expert, section: 'Navigation', icon: '◻' },
-    { label: 'Tasks', to: '/tasks', section: 'Management', icon: '◉' },
-  ],
-  expertlead: [
-    { label: 'Dashboard', to: roleDashboardPath.expertlead, section: 'Navigation', icon: '◻' },
-    { label: 'Tasks', to: '/tasks', section: 'Management', icon: '◉' },
-  ],
-}
+type MenuLink = { label: string; to: string }
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { user } = useAuth()
+  const [openGroup, setOpenGroup] = useState<'management' | 'tasks'>('management')
+
+  const links = useMemo(() => {
+    if (!user) return { dashboard: '/dashboard', management: [] as MenuLink[], tasks: [] as MenuLink[] }
+
+    const management: MenuLink[] = []
+    if (user.role === 'admin') {
+      management.push(
+        { label: 'Users', to: '/users' },
+        { label: 'Roles', to: '/roles' },
+        { label: 'Clients', to: '/clients' },
+        { label: 'POC', to: '/pocs' },
+      )
+    }
+
+    if (user.role === 'manager' || user.role === 'coordinator') {
+      management.push({ label: 'Clients', to: '/clients' }, { label: 'POC', to: '/pocs' })
+    }
+
+    const tasks: MenuLink[] = []
+    if (['admin', 'manager', 'coordinator', 'expert', 'expertlead'].includes(user.role)) {
+      tasks.push({ label: 'All Tasks', to: '/tasks' }, { label: 'Assigned Tasks', to: '/tasks?view=assigned' })
+    }
+
+    return {
+      dashboard: roleDashboardPath[user.role],
+      management,
+      tasks,
+    }
+  }, [user])
 
   if (!user) return null
-
-  const items = roleNavigation[user.role]
 
   return (
     <>
       <aside className={`sidebar ${isOpen ? 'sidebar--open' : 'sidebar--closed'}`} aria-label="Role navigation">
         <h2 className="sidebar__title">CRM Suite</h2>
-        {(['Navigation', 'Management'] as const).map((section) => (
-          <div className="sidebar__section" key={section}>
-            <p className="sidebar__section-label">{section}</p>
-            <ul className="sidebar__list">
-              {items
-                .filter((item) => item.section === section)
-                .map((item) => (
-                  <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      className={navClassName}
-                      end={item.to.includes('/dashboard')}
-                    >
-                      <span className="sidebar__icon">{item.icon}</span>
-                      {item.label}
-                    </NavLink>
-                  </li>
+
+        <NavLink to={links.dashboard} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+          Dashboard
+        </NavLink>
+
+        {links.management.length > 0 ? (
+          <div>
+            <button type="button" className="menu-item sidebar__menu-trigger" onClick={() => setOpenGroup((prev) => (prev === 'management' ? 'tasks' : 'management'))}>
+              Management
+            </button>
+            {openGroup === 'management' ? (
+              <div className="submenu">
+                {links.management.map((item) => (
+                  <NavLink key={item.to} to={item.to} className={({ isActive }) => `submenu-item ${isActive ? 'submenu-item--active' : ''}`}>
+                    {item.label}
+                  </NavLink>
                 ))}
-            </ul>
+              </div>
+            ) : null}
           </div>
-        ))}
+        ) : null}
+
+        {links.tasks.length > 0 ? (
+          <div>
+            <button type="button" className="menu-item sidebar__menu-trigger" onClick={() => setOpenGroup((prev) => (prev === 'tasks' ? 'management' : 'tasks'))}>
+              Tasks
+            </button>
+            {openGroup === 'tasks' ? (
+              <div className="submenu">
+                {links.tasks.map((item) => (
+                  <NavLink key={item.label} to={item.to} className={({ isActive }) => `submenu-item ${isActive ? 'submenu-item--active' : ''}`}>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </aside>
       {isOpen ? <button type="button" className="sidebar-backdrop" onClick={onClose} aria-label="Close navigation" /> : null}
     </>
