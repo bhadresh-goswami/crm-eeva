@@ -90,7 +90,6 @@ export const apiFetch = async (path: string, init: RequestInit = {}) => {
   }
 
   const requestUrl = buildApiUrl(path)
-  console.log('[apiRequest] URL:', requestUrl)
 
   const response = await fetch(requestUrl, {
     ...init,
@@ -128,10 +127,8 @@ export const apiRequest = async <TResponse = unknown>(
 
   try {
     const parsed = JSON.parse(rawBody) as TResponse
-    console.log('[apiRequest] Response:', parsed)
     return parsed
   } catch {
-    console.log('[apiRequest] Response:', rawBody)
     return rawBody as TResponse
   }
 }

@@ -1,6 +1,8 @@
 <?php
 
 require_once dirname(__DIR__) . "/config/database.php";
+require_once dirname(__DIR__) . "/services/EmailService.php";
+require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class TaskController {
     public function expertTasks($user_id) {
@@ -294,7 +296,8 @@ public function downloadFile() {
 
         } catch (Exception $e) {
             $conn->rollback();
-            echo json_encode(["error" => $e->getMessage()]);
+            LoggerService::logError('Task create failed', ['error' => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -448,12 +451,17 @@ public function downloadFile() {
             $this->handleFileUpload($conn, $_POST['task_id'], $user_id);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$_POST['task_id'], 'updated', null, (int)$user_id);
 
             echo json_encode(["message" => "Task updated"]);
 
         } catch (Exception $e) {
             $conn->rollback();
-            echo json_encode(["error" => $e->getMessage()]);
+            LoggerService::logError('Task update failed', [
+                'task_id' => $_POST['task_id'] ?? null,
+                'error' => $e->getMessage()
+            ]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -492,7 +500,7 @@ public function downloadFile() {
 
 
     // ================= ASSIGN =================
-    public function assign() {
+    public function assign($assignedByUserId = null) {
 
         $data = json_decode(file_get_contents("php://input"));
 
@@ -511,6 +519,8 @@ public function downloadFile() {
         $conn->prepare("
             UPDATE tasks SET status_id=? WHERE id=?
         ")->execute([$status_id, $data->task_id]);
+
+        EmailService::sendTaskNotification((int)$data->task_id, 'assigned', null, $assignedByUserId);
 
         echo json_encode(["message" => "Task assigned"]);
     }
@@ -614,11 +624,17 @@ public function downloadFile() {
                 ->execute([$assignmentId]);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$data->task_id, 'started', null, (int)$user_id);
             echo json_encode(["success" => true, "message" => "Task started"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
+            LoggerService::logError('Task start failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $user_id,
+                'error' => $e->getMessage()
+            ]);
             http_response_code(500);
-            echo json_encode(["error" => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -687,11 +703,18 @@ public function downloadFile() {
             $commentStmt->execute([(int)$data->task_id, (int)$user_id, $comment]);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$data->task_id, 'status_changed', $comment, (int)$user_id);
             echo json_encode(["success" => true, "message" => "Task updated"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
+            LoggerService::logError('Task end failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $user_id,
+                'status' => $data->status ?? null,
+                'error' => $e->getMessage()
+            ]);
             http_response_code(500);
-            echo json_encode(["error" => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 

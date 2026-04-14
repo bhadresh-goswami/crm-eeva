@@ -192,7 +192,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setSessionStatus('logged_in')
       localStorage.setItem(SESSION_STATUS_STORAGE_KEY, 'logged_in')
     } catch (error) {
-      console.error('breakIn failed', error)
       throw error
     }
   }, [])
@@ -203,7 +202,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setSessionStatus('break')
       localStorage.setItem(SESSION_STATUS_STORAGE_KEY, 'break')
     } catch (error) {
-      console.error('breakOut failed', error)
       throw error
     }
   }, [])
