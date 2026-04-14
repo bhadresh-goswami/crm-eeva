@@ -2,6 +2,7 @@
 
 require_once dirname(__DIR__) . "/config/database.php";
 require_once dirname(__DIR__) . "/services/EmailService.php";
+require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class TaskController {
     public function expertTasks($user_id) {
@@ -295,7 +296,8 @@ public function downloadFile() {
 
         } catch (Exception $e) {
             $conn->rollback();
-            echo json_encode(["error" => $e->getMessage()]);
+            LoggerService::logError('Task create failed', ['error' => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -455,7 +457,11 @@ public function downloadFile() {
 
         } catch (Exception $e) {
             $conn->rollback();
-            echo json_encode(["error" => $e->getMessage()]);
+            LoggerService::logError('Task update failed', [
+                'task_id' => $_POST['task_id'] ?? null,
+                'error' => $e->getMessage()
+            ]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -622,8 +628,13 @@ public function downloadFile() {
             echo json_encode(["success" => true, "message" => "Task started"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
+            LoggerService::logError('Task start failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $user_id,
+                'error' => $e->getMessage()
+            ]);
             http_response_code(500);
-            echo json_encode(["error" => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -696,8 +707,14 @@ public function downloadFile() {
             echo json_encode(["success" => true, "message" => "Task updated"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
+            LoggerService::logError('Task end failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $user_id,
+                'status' => $data->status ?? null,
+                'error' => $e->getMessage()
+            ]);
             http_response_code(500);
-            echo json_encode(["error" => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 

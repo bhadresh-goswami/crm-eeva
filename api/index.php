@@ -1,6 +1,7 @@
 <?php
 
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
 // ---------------- HEADERS ----------------
@@ -37,6 +38,32 @@ require_once "controllers/TaskTypeController.php";
 require_once "controllers/TaskStatusController.php";
 require_once "controllers/PaymentStatusController.php";
 require_once "services/EmailService.php";
+require_once "services/LoggerService.php";
+
+set_error_handler(function ($severity, $message, $file, $line) {
+    LoggerService::logError('PHP runtime error', [
+        'severity' => $severity,
+        'message' => $message,
+        'file' => $file,
+        'line' => $line,
+    ]);
+
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+set_exception_handler(function ($exception) {
+    LoggerService::logError('Unhandled exception', [
+        'message' => $exception->getMessage(),
+        'file' => $exception->getFile(),
+        'line' => $exception->getLine(),
+    ]);
+
+    http_response_code(500);
+    echo json_encode([
+        "success" => false,
+        "message" => "Something went wrong. Please try again."
+    ]);
+});
 
 // ---------------- ROUTE PARSER ----------------
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);

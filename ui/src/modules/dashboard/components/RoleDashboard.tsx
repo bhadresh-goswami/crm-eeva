@@ -150,7 +150,6 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
         setTasks(scopedTasks)
         setExperts(expertList)
       } catch (loadError) {
-        console.error('Failed to load dashboard data', loadError)
 
         if (mounted) {
           setError(loadError instanceof Error ? loadError.message : 'Unable to load dashboard data from live API.')

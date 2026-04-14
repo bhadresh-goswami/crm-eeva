@@ -34,7 +34,6 @@ const Header = () => {
     try {
       await breakIn()
     } catch (nextError) {
-      console.error('Break In failed', nextError)
       setError('Unable to mark session as logged in. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -48,7 +47,6 @@ const Header = () => {
     try {
       await breakOut()
     } catch (nextError) {
-      console.error('Break Out failed', nextError)
       setError('Unable to mark session as break. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -63,7 +61,6 @@ const Header = () => {
       await logout()
       setRedirectToLogin(true)
     } catch (nextError) {
-      console.error('Logout failed', nextError)
       setError('Unable to logout right now. Please try again.')
     } finally {
       setIsSubmitting(false)
