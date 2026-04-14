@@ -482,6 +482,7 @@ public function downloadFile() {
             $this->handleFileUpload($conn, $_POST['task_id'], $user_id);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$_POST['task_id'], 'updated', null, (int)$user_id);
 
             echo json_encode(["message" => "Task updated"]);
 
