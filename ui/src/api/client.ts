@@ -1,3 +1,5 @@
+import { alertBus } from '../shared/alerts/alertBus'
+
 let unauthorizedHandler: (() => void) | undefined
 
 const AUTH_STORAGE_KEY = 'crm_auth'
@@ -90,7 +92,6 @@ export const apiFetch = async (path: string, init: RequestInit = {}) => {
   }
 
   const requestUrl = buildApiUrl(path)
-  console.log('[apiRequest] URL:', requestUrl)
 
   const response = await fetch(requestUrl, {
     ...init,
@@ -113,7 +114,9 @@ export const apiRequest = async <TResponse = unknown>(
   const response = await apiFetch(path, init)
 
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response))
+    const message = await readErrorMessage(response)
+    alertBus.showToast({ type: 'error', message, title: 'Request failed' })
+    throw new Error(message)
   }
 
   if (response.status === 204) {
@@ -128,10 +131,8 @@ export const apiRequest = async <TResponse = unknown>(
 
   try {
     const parsed = JSON.parse(rawBody) as TResponse
-    console.log('[apiRequest] Response:', parsed)
     return parsed
   } catch {
-    console.log('[apiRequest] Response:', rawBody)
     return rawBody as TResponse
   }
 }

@@ -3,6 +3,7 @@
 require_once dirname(__DIR__) . "/config/database.php";
 require_once dirname(__DIR__) . "/utils/jwt.php";
 require_once dirname(__DIR__) . "/middleware/auth.php";
+require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class AuthController {
 
@@ -78,10 +79,14 @@ class AuthController {
             ]);
 
         } catch (Exception $e) {
+            LoggerService::logError('Auth login failed', [
+                'email' => isset($data->email) ? (string)$data->email : null,
+                'error' => $e->getMessage(),
+            ]);
             http_response_code(500);
             echo json_encode([
-                "error" => "Server error",
-                "message" => $e->getMessage()
+                "success" => false,
+                "message" => "Something went wrong. Please try again."
             ]);
         }
     }
