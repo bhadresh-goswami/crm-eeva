@@ -50,6 +50,58 @@ class DashboardController {
         echo json_encode($data);
     }
 
+    // ==============================
+    // ✅ TASKS SUMMARY (SAFE)
+    // ==============================
+    public function tasks() {
+        try {
+            $db = new Database();
+            $conn = $db->connect();
+
+            $stmt = $conn->prepare("
+                SELECT
+                    COUNT(*) as total_tasks,
+                    SUM(CASE WHEN status_id = 1 THEN 1 ELSE 0 END) as pending_tasks,
+                    SUM(CASE WHEN status_id = 2 THEN 1 ELSE 0 END) as assigned_tasks
+                FROM tasks
+            ");
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$result) {
+                echo json_encode([
+                    "success" => true,
+                    "data" => [
+                        "total_tasks" => 0,
+                        "pending_tasks" => 0,
+                        "assigned_tasks" => 0,
+                    ],
+                ]);
+                return;
+            }
+
+            echo json_encode([
+                "success" => true,
+                "data" => [
+                    "total_tasks" => (int)($result['total_tasks'] ?? 0),
+                    "pending_tasks" => (int)($result['pending_tasks'] ?? 0),
+                    "assigned_tasks" => (int)($result['assigned_tasks'] ?? 0),
+                ],
+            ]);
+        } catch (Exception $e) {
+            LoggerService::logError('Dashboard API failed', [
+                'error' => $e->getMessage(),
+            ]);
+            http_response_code(200);
+            echo json_encode([
+                "success" => false,
+                "message" => "Dashboard data failed",
+                "error" => $e->getMessage(),
+            ]);
+            return;
+        }
+    }
+
 
     // ==============================
     // ✅ TASKS BY STATUS (FIXED)
