@@ -67,11 +67,15 @@ const Header = () => {
         setError(null)
         setIsSubmitting(true)
         try {
-          await logout()
-          showToast({ type: 'success', message: 'Logged out successfully.' })
+          const result = await logout()
+          if (result.serverStatus === 'success') {
+            showToast({ type: 'success', message: 'Logged out successfully.' })
+          } else {
+            showToast({ type: 'warning', message: 'Logged out locally. Server session may still be active.' })
+          }
           setRedirectToLogin(true)
         } catch {
-          setError('Unable to logout right now. Please try again.')
+          showToast({ type: 'error', message: 'Logout failed. Please try again.' })
         } finally {
           setIsSubmitting(false)
         }

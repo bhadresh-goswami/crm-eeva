@@ -157,19 +157,28 @@ class AuthController {
 
     // ================= LOGOUT =================
     public function logout() {
-        $user = authenticate();
+        try {
+            $user = authenticate();
 
-        $db = new Database();
-        $conn = $db->connect();
+            $db = new Database();
+            $conn = $db->connect();
 
-        $stmt = $conn->prepare("
-            UPDATE user_sessions
-            SET logout_time = NOW(), status='logged_out'
-            WHERE user_id=? AND created_date=CURDATE()
-        ");
+            $stmt = $conn->prepare("
+                UPDATE user_sessions
+                SET logout_time = NOW(), status='logged_out'
+                WHERE user_id=? AND created_date=CURDATE()
+            ");
 
-        $stmt->execute([$user->id]);
+            $stmt->execute([$user->id]);
+        } catch (Throwable $e) {
+            LoggerService::logWarning('Logout operation fallback', [
+                'error' => $e->getMessage(),
+            ]);
+        }
 
-        echo json_encode(["message" => "Logged Out"]);
+        echo json_encode([
+            "success" => true,
+            "message" => "Logged out successfully"
+        ]);
     }
 }

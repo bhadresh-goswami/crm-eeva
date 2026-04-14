@@ -115,7 +115,10 @@ export const apiRequest = async <TResponse = unknown>(
 
   if (!response.ok) {
     const message = await readErrorMessage(response)
-    alertBus.showToast({ type: 'error', message, title: 'Request failed' })
+    const requestPath = isAbsoluteUrl(path) ? new URL(path).pathname : normalizePath(path)
+    if (requestPath !== '/logout') {
+      alertBus.showToast({ type: 'error', message, title: 'Request failed' })
+    }
     throw new Error(message)
   }
 
