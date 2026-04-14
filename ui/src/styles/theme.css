@@ -1,0 +1,98 @@
+body {
+  background: #f5f7fb;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.app-layout { display: flex; min-height: 100vh; background: #f5f7fb; }
+.app-main { flex: 1; margin-left: 240px; min-width: 0; transition: margin-left 0.25s ease; }
+.app-main--expanded { margin-left: 0; }
+.main-content { padding: 1.5rem; }
+
+.sidebar { width: 240px; position: fixed; inset: 0 auto 0 0; background: #1f2937; color: #fff; padding: 1.25rem 1rem; z-index: 40; overflow-y: auto; transition: transform 0.25s ease, opacity 0.25s ease; }
+.sidebar--closed { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+.sidebar--open { transform: translateX(0); opacity: 1; }
+.sidebar__title { font-size: 1.2rem; margin-bottom: 1.25rem; }
+.sidebar__section { margin-bottom: 1.2rem; }
+.sidebar__section-label { font-size: 0.75rem; opacity: 0.7; margin: 0 0 0.5rem; text-transform: uppercase; }
+.sidebar__list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.3rem; }
+.sidebar__link { color: #fff; text-decoration: none; display: flex; gap: 0.6rem; align-items: center; padding: 0.6rem 0.7rem; border-radius: 0.55rem; }
+.sidebar__link:hover { background: #2d3748; }
+.sidebar__link--active { background: #374151; }
+.sidebar__icon { font-size: 0.75rem; opacity: 0.8; }
+.sidebar-backdrop { display: none; }
+
+.header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0.9rem 1.25rem; display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; }
+.header__identity { display: flex; align-items: center; gap: 0.75rem; }
+.header__menu { border: 0; background: #f3f4f6; border-radius: 0.5rem; padding: 0.45rem 0.6rem; cursor: pointer; }
+.header__icon-btn { border: 0; background: #f9fafb; border-radius: 0.5rem; padding: 0.4rem 0.55rem; }
+.header__title { font-size: 1.05rem; }
+.header__meta { font-size: 0.95rem; }
+
+.card { background: #ffffff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); border: 1px solid #eef2f7; }
+.section { margin-bottom: 24px; }
+
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.metric-card__title { font-size: 0.85rem; color: #6b7280; }
+.metric-card__value { font-size: 1.85rem; margin: 0.35rem 0; }
+.metric-card--button { width: 100%; border: 0; cursor: pointer; text-align: left; }
+.trend { font-size: 0.85rem; margin: 0; font-weight: 600; }
+.trend.up { color: #059669; }
+.trend.down { color: #dc2626; }
+
+.charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; }
+.chart-card__title { margin: 0 0 0.6rem; }
+.table-card { background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; }
+
+table thead { background: #f9fafb; font-weight: 600; }
+table th, table td { padding: 0.8rem; }
+table tbody tr:hover { background: #f3f4f6; }
+.page-title { font-size: 2rem; letter-spacing: -0.02em; }
+.page-description { font-size: 0.98rem; }
+.button { font-size: 0.95rem; }
+.tasks-table__wrapper {
+  margin-top: 0.5rem;
+  border-radius: 14px;
+  padding: 0.75rem;
+}
+
+.tasks-table-scroll {
+  overflow: auto;
+  max-height: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.tasks-table-scroll table {
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.tasks-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.tasks-table__wrapper--modal .tasks-table-scroll { max-height: 50vh; }
+
+.tasks-activity__title { margin: 0 0 0.35rem; font-size: 1rem; }
+.tasks-activity__chart { display: flex; gap: 0.8rem; align-items: flex-end; overflow-x: auto; padding: 0.8rem 0.2rem 0.2rem; }
+.tasks-activity__day { min-width: 72px; display: grid; gap: 0.4rem; justify-items: center; }
+.tasks-activity__bars { height: 92px; display: flex; gap: 0.2rem; align-items: flex-end; }
+.tasks-activity__bar { width: 12px; border-radius: 6px 6px 2px 2px; }
+.tasks-activity__bar--pending { background: #94a3b8; }
+.tasks-activity__bar--assigned { background: #60a5fa; }
+.tasks-activity__bar--completed { background: #34d399; }
+.tasks-activity__label { font-size: 0.76rem; color: #6b7280; }
+
+.page-container { display: grid; gap: 1rem; }
+.page-container__header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+
+@media (max-width: 1024px) {
+  .app-main { margin-left: 0; }
+  .sidebar { transition: transform 0.2s ease; }
+  .sidebar-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.35); border: 0; z-index: 30; }
+  .charts-grid { grid-template-columns: 1fr; }
+}
