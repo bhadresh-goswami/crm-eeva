@@ -238,10 +238,13 @@ class DashboardController {
             $stmt2->execute([$status_id, $taskId]);
             $conn->commit();
 
-            EmailService::sendTaskNotification($taskId, 'assigned', null, $actorUserId);
+            $emailResult = EmailService::sendTaskNotification($taskId, 'assigned', null, $actorUserId);
 
             echo json_encode([
-                "message" => "Task assigned / reassigned successfully"
+                "success" => true,
+                "message" => "Task assigned / reassigned successfully",
+                "email_status" => $emailResult['email_status'] ?? 'failed',
+                "email_error" => $emailResult['email_error'] ?? null,
             ]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) {

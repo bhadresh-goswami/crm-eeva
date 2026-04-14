@@ -221,7 +221,7 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
 
 const TasksPage = () => {
   const { user } = useAuth()
-  const { showToast } = useAlert()
+  const { showToast, showAlert } = useAlert()
   const editorRef = useRef<HTMLDivElement | null>(null)
   const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
 
@@ -526,10 +526,13 @@ const TasksPage = () => {
       if (isBulkAssign) {
         await bulkAssignTasks({ task_ids: selectedTaskIds, user_id: selectedExpertId })
       } else if (assignTarget) {
-        await assignTask({
+        const assignResponse = await assignTask({
           task_id: assignTarget.id,
           user_id: selectedExpertId,
         })
+        if (assignResponse?.email_status === 'failed') {
+          showToast({ type: 'warning', message: 'Task assigned but email failed.' })
+        }
         const selectedExpert = experts.find((expert) => expert.id === selectedExpertId)
         if (selectedExpert) {
           setTasks((previous) =>
@@ -551,7 +554,13 @@ const TasksPage = () => {
       showSuccess(isBulkAssign ? 'Tasks assigned successfully.' : assignTarget?.assigned_to_id ? 'Task reassigned successfully.' : 'Task assigned successfully.')
       await loadPage()
     } catch (err) {
-      setAssignError(normalizeError(err, 'Failed to assign task.'))
+      const message = normalizeError(err, 'Failed to assign task.')
+      setAssignError(message)
+      showAlert({
+        type: 'error',
+        title: 'Assignment failed',
+        message,
+      })
     } finally {
       setAssignSubmitting(false)
       setActionTaskId(null)

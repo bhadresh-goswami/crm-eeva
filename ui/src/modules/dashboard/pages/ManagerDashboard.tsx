@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
+import { useAlert } from '../../../shared/alerts/useAlert'
 import {
   assignManagerTask,
   getManagerAvailableExperts,
@@ -31,6 +32,7 @@ const tabLabels: Record<ManagerTaskStatus, string> = {
 }
 
 const ManagerDashboard = () => {
+  const { showToast, showAlert } = useAlert()
   const [summaryData, setSummaryData] = useState<DashboardSummary>(defaultSummary)
   const [tasksData, setTasksData] = useState<DashboardTask[]>([])
   const [activeTab, setActiveTab] = useState<ManagerTaskStatus>('pending')
@@ -150,13 +152,19 @@ const ManagerDashboard = () => {
     try {
       setSubmittingAssign(true)
       setAssignError(null)
-      await assignManagerTask(assigningTask.id, selectedExpertId)
+      const response = await assignManagerTask(assigningTask.id, selectedExpertId)
+      showToast({ type: 'success', message: 'Task assigned successfully.' })
+      if (response?.email_status === 'failed') {
+        showToast({ type: 'warning', message: 'Task assigned but email failed.' })
+      }
       setAssigningTask(null)
       setSelectedExpertId('')
       await loadTasksByStatus(activeTab)
       await loadSummary()
     } catch (error) {
-      setAssignError(error instanceof Error ? error.message : 'Unable to assign task.')
+      const message = error instanceof Error ? error.message : 'Unable to assign task.'
+      setAssignError(message)
+      showAlert({ type: 'error', title: 'Assignment failed', message })
     } finally {
       setSubmittingAssign(false)
     }

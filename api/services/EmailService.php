@@ -2,6 +2,12 @@
 
 require_once dirname(__DIR__) . '/config/database.php';
 require_once dirname(__DIR__) . '/services/LoggerService.php';
+require_once dirname(__DIR__) . '/libs/PHPMailer/PHPMailer.php';
+require_once dirname(__DIR__) . '/libs/PHPMailer/SMTP.php';
+require_once dirname(__DIR__) . '/libs/PHPMailer/Exception.php';
+
+use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\PHPMailer;
 
 class EmailService
 {
@@ -41,10 +47,18 @@ class EmailService
                 (string)$action
             );
 
-            return true;
+            return [
+                'success' => true,
+                'email_status' => 'sent',
+                'email_error' => null,
+            ];
         } catch (Throwable $e) {
             self::logFailure((int)$taskId, (string)$action, $e->getMessage());
-            return false;
+            return [
+                'success' => true,
+                'email_status' => 'failed',
+                'email_error' => $e->getMessage(),
+            ];
         }
     }
 
@@ -254,9 +268,9 @@ class EmailService
 
     private static function dispatch(array $config, array $recipients, string $subject, string $htmlBody, string $plainBody, string $threadId, string $action)
     {
-        self::ensurePhpMailerLoaded();
+        self::loadPhpMailerClasses();
 
-        $mailer = new PHPMailer\PHPMailer\PHPMailer(true);
+        $mailer = new PHPMailer(true);
         $mailer->isSMTP();
         $mailer->Host = $config['smtp']['host'];
         $mailer->SMTPAuth = (bool)$config['smtp']['auth'];
@@ -265,15 +279,13 @@ class EmailService
         $mailer->SMTPSecure = $config['smtp']['encryption'];
         $mailer->Port = (int)$config['smtp']['port'];
         $mailer->Timeout = (int)($config['smtp']['timeout'] ?? 5);
-        if (!empty($config['smtp']['debug'])) {
-            $mailer->SMTPDebug = 2;
-            $mailer->Debugoutput = static function ($debugLine, $level) {
-                LoggerService::logInfo('SMTP debug', [
-                    'level' => $level,
-                    'line' => (string)$debugLine,
-                ]);
-            };
-        }
+        $mailer->SMTPDebug = 2;
+        $mailer->Debugoutput = static function ($str, $level) {
+            LoggerService::logInfo('SMTP DEBUG', [
+                'level' => $level,
+                'message' => (string)$str,
+            ]);
+        };
 
         $mailer->setFrom('support@bsquareg-developers.com', 'Support Team');
         foreach ($recipients['to'] as $email) {
@@ -310,32 +322,25 @@ class EmailService
         }
     }
 
-    private static function ensurePhpMailerLoaded()
+    private static function loadPhpMailerClasses(): void
     {
-        if (class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
-            return;
-        }
+        $paths = [
+            dirname(__DIR__) . '/libs/PHPMailer/PHPMailer.php',
+            dirname(__DIR__) . '/libs/PHPMailer/SMTP.php',
+            dirname(__DIR__) . '/libs/PHPMailer/Exception.php',
+            dirname(__DIR__) . '/../libs/PHPMailer/PHPMailer.php',
+            dirname(__DIR__) . '/../libs/PHPMailer/SMTP.php',
+            dirname(__DIR__) . '/../libs/PHPMailer/Exception.php',
+        ];
 
-        $autoloadPath = dirname(__DIR__) . '/vendor/autoload.php';
-        if (file_exists($autoloadPath)) {
-            require_once $autoloadPath;
-        }
-
-        if (class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
-            return;
-        }
-
-        $base = dirname(__DIR__) . '/vendor/phpmailer/phpmailer/src/';
-        $files = ['Exception.php', 'PHPMailer.php', 'SMTP.php'];
-        foreach ($files as $file) {
-            $path = $base . $file;
+        foreach ($paths as $path) {
             if (file_exists($path)) {
                 require_once $path;
             }
         }
 
-        if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
-            throw new RuntimeException('PHPMailer is not installed');
+        if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
+            throw new Exception('PHPMailer class NOT LOADED - check path');
         }
     }
 

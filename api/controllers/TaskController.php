@@ -585,9 +585,14 @@ public function downloadFile() {
             ")->execute([$status_id, $taskId]);
             $conn->commit();
 
-            EmailService::sendTaskNotification($taskId, 'assigned', null, $assignedByUserId);
+            $emailResult = EmailService::sendTaskNotification($taskId, 'assigned', null, $assignedByUserId);
 
-            echo json_encode(["message" => "Task assigned"]);
+            echo json_encode([
+                "success" => true,
+                "message" => "Task assigned",
+                "email_status" => $emailResult['email_status'] ?? 'failed',
+                "email_error" => $emailResult['email_error'] ?? null,
+            ]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) {
                 $conn->rollBack();
