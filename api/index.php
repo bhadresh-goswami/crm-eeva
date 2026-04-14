@@ -36,6 +36,7 @@ require_once "controllers/RoleController.php";
 require_once "controllers/TaskTypeController.php";
 require_once "controllers/TaskStatusController.php";
 require_once "controllers/PaymentStatusController.php";
+require_once "services/EmailService.php";
 
 // ---------------- ROUTE PARSER ----------------
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -247,7 +248,8 @@ elseif ($uri === "/dashboard/available-experts") {
 
 elseif ($uri === "/dashboard/assign-task") {
     authorize($user,['admin','manager','coordinator']);
-    (new DashboardController())->assignTask();
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new DashboardController())->assignTask($actorUserId);
 }
 
 
@@ -299,7 +301,7 @@ elseif ($uri === "/tasks/update" && $method === "POST") {
 }
 elseif ($uri === "/tasks/assign" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
-    (new TaskController())->assign();
+    (new TaskController())->assign($user->id ?? null);
 }
 elseif ($uri === "/tasks/upload" && $method === "POST") {
     authorize($user,['admin','manager','coordinator','expert']);
@@ -319,6 +321,16 @@ elseif ($uri === "/tasks/bulk-assign" && $method === "POST") {
 elseif ($uri === "/tasks/cancel" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->cancelTask();
+}
+elseif ($uri === "/test-email" && $method === "POST") {
+    authorize($user,['admin','manager','coordinator']);
+    $data = json_decode(file_get_contents("php://input"));
+    $to = is_object($data) && isset($data->to) ? (string)$data->to : 'support@bsquareg-developers.com';
+    $sent = EmailService::sendTestEmail($to);
+    echo json_encode([
+        "success" => $sent,
+        "message" => $sent ? "Test email sent" : "Failed to send test email",
+    ]);
 }
 
 
