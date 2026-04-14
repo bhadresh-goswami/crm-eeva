@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import AssignTaskModal from '../../../shared/components/AssignTaskModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
+import DashboardCard from '../../../shared/components/DashboardCard'
+import ChartCard from '../../../shared/components/ChartCard'
+import PageContainer from '../../../shared/components/PageContainer'
 import {
   assignDashboardTask,
   getDashboardTasksByStatus,
@@ -360,35 +363,56 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
 
   const tableColSpan = mode === 'manager' ? 7 : allowAssign || allowStatusUpdate ? 7 : 5
 
+  const chartData = [
+    { label: 'Pending', value: summary.pendingTasks },
+    { label: 'Assigned', value: summary.assignedTasks },
+    { label: 'Completed', value: summary.completedTasks },
+  ]
+
   return (
-    <section>
-      <h2 className="page-title">{roleLabel} Dashboard</h2>
-      <p className="page-description">Live dashboard summary and task assignment workflow.</p>
+    <PageContainer title={`${roleLabel} Dashboard`} description="Live dashboard summary and task assignment workflow.">
       {error ? <p className="dashboard-notice">{error}</p> : null}
 
-      <div className="cards-grid dashboard-cards">
+      <div className="metric-grid dashboard-cards section">
         {loading
           ? Array.from({ length: mode === 'admin' ? 4 : 5 }).map((_, index) => (
               <article key={index} className="card skeleton-card" aria-hidden="true" />
             ))
           : mode === 'manager'
             ? managerCardConfigs.map((card) => (
-                <button
-                  type="button"
-                  className="card dashboard-card-button"
+                <DashboardCard
                   key={card.label}
+                  title={card.label}
+                  value={card.value}
+                  trend={card.label.includes('Pending') ? -3 : 6}
                   onClick={() => void openManagerCardModal(card.label, card.status, card.useAll)}
-                >
-                  <p className="dashboard-card__label">{card.label}</p>
-                  <h3 className="dashboard-card__value">{card.value}</h3>
-                </button>
+                />
               ))
             : visibleCards.map((card) => (
-                <article className="card" key={card.label}>
-                  <p className="dashboard-card__label">{card.label}</p>
-                  <h3 className="dashboard-card__value">{card.value}</h3>
-                </article>
+                <DashboardCard key={card.label} title={card.label} value={card.value} trend={5} />
               ))}
+      </div>
+      <div className="charts-grid section">
+        <ChartCard title="Activity Overview">
+          <div style={{ display: 'grid', gap: '0.5rem' }}>
+            {chartData.map((item) => (
+              <div key={item.label}>
+                <p className="card-text">{item.label}</p>
+                <div style={{ height: 8, borderRadius: 999, background: '#e5e7eb' }}>
+                  <div style={{ width: `${Math.min(100, item.value)}%`, height: '100%', borderRadius: 999, background: '#3b82f6' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </ChartCard>
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          <ChartCard title="Tasks Mix (Donut)">
+            <p className="card-text">Pending {summary.pendingTasks} • Assigned {summary.assignedTasks}</p>
+          </ChartCard>
+          <ChartCard title="Completion (Pie)">
+            <p className="card-text">Completed {summary.completedTasks} / Total {summary.totalTasks}</p>
+          </ChartCard>
+        </div>
       </div>
 
       {mode !== 'admin' ? (
@@ -610,7 +634,7 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
         </div>
       </AnimatedModal>
 
-    </section>
+    </PageContainer>
   )
 }
 

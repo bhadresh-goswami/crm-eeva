@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import { useAlert } from '../../../shared/alerts/useAlert'
+import ChartCard from '../../../shared/components/ChartCard'
+import DashboardCard from '../../../shared/components/DashboardCard'
+import PageContainer from '../../../shared/components/PageContainer'
 import {
   assignManagerTask,
   getManagerAvailableExperts,
@@ -172,11 +175,9 @@ const ManagerDashboard = () => {
 
 
   return (
-    <section>
-      <h2 className="page-title">Manager Dashboard</h2>
-      <p className="page-description">Live dashboard summary and task assignment workflow.</p>
+    <PageContainer title="Manager Dashboard" description="Live dashboard summary and task assignment workflow.">
 
-      <div className="cards-grid dashboard-cards">
+      <div className="metric-grid dashboard-cards section">
         {loadingSummary
           ? Array.from({ length: 6 }).map((_, index) => (
               <article key={index} className="card skeleton-card" aria-hidden="true" />
@@ -184,26 +185,40 @@ const ManagerDashboard = () => {
           : cards.map((card) => {
               if (!card.tab) {
                 return (
-                  <article className="card" key={card.label}>
-                    <p className="dashboard-card__label">{card.label}</p>
-                    <h3 className="dashboard-card__value">{card.value}</h3>
-                  </article>
+                  <DashboardCard key={card.label} title={card.label} value={card.value} trend={4} />
                 )
               }
 
               return (
-                <button
-                  key={card.label}
-                  type="button"
-                  className="card dashboard-card-button"
-                  onClick={() => setActiveTab(card.tab)}
-                >
-                  <p className="dashboard-card__label">{card.label}</p>
-                  <h3 className="dashboard-card__value">{card.value}</h3>
-                </button>
+                <DashboardCard key={card.label} title={card.label} value={card.value} trend={card.tab === 'cancelled' ? -2 : 5} onClick={() => setActiveTab(card.tab)} />
               )
             })}
       </div>
+      <div className="charts-grid section">
+        <ChartCard title="Task Activity">
+          <p className="card-text">Pending {summaryData.pendingTasks} • Assigned {summaryData.assignedTasks} • Completed {summaryData.completedTasks}</p>
+        </ChartCard>
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          <ChartCard title="Donut">
+            <p className="card-text">Experts {summaryData.expertsPresent}/{summaryData.expertsTotal}</p>
+          </ChartCard>
+          <ChartCard title="Pie">
+            <p className="card-text">Cancelled {summaryData.cancelledTasks}</p>
+          </ChartCard>
+        </div>
+      </div>
+      <aside className="activity-panel section">
+        <h3 className="tasks-activity__title">Live Activity</h3>
+        {tasksData.slice(0, 4).map((task) => (
+          <div className="activity-item" key={`activity-${task.id}`}>
+            <span className="dot" />
+            <div>
+              <p className="name">{task.title}</p>
+              <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
+            </div>
+          </div>
+        ))}
+      </aside>
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
@@ -399,7 +414,7 @@ const ManagerDashboard = () => {
         } : null}
         onClose={() => setDetailTask(null)}
       />
-    </section>
+    </PageContainer>
   )
 }
 

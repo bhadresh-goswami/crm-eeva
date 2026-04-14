@@ -352,6 +352,34 @@ const TasksPage = () => {
     [tasks],
   )
 
+  const taskActivitySummary = useMemo(() => {
+    const pending = tasks.filter((task) => task.status === 'pending').length
+    const assigned = tasks.filter((task) => task.status === 'assigned').length
+    const completed = tasks.filter((task) => task.status === 'completed').length
+    return { pending, assigned, completed }
+  }, [tasks])
+
+  const dailyTaskActivity = useMemo(() => {
+    const grouped = new Map<string, { pending: number; assigned: number; completed: number }>()
+    tasks.forEach((task) => {
+      const dayKey = task.due_date.slice(0, 10)
+      const current = grouped.get(dayKey) ?? { pending: 0, assigned: 0, completed: 0 }
+      if (task.status === 'pending') current.pending += 1
+      if (task.status === 'assigned') current.assigned += 1
+      if (task.status === 'completed') current.completed += 1
+      grouped.set(dayKey, current)
+    })
+
+    return Array.from(grouped.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-7)
+      .map(([date, value]) => ({
+        date,
+        label: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        ...value,
+      }))
+  }, [tasks])
+
   const loadClientDependentOptions = useCallback(async (clientId: number) => {
     setLoadingPocs(true)
     setLoadingCandidates(true)
@@ -692,96 +720,121 @@ const TasksPage = () => {
         </button>
       </div>
 
+      <div className="card section tasks-activity">
+        <h3 className="tasks-activity__title">Task Activity</h3>
+        <p className="card-text">
+          Pending {taskActivitySummary.pending} • Assigned {taskActivitySummary.assigned} • Completed {taskActivitySummary.completed}
+        </p>
+        <div className="tasks-activity__chart">
+          {dailyTaskActivity.length === 0 ? (
+            <p className="card-text">No task activity yet.</p>
+          ) : (
+            dailyTaskActivity.map((day) => (
+              <div key={day.date} className="tasks-activity__day">
+                <div className="tasks-activity__bars">
+                  <div className="tasks-activity__bar tasks-activity__bar--pending" style={{ height: `${Math.max(10, day.pending * 14)}px` }} title={`Pending: ${day.pending}`} />
+                  <div className="tasks-activity__bar tasks-activity__bar--assigned" style={{ height: `${Math.max(10, day.assigned * 14)}px` }} title={`Assigned: ${day.assigned}`} />
+                  <div className="tasks-activity__bar tasks-activity__bar--completed" style={{ height: `${Math.max(10, day.completed * 14)}px` }} title={`Completed: ${day.completed}`} />
+                </div>
+                <span className="tasks-activity__label">{day.label}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       <div className="card table-container tasks-table__wrapper">
         {loading ? <p className="users-loader">Loading tasks...</p> : null}
         {!loading && filteredTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
         {!loading && filteredTasks.length > 0 ? (
-          <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
-            <thead>
-              <tr>
-                <th>✓</th>
-                <th>SR No</th>
-                <th>Date</th>
-                <th>Candidate</th>
-                <th>Company</th>
-                <th>Status</th>
-                <th>Assign To</th>
-                <th>Time Start</th>
-                <th>Time End</th>
-                <th>File</th>
-                <th>Description</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedTasks.map((task, index) => {
-                const isCancelled = task.status === 'cancelled'
-               
-                return (
-                <tr key={`task-${task.id}`}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedTaskIds.includes(task.id)}
-                      onChange={(event) =>
-                        setSelectedTaskIds((prev) =>
-                          event.target.checked ? [...new Set([...prev, task.id])] : prev.filter((id) => id !== task.id),
-                        )
-                      }
-                    />
-                  </td>
-                  <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
-                  <td>{formatDisplayDate(task.due_date)}</td>
-                  <td>{task.candidate || '—'}</td>
-                  <td>{task.client || '—'}</td>
-                  <td><span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : ''}`}>{task.status}</span></td>
-                  <td>{task.assigned_to_name || '—'}</td>
-                  <td>{formatTime(task.time_start)}</td>
-                  <td>{formatTime(task.time_end)}</td>
-                  <td>
-                    {task.file_url ? (
-                      <button
-                        className="button users-icon-btn"
-                        type="button"
-                        title="Download file"
-                        onClick={() => void handleDownloadFile(task.file_url)}
-                      >
-                        📎
-                      </button>
-                    ) : '—'}
-                  </td>
-                  <td>
-                    {task.description ? (
-                      <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
-                        👁
-                      </button>
-                    ) : '—'}
-                  </td>
-                  <td>
-                    <div className="roles-table__actions users-actions">
-                      <button className="button users-icon-btn" title="View" onClick={() => void openEdit(task)}>👁</button>
-                      <button className="button users-icon-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
-                      <button className="button users-icon-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
-                      <button
-                        className="button users-icon-btn"
-                        title={
-                          task.status === 'assigned'
-                            ? 'Reassign'
-                            : task.status === 'pending'
-                              ? 'Assign'
-                              : 'Assign disabled'
-                        }
-                        disabled={!task.can_assign || !canManage || isCancelled || !['pending', 'assigned'].includes(task.status)}
-                        onClick={() => void openAssign(task)}
-                      >
-                        👤
-                      </button>
-                    </div>
-                  </td>
+          <div className="tasks-table-scroll">
+            <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
+              <thead>
+                <tr>
+                  <th>✓</th>
+                  <th>SR No</th>
+                  <th>Date</th>
+                  <th>Candidate</th>
+                  <th>Company</th>
+                  <th>Status</th>
+                  <th>Assign To</th>
+                  <th>Time Start</th>
+                  <th>Time End</th>
+                  <th>File</th>
+                  <th>Description</th>
+                  <th>Actions</th>
                 </tr>
-              )})}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedTasks.map((task, index) => {
+                  const isCancelled = task.status === 'cancelled'
+                 
+                  return (
+                  <tr key={`task-${task.id}`}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedTaskIds.includes(task.id)}
+                        onChange={(event) =>
+                          setSelectedTaskIds((prev) =>
+                            event.target.checked ? [...new Set([...prev, task.id])] : prev.filter((id) => id !== task.id),
+                          )
+                        }
+                      />
+                    </td>
+                    <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
+                    <td>{formatDisplayDate(task.due_date)}</td>
+                    <td>{task.candidate || '—'}</td>
+                    <td>{task.client || '—'}</td>
+                    <td><span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : ''}`}>{task.status}</span></td>
+                    <td>{task.assigned_to_name || '—'}</td>
+                    <td>{formatTime(task.time_start)}</td>
+                    <td>{formatTime(task.time_end)}</td>
+                    <td>
+                      {task.file_url ? (
+                        <button
+                          className="button users-icon-btn"
+                          type="button"
+                          title="Download file"
+                          onClick={() => void handleDownloadFile(task.file_url)}
+                        >
+                          📎
+                        </button>
+                      ) : '—'}
+                    </td>
+                    <td>
+                      {task.description ? (
+                        <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
+                          👁
+                        </button>
+                      ) : '—'}
+                    </td>
+                    <td>
+                      <div className="roles-table__actions users-actions">
+                        <button className="button users-icon-btn" title="View" onClick={() => void openEdit(task)}>👁</button>
+                        <button className="button users-icon-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
+                        <button className="button users-icon-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
+                        <button
+                          className="button users-icon-btn"
+                          title={
+                            task.status === 'assigned'
+                              ? 'Reassign'
+                              : task.status === 'pending'
+                                ? 'Assign'
+                                : 'Assign disabled'
+                          }
+                          disabled={!task.can_assign || !canManage || isCancelled || !['pending', 'assigned'].includes(task.status)}
+                          onClick={() => void openAssign(task)}
+                        >
+                          👤
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )})}
+              </tbody>
+            </table>
+          </div>
         ) : null}
       </div>
 
@@ -987,6 +1040,7 @@ const TasksPage = () => {
             </div>
             {cancelledTasks.length === 0 ? <p className="users-empty">No cancelled tasks found.</p> : (
               <div className="tasks-table__wrapper tasks-table__wrapper--modal">
+                <div className="tasks-table-scroll">
                 <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
                   <thead>
                     <tr>
@@ -1041,6 +1095,7 @@ const TasksPage = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </div>

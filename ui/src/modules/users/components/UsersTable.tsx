@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { UserItem } from '../api/usersApi'
 
 type UsersTableProps = {
@@ -32,6 +32,7 @@ const UsersTable = ({
   onUpdatePassword,
 }: UsersTableProps) => {
   const [searchTerm, setSearchTerm] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [sortField, setSortField] = useState<SortField>('name')
@@ -70,6 +71,14 @@ const UsersTable = ({
 
     return sorted
   }, [users, searchTerm, roleFilter, statusFilter, sortField, sortOrder])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearchTerm(searchInput)
+      setCurrentPage(1)
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSortedUsers.length / PAGE_SIZE))
 
@@ -117,10 +126,9 @@ const UsersTable = ({
           <input
             id="usersSearch"
             placeholder="Search by name or email"
-            value={searchTerm}
+            value={searchInput}
             onChange={(event) => {
-              setSearchTerm(event.target.value)
-              setCurrentPage(1)
+              setSearchInput(event.target.value)
             }}
           />
         </label>
@@ -161,8 +169,8 @@ const UsersTable = ({
         </label>
       </div>
 
-      <div className="card users-table__wrapper users-table__fade">
-        <table className="roles-table users-table">
+      <div className="card table-card users-table__wrapper users-table__fade">
+        <table className="roles-table users-table crm-table">
           <thead>
             <tr>
               <th>
@@ -198,25 +206,27 @@ const UsersTable = ({
 
                 return (
                   <tr key={user.id}>
-                    <td>{user.name}</td>
-                    <td>{user.email}</td>
+                    <td>
+                      <div className="user-cell">
+                        <span className="avatar" aria-hidden="true">{user.name.slice(0, 2).toUpperCase()}</span>
+                        <div>
+                          <p className="name">{user.name}</p>
+                          <p className="email">{user.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="email">{user.email}</td>
                     <td>{user.role || '-'}</td>
                     <td>{user.team_lead || '-'}</td>
                     <td>
-                      <span
-                        className={
-                          isActive
-                            ? 'status-pill status-pill--active'
-                            : 'status-pill status-pill--inactive'
-                        }
-                      >
+                      <span className={`badge ${isActive ? 'processing' : 'failed'}`}>
                         {isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td>
                       <div className="roles-table__actions users-actions">
                         <button
-                          className="button users-icon-btn"
+                          className="btn view users-icon-btn"
                           onClick={() => onEdit(user)}
                           disabled={activeActionId === user.id}
                           title="Edit"
@@ -225,7 +235,7 @@ const UsersTable = ({
                           ✏️
                         </button>
                         <button
-                          className="button users-icon-btn"
+                          className="btn edit users-icon-btn"
                           onClick={() => onToggle(user)}
                           disabled={activeActionId === user.id}
                           title={isActive ? 'Deactivate' : 'Activate'}
@@ -235,7 +245,7 @@ const UsersTable = ({
                         </button>
 
                         <button
-                          className="button users-icon-btn"
+                          className="btn edit users-icon-btn"
                           onClick={() => onUpdatePassword(user)}
                           disabled={activeActionId === user.id}
                           title="Update password"
@@ -244,7 +254,7 @@ const UsersTable = ({
                           🔒
                         </button>
                         <button
-                          className="button button--danger users-icon-btn"
+                          className="btn delete users-icon-btn"
                           onClick={() => onDelete(user)}
                           disabled={activeActionId === user.id}
                           title="Delete"
