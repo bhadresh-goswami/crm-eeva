@@ -259,6 +259,36 @@ elseif ($uri === "/tasks/list") {
     authorize($user,['admin','manager','coordinator','expert','expertlead']);
     (new TaskController())->list();
 }
+elseif ($uri === "/tasks/comments" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert','technical lead']);
+    (new TaskController())->comments();
+}
+elseif ($uri === "/expert/tasks" && $method === "GET") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    $expertUserId = null;
+    if (is_array($user) && isset($user['id'])) {
+        $expertUserId = $user['id'];
+    } elseif (is_object($user) && isset($user->id)) {
+        $expertUserId = $user->id;
+    }
+
+    (new TaskController())->expertTasks($expertUserId);
+}
+elseif ($uri === "/expert/tasks/active-check" && $method === "GET") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->checkActiveTask($expertUserId);
+}
+elseif (($uri === "/expert/tasks/start" || $uri === "/expert/start-task") && $method === "POST") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->startTask($expertUserId);
+}
+elseif ($uri === "/expert/tasks/end" && $method === "POST") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->endTask($expertUserId);
+}
 elseif ($uri === "/tasks/create" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->create();

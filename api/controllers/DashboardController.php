@@ -67,8 +67,10 @@ class DashboardController {
                 t.due_date,
                 t.start_time,
                 t.end_time,
+                COALESCE(tt.name, '') as support_type,
 
-                c.name as client_name,
+                c.company_name as company_name,
+                c.company_name as client_name,
                 cand.name as candidate_name,
 
                 ts.name as status,
@@ -79,6 +81,7 @@ class DashboardController {
 
             LEFT JOIN clients c ON t.client_id = c.id
             LEFT JOIN candidates cand ON t.candidate_id = cand.id
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN task_status_master ts ON t.status_id = ts.id
 
             LEFT JOIN task_assignments ta ON t.id = ta.task_id

@@ -3,6 +3,103 @@
 require_once dirname(__DIR__) . "/config/database.php";
 
 class TaskController {
+    public function expertTasks($user_id) {
+        $db = new Database();
+        $conn = $db->connect();
+        $activeOnly = isset($_GET['active_only']) && (string)$_GET['active_only'] === '1';
+
+        $visibleUserIds = $this->getHierarchyUserIds($conn, (int)$user_id);
+        if (empty($visibleUserIds)) {
+            $visibleUserIds = [(int)$user_id];
+        }
+
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $assignedByColumn = null;
+        foreach (['assigned_by', 'assigned_by_id'] as $columnName) {
+            if (in_array($columnName, $assignmentColumns, true)) {
+                $assignedByColumn = $columnName;
+                break;
+            }
+        }
+
+        $placeholders = implode(',', array_fill(0, count($visibleUserIds), '?'));
+        $assignedByJoin = $assignedByColumn
+            ? "LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.{$assignedByColumn}"
+            : "";
+        $assignedBySelect = $assignedByColumn
+            ? "COALESCE(assigned_by_user.name, '') AS assigned_by_name,"
+            : "'' AS assigned_by_name,";
+
+        $query = "
+            SELECT
+                t.id AS task_id,
+                cand.name AS candidate_name,
+                c.name AS company_name,
+                t.title,
+                t.description,
+                t.due_date,
+                t.start_time,
+                t.end_time,
+                COALESCE(tt.name, '') AS support_type,
+                t.status_id,
+                COALESCE(ts.name, '') AS status_name,
+                ta.user_id AS assigned_to_id,
+                COALESCE(assigned_to_user.name, '') AS assigned_to_name,
+                CASE WHEN ta.user_id = ? THEN 1 ELSE 0 END AS is_own_task,
+                {$assignedBySelect}
+                tf.file_url
+            FROM task_assignments ta
+            INNER JOIN tasks t ON t.id = ta.task_id
+            LEFT JOIN candidates cand ON cand.id = t.candidate_id
+            LEFT JOIN clients c ON c.id = t.client_id
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
+            LEFT JOIN users assigned_to_user ON assigned_to_user.id = ta.user_id
+            {$assignedByJoin}
+            LEFT JOIN task_files tf
+              ON tf.id = (
+                  SELECT id FROM task_files
+                  WHERE task_id = t.id
+                  ORDER BY id DESC LIMIT 1
+              )
+            WHERE ta.user_id IN ({$placeholders})
+        ";
+
+        $params = array_merge([(int)$user_id], $visibleUserIds);
+        if ($activeOnly) {
+            $query .= " AND ta.is_active = 1";
+        }
+
+        $query .= "
+            ORDER BY t.due_date ASC, t.start_time ASC, t.id DESC
+        ";
+
+        $stmt = $conn->prepare($query);
+        $stmt->execute($params);
+        $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            "success" => true,
+            "data" => $tasks
+        ]);
+    }
+
+    private function getTableColumns(PDO $conn, string $tableName): array {
+        $stmt = $conn->prepare("SHOW COLUMNS FROM {$tableName}");
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(static fn ($row) => (string)$row['Field'], $rows);
+    }
+
+    private function getHierarchyUserIds(PDO $conn, int $rootUserId): array {
+        $stmt = $conn->prepare("SELECT id FROM users WHERE team_lead_id = ?");
+        $stmt->execute([$rootUserId]);
+        $subUserIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+
+        return array_values(array_unique(array_merge([$rootUserId], $subUserIds)));
+    }
+
     public function cancelTask() {
 
     $data = json_decode(file_get_contents("php://input"));
@@ -416,5 +513,223 @@ public function downloadFile() {
         ")->execute([$status_id, $data->task_id]);
 
         echo json_encode(["message" => "Task assigned"]);
+    }
+
+    public function checkActiveTask($user_id) {
+        $db = new Database();
+        $conn = $db->connect();
+
+        $statusId = $this->getStatusIdByName($conn, 'In Progress');
+        if (!$statusId) {
+            echo json_encode([
+                "success" => true,
+                "has_active_task" => false
+            ]);
+            return;
+        }
+
+        $stmt = $conn->prepare("
+            SELECT t.id
+            FROM task_assignments ta
+            INNER JOIN tasks t ON t.id = ta.task_id
+            WHERE ta.user_id = ?
+              AND ta.is_active = 1
+              AND t.status_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([(int)$user_id, (int)$statusId]);
+        $activeTaskId = (int)$stmt->fetchColumn();
+
+        echo json_encode([
+            "success" => true,
+            "has_active_task" => $activeTaskId > 0,
+            "active_task_id" => $activeTaskId > 0 ? $activeTaskId : null
+        ]);
+    }
+
+    public function startTask($user_id) {
+        $data = json_decode(file_get_contents("php://input"));
+
+        if (empty($data->task_id)) {
+            http_response_code(400);
+            echo json_encode(["error" => "task_id required"]);
+            return;
+        }
+
+        $db = new Database();
+        $conn = $db->connect();
+
+        $inProgressStatusId = $this->getStatusIdByName($conn, 'In Progress');
+        if (!$inProgressStatusId) {
+            http_response_code(422);
+            echo json_encode(["error" => "In Progress status not configured"]);
+            return;
+        }
+
+        try {
+            $conn->beginTransaction();
+
+            $activeStmt = $conn->prepare("
+                SELECT t.id
+                FROM task_assignments ta
+                INNER JOIN tasks t ON t.id = ta.task_id
+                WHERE ta.user_id = ?
+                  AND ta.is_active = 1
+                  AND t.status_id = ?
+                  AND t.id <> ?
+                LIMIT 1
+            ");
+            $activeStmt->execute([(int)$user_id, (int)$inProgressStatusId, (int)$data->task_id]);
+            $otherActiveTaskId = (int)$activeStmt->fetchColumn();
+            if ($otherActiveTaskId > 0) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode([
+                    "error" => "Another task is already in progress",
+                    "active_task_id" => $otherActiveTaskId
+                ]);
+                return;
+            }
+
+            $assignmentStmt = $conn->prepare("
+                SELECT id
+                FROM task_assignments
+                WHERE task_id = ? AND user_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+            ");
+            $assignmentStmt->execute([(int)$data->task_id, (int)$user_id]);
+            $assignmentId = (int)$assignmentStmt->fetchColumn();
+            if ($assignmentId <= 0) {
+                $conn->rollBack();
+                http_response_code(403);
+                echo json_encode(["error" => "Task is not assigned to this expert"]);
+                return;
+            }
+
+            $conn->prepare("UPDATE tasks SET status_id = ? WHERE id = ?")
+                ->execute([(int)$inProgressStatusId, (int)$data->task_id]);
+
+            $conn->prepare("UPDATE task_assignments SET is_active = 1 WHERE id = ?")
+                ->execute([$assignmentId]);
+
+            $conn->commit();
+            echo json_encode(["success" => true, "message" => "Task started"]);
+        } catch (Exception $e) {
+            if ($conn->inTransaction()) $conn->rollBack();
+            http_response_code(500);
+            echo json_encode(["error" => $e->getMessage()]);
+        }
+    }
+
+    public function endTask($user_id) {
+        $data = json_decode(file_get_contents("php://input"));
+
+        if (empty($data->task_id) || empty($data->status) || !isset($data->comment)) {
+            http_response_code(400);
+            echo json_encode(["error" => "task_id, status and comment are required"]);
+            return;
+        }
+
+        $comment = trim((string)$data->comment);
+        if ($comment === '') {
+            http_response_code(422);
+            echo json_encode(["error" => "Comment is required"]);
+            return;
+        }
+
+        $allowedStatuses = ['Completed', 'Cancelled', 'No Show', 'Rescheduled'];
+        if (!in_array((string)$data->status, $allowedStatuses, true)) {
+            http_response_code(422);
+            echo json_encode(["error" => "Invalid task end status"]);
+            return;
+        }
+
+        $db = new Database();
+        $conn = $db->connect();
+
+        $statusId = $this->getStatusIdByName($conn, (string)$data->status);
+        if (!$statusId) {
+            http_response_code(422);
+            echo json_encode(["error" => "Status not configured"]);
+            return;
+        }
+
+        try {
+            $conn->beginTransaction();
+
+            $assignmentStmt = $conn->prepare("
+                SELECT id
+                FROM task_assignments
+                WHERE task_id = ? AND user_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+            ");
+            $assignmentStmt->execute([(int)$data->task_id, (int)$user_id]);
+            $assignmentId = (int)$assignmentStmt->fetchColumn();
+            if ($assignmentId <= 0) {
+                $conn->rollBack();
+                http_response_code(403);
+                echo json_encode(["error" => "Task is not assigned to this expert"]);
+                return;
+            }
+
+            $conn->prepare("UPDATE tasks SET status_id = ? WHERE id = ?")
+                ->execute([(int)$statusId, (int)$data->task_id]);
+
+            $conn->prepare("UPDATE task_assignments SET is_active = 0 WHERE id = ?")
+                ->execute([$assignmentId]);
+
+            $commentStmt = $conn->prepare("
+                INSERT INTO task_comments (task_id, user_id, comment, created_at)
+                VALUES (?, ?, ?, NOW())
+            ");
+            $commentStmt->execute([(int)$data->task_id, (int)$user_id, $comment]);
+
+            $conn->commit();
+            echo json_encode(["success" => true, "message" => "Task updated"]);
+        } catch (Exception $e) {
+            if ($conn->inTransaction()) $conn->rollBack();
+            http_response_code(500);
+            echo json_encode(["error" => $e->getMessage()]);
+        }
+    }
+
+    public function comments() {
+        $taskId = isset($_GET['task_id']) ? (int)$_GET['task_id'] : 0;
+        if ($taskId <= 0) {
+            http_response_code(400);
+            echo json_encode(["error" => "task_id required"]);
+            return;
+        }
+
+        $db = new Database();
+        $conn = $db->connect();
+
+        $stmt = $conn->prepare("
+            SELECT
+                tc.id,
+                tc.task_id,
+                tc.user_id,
+                COALESCE(u.name, '') AS user_name,
+                tc.comment,
+                tc.created_at
+            FROM task_comments tc
+            LEFT JOIN users u ON u.id = tc.user_id
+            WHERE tc.task_id = ?
+            ORDER BY tc.created_at DESC, tc.id DESC
+        ");
+        $stmt->execute([$taskId]);
+
+        echo json_encode([
+            "success" => true,
+            "comments" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        ]);
+    }
+
+    private function getStatusIdByName(PDO $conn, string $statusName) {
+        $stmt = $conn->prepare("SELECT id FROM task_status_master WHERE name = ? LIMIT 1");
+        $stmt->execute([$statusName]);
+        return $stmt->fetchColumn();
     }
 }
