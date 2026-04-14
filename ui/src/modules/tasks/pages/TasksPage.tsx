@@ -706,7 +706,7 @@ const TasksPage = () => {
                 const isCancelled = task.status === 'cancelled'
                 const rowKey = `${task.id}-${task.assigned_to_id ?? index}`
                 return (
-                <tr key={rowKey}>
+                <tr key={`task-${task.id}`}>
                   <td>
                     <input
                       type="checkbox"
@@ -991,8 +991,8 @@ const TasksPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {cancelledTasks.map((task, index) => (
-                      <tr key={`${task.id}-${task.assigned_to_id ?? index}`}>
+                    {cancelledTasks.map((task) => (
+                      <tr key={`task-${task.id}`}>
                         <td>{formatDisplayDate(task.due_date)}</td>
                         <td>{task.candidate || '—'}</td>
                         <td>{task.client || '—'}</td>

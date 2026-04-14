@@ -65,6 +65,7 @@ class TaskController {
                   ORDER BY id DESC LIMIT 1
               )
             WHERE ta.user_id IN ({$placeholders})
+              AND ta.is_active = 1
         ";
 
         $params = array_merge([(int)$user_id], $visibleUserIds);
@@ -143,16 +144,46 @@ class TaskController {
     ")->fetchColumn();
 
     foreach ($data->task_ids as $task_id) {
+        $taskId = (int)$task_id;
+        $userId = (int)$data->user_id;
+
+        $conn->prepare("
+            UPDATE task_assignments
+            SET is_active = 0
+            WHERE task_id = ? AND is_active = 1
+        ")->execute([$taskId]);
+
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $insertColumns = ['task_id', 'user_id', 'is_active'];
+        $insertValues = [$taskId, $userId, 1];
+
+        if (in_array('assigned_by', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_by';
+            $insertValues[] = $data->assigned_by ?? null;
+        } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_by_id';
+            $insertValues[] = $data->assigned_by ?? null;
+        }
+
+        if (in_array('assigned_at', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_at';
+        }
+
+        $columnList = implode(', ', $insertColumns);
+        $placeholderList = implode(', ', array_fill(0, count($insertValues), '?'));
+        if (in_array('assigned_at', $assignmentColumns, true)) {
+            $placeholderList .= ', NOW()';
+        }
 
         $stmt = $conn->prepare("
-            INSERT INTO task_assignments (task_id, user_id)
-            VALUES (?, ?)
+            INSERT INTO task_assignments ({$columnList})
+            VALUES ({$placeholderList})
         ");
-        $stmt->execute([$task_id, $data->user_id]);
+        $stmt->execute($insertValues);
 
         $conn->prepare("
             UPDATE tasks SET status_id=? WHERE id=?
-        ")->execute([$status_id, $task_id]);
+        ")->execute([$status_id, $taskId]);
     }
 
     echo json_encode(["message" => "Bulk assign done"]);
@@ -346,7 +377,7 @@ public function downloadFile() {
             LEFT JOIN task_status_master ts ON t.status_id = ts.id
             LEFT JOIN task_types tt ON t.task_type_id = tt.id
             LEFT JOIN payment_status_master ps ON t.payment_status_id = ps.id
-            LEFT JOIN task_assignments ta ON ta.task_id = t.id
+            LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
             LEFT JOIN users u ON ta.user_id = u.id
 
             LEFT JOIN task_files tf 
@@ -506,23 +537,70 @@ public function downloadFile() {
 
         $db = new Database();
         $conn = $db->connect();
+        try {
+            $status_id = $conn->query("
+                SELECT id FROM task_status_master WHERE name='Assigned'
+            ")->fetchColumn();
 
-        $status_id = $conn->query("
-            SELECT id FROM task_status_master WHERE name='Assigned'
-        ")->fetchColumn();
+            $taskId = (int)$data->task_id;
+            $userId = (int)$data->user_id;
 
-        $conn->prepare("
-            INSERT INTO task_assignments (task_id, user_id)
-            VALUES (?, ?)
-        ")->execute([$data->task_id, $data->user_id]);
+            $conn->beginTransaction();
 
-        $conn->prepare("
-            UPDATE tasks SET status_id=? WHERE id=?
-        ")->execute([$status_id, $data->task_id]);
+            $conn->prepare("
+                UPDATE task_assignments
+                SET is_active = 0
+                WHERE task_id = ? AND is_active = 1
+            ")->execute([$taskId]);
 
-        EmailService::sendTaskNotification((int)$data->task_id, 'assigned', null, $assignedByUserId);
+            $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+            $insertColumns = ['task_id', 'user_id', 'is_active'];
+            $insertValues = [$taskId, $userId, 1];
 
-        echo json_encode(["message" => "Task assigned"]);
+            if (in_array('assigned_by', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_by';
+                $insertValues[] = $assignedByUserId;
+            } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_by_id';
+                $insertValues[] = $assignedByUserId;
+            }
+
+            if (in_array('assigned_at', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_at';
+            }
+
+            $columnList = implode(', ', $insertColumns);
+            $placeholderList = implode(', ', array_fill(0, count($insertValues), '?'));
+            if (in_array('assigned_at', $assignmentColumns, true)) {
+                $placeholderList .= ', NOW()';
+            }
+
+            $conn->prepare("
+                INSERT INTO task_assignments ({$columnList})
+                VALUES ({$placeholderList})
+            ")->execute($insertValues);
+
+            $conn->prepare("
+                UPDATE tasks SET status_id=? WHERE id=?
+            ")->execute([$status_id, $taskId]);
+            $conn->commit();
+
+            EmailService::sendTaskNotification($taskId, 'assigned', null, $assignedByUserId);
+
+            echo json_encode(["message" => "Task assigned"]);
+        } catch (Exception $e) {
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
+            LoggerService::logError('Task assign failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $data->user_id ?? null,
+                'assigned_by' => $assignedByUserId,
+                'error' => $e->getMessage()
+            ]);
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
+        }
     }
 
     public function checkActiveTask($user_id) {
