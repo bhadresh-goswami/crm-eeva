@@ -149,7 +149,7 @@ export const getManagerAvailableExperts = async ({
 }
 
 export const assignManagerTask = async (taskId: string, expertId: string) => {
-  await apiRequest('/dashboard/assign-task', {
+  return apiRequest<{ success?: boolean; email_status?: 'sent' | 'failed'; email_error?: string; message?: string }>('/dashboard/assign-task', {
     method: 'POST',
     body: JSON.stringify({
       task_id: taskId,

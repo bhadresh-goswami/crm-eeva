@@ -156,7 +156,7 @@ const UsersPage = () => {
     }
   }, [loadPageData, showSuccess])
 
-  const handlePasswordUpdate = useCallback(async ({ password }: { password: string }) => {
+  const handlePasswordUpdate = useCallback(async ({ password: _password }: { password: string }) => {
     if (!passwordTarget) {
       return
     }
@@ -164,8 +164,7 @@ const UsersPage = () => {
     setIsSubmitting(true)
 
     try {
-      console.log('Password update placeholder', { id: passwordTarget.id, password })
-      showSuccess('Password update captured in console (API pending).')
+      showSuccess('Password update request captured (API pending).')
       setPasswordTarget(null)
     } finally {
       setIsSubmitting(false)

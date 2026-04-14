@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { useAuth } from '../../../context/AuthContext'
 import { apiFetch } from '../../../api/client'
+import { useAlert } from '../../../shared/alerts/useAlert'
 import AssignTaskModal from '../../../shared/components/AssignTaskModal'
 import {
   assignTask,
@@ -220,6 +221,7 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
 
 const TasksPage = () => {
   const { user } = useAuth()
+  const { showToast, showAlert } = useAlert()
   const editorRef = useRef<HTMLDivElement | null>(null)
   const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
 
@@ -268,8 +270,9 @@ const TasksPage = () => {
 
   const showSuccess = useCallback((message: string) => {
     setSuccess(message)
+    showToast({ type: 'success', message })
     setTimeout(() => setSuccess(null), 2500)
-  }, [])
+  }, [showToast])
 
   const loadPage = useCallback(async () => {
     setLoading(true)
@@ -523,10 +526,13 @@ const TasksPage = () => {
       if (isBulkAssign) {
         await bulkAssignTasks({ task_ids: selectedTaskIds, user_id: selectedExpertId })
       } else if (assignTarget) {
-        await assignTask({
+        const assignResponse = await assignTask({
           task_id: assignTarget.id,
           user_id: selectedExpertId,
         })
+        if (assignResponse?.email_status === 'failed') {
+          showToast({ type: 'warning', message: 'Task assigned but email failed.' })
+        }
         const selectedExpert = experts.find((expert) => expert.id === selectedExpertId)
         if (selectedExpert) {
           setTasks((previous) =>
@@ -548,7 +554,13 @@ const TasksPage = () => {
       showSuccess(isBulkAssign ? 'Tasks assigned successfully.' : assignTarget?.assigned_to_id ? 'Task reassigned successfully.' : 'Task assigned successfully.')
       await loadPage()
     } catch (err) {
-      setAssignError(normalizeError(err, 'Failed to assign task.'))
+      const message = normalizeError(err, 'Failed to assign task.')
+      setAssignError(message)
+      showAlert({
+        type: 'error',
+        title: 'Assignment failed',
+        message,
+      })
     } finally {
       setAssignSubmitting(false)
       setActionTaskId(null)
@@ -621,7 +633,6 @@ const TasksPage = () => {
         </div>
       </div>
 
-      {error ? <p className="auth-card__error roles-feedback">{error}</p> : null}
       {success ? <p className="roles-success roles-feedback">{success}</p> : null}
 
       <div className="card tasks-filters">
@@ -706,7 +717,7 @@ const TasksPage = () => {
               {paginatedTasks.map((task, index) => {
                 const isCancelled = task.status === 'cancelled'
                 return (
-                <tr key={task.id}>
+                <tr key={`task-${task.id}`}>
                   <td>
                     <input
                       type="checkbox"
@@ -992,7 +1003,7 @@ const TasksPage = () => {
                   </thead>
                   <tbody>
                     {cancelledTasks.map((task) => (
-                      <tr key={task.id}>
+                      <tr key={`task-${task.id}`}>
                         <td>{formatDisplayDate(task.due_date)}</td>
                         <td>{task.candidate || '—'}</td>
                         <td>{task.client || '—'}</td>
@@ -1031,6 +1042,20 @@ const TasksPage = () => {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="modal-overlay" role="alertdialog" aria-modal="true" aria-labelledby="tasks-error-title">
+          <div className="modal-card" style={{ width: 'min(520px, 100%)' }}>
+            <h3 id="tasks-error-title" className="modal-title">Error</h3>
+            <p className="card-text">{error}</p>
+            <div className="modal-actions">
+              <button className="button button--primary" type="button" onClick={() => setError(null)}>
+                OK
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

@@ -1,6 +1,8 @@
 <?php
 
 require_once dirname(__DIR__) . "/config/database.php";
+require_once dirname(__DIR__) . "/services/EmailService.php";
+require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class TaskController {
     public function expertTasks($user_id) {
@@ -63,6 +65,7 @@ class TaskController {
                   ORDER BY id DESC LIMIT 1
               )
             WHERE ta.user_id IN ({$placeholders})
+              AND ta.is_active = 1
         ";
 
         $params = array_merge([(int)$user_id], $visibleUserIds);
@@ -141,16 +144,46 @@ class TaskController {
     ")->fetchColumn();
 
     foreach ($data->task_ids as $task_id) {
+        $taskId = (int)$task_id;
+        $userId = (int)$data->user_id;
+
+        $conn->prepare("
+            UPDATE task_assignments
+            SET is_active = 0
+            WHERE task_id = ? AND is_active = 1
+        ")->execute([$taskId]);
+
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $insertColumns = ['task_id', 'user_id', 'is_active'];
+        $insertValues = [$taskId, $userId, 1];
+
+        if (in_array('assigned_by', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_by';
+            $insertValues[] = $data->assigned_by ?? null;
+        } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_by_id';
+            $insertValues[] = $data->assigned_by ?? null;
+        }
+
+        if (in_array('assigned_at', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_at';
+        }
+
+        $columnList = implode(', ', $insertColumns);
+        $placeholderList = implode(', ', array_fill(0, count($insertValues), '?'));
+        if (in_array('assigned_at', $assignmentColumns, true)) {
+            $placeholderList .= ', NOW()';
+        }
 
         $stmt = $conn->prepare("
-            INSERT INTO task_assignments (task_id, user_id)
-            VALUES (?, ?)
+            INSERT INTO task_assignments ({$columnList})
+            VALUES ({$placeholderList})
         ");
-        $stmt->execute([$task_id, $data->user_id]);
+        $stmt->execute($insertValues);
 
         $conn->prepare("
             UPDATE tasks SET status_id=? WHERE id=?
-        ")->execute([$status_id, $task_id]);
+        ")->execute([$status_id, $taskId]);
     }
 
     echo json_encode(["message" => "Bulk assign done"]);
@@ -294,7 +327,8 @@ public function downloadFile() {
 
         } catch (Exception $e) {
             $conn->rollback();
-            echo json_encode(["error" => $e->getMessage()]);
+            LoggerService::logError('Task create failed', ['error' => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -343,7 +377,7 @@ public function downloadFile() {
             LEFT JOIN task_status_master ts ON t.status_id = ts.id
             LEFT JOIN task_types tt ON t.task_type_id = tt.id
             LEFT JOIN payment_status_master ps ON t.payment_status_id = ps.id
-            LEFT JOIN task_assignments ta ON ta.task_id = t.id
+            LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
             LEFT JOIN users u ON ta.user_id = u.id
 
             LEFT JOIN task_files tf 
@@ -453,7 +487,11 @@ public function downloadFile() {
 
         } catch (Exception $e) {
             $conn->rollback();
-            echo json_encode(["error" => $e->getMessage()]);
+            LoggerService::logError('Task update failed', [
+                'task_id' => $_POST['task_id'] ?? null,
+                'error' => $e->getMessage()
+            ]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -492,27 +530,81 @@ public function downloadFile() {
 
 
     // ================= ASSIGN =================
-    public function assign() {
+    public function assign($assignedByUserId = null) {
 
         $data = json_decode(file_get_contents("php://input"));
 
         $db = new Database();
         $conn = $db->connect();
+        try {
+            $status_id = $conn->query("
+                SELECT id FROM task_status_master WHERE name='Assigned'
+            ")->fetchColumn();
 
-        $status_id = $conn->query("
-            SELECT id FROM task_status_master WHERE name='Assigned'
-        ")->fetchColumn();
+            $taskId = (int)$data->task_id;
+            $userId = (int)$data->user_id;
 
-        $conn->prepare("
-            INSERT INTO task_assignments (task_id, user_id)
-            VALUES (?, ?)
-        ")->execute([$data->task_id, $data->user_id]);
+            $conn->beginTransaction();
 
-        $conn->prepare("
-            UPDATE tasks SET status_id=? WHERE id=?
-        ")->execute([$status_id, $data->task_id]);
+            $conn->prepare("
+                UPDATE task_assignments
+                SET is_active = 0
+                WHERE task_id = ? AND is_active = 1
+            ")->execute([$taskId]);
 
-        echo json_encode(["message" => "Task assigned"]);
+            $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+            $insertColumns = ['task_id', 'user_id', 'is_active'];
+            $insertValues = [$taskId, $userId, 1];
+
+            if (in_array('assigned_by', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_by';
+                $insertValues[] = $assignedByUserId;
+            } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_by_id';
+                $insertValues[] = $assignedByUserId;
+            }
+
+            if (in_array('assigned_at', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_at';
+            }
+
+            $columnList = implode(', ', $insertColumns);
+            $placeholderList = implode(', ', array_fill(0, count($insertValues), '?'));
+            if (in_array('assigned_at', $assignmentColumns, true)) {
+                $placeholderList .= ', NOW()';
+            }
+
+            $conn->prepare("
+                INSERT INTO task_assignments ({$columnList})
+                VALUES ({$placeholderList})
+            ")->execute($insertValues);
+
+            $conn->prepare("
+                UPDATE tasks SET status_id=? WHERE id=?
+            ")->execute([$status_id, $taskId]);
+            $conn->commit();
+
+            $emailResult = EmailService::sendTaskNotification($taskId, 'assigned', null, $assignedByUserId);
+
+            echo json_encode([
+                "success" => true,
+                "message" => "Task assigned",
+                "email_status" => $emailResult['email_status'] ?? 'failed',
+                "email_error" => $emailResult['email_error'] ?? null,
+            ]);
+        } catch (Exception $e) {
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
+            LoggerService::logError('Task assign failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $data->user_id ?? null,
+                'assigned_by' => $assignedByUserId,
+                'error' => $e->getMessage()
+            ]);
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
+        }
     }
 
     public function checkActiveTask($user_id) {
@@ -614,11 +706,17 @@ public function downloadFile() {
                 ->execute([$assignmentId]);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$data->task_id, 'status_update', 'Status moved to In Progress', (int)$user_id);
             echo json_encode(["success" => true, "message" => "Task started"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
+            LoggerService::logError('Task start failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $user_id,
+                'error' => $e->getMessage()
+            ]);
             http_response_code(500);
-            echo json_encode(["error" => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -687,11 +785,18 @@ public function downloadFile() {
             $commentStmt->execute([(int)$data->task_id, (int)$user_id, $comment]);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$data->task_id, 'status_update', $comment, (int)$user_id);
             echo json_encode(["success" => true, "message" => "Task updated"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
+            LoggerService::logError('Task end failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $user_id,
+                'status' => $data->status ?? null,
+                'error' => $e->getMessage()
+            ]);
             http_response_code(500);
-            echo json_encode(["error" => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -724,6 +829,25 @@ public function downloadFile() {
         echo json_encode([
             "success" => true,
             "comments" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        ]);
+    }
+
+    public function sendDailyReport($user_id) {
+        $result = EmailService::sendDailyReportForUser((int)$user_id, true);
+        if (($result['email_status'] ?? '') === 'skipped' && ($result['email_error'] ?? '') === 'no_tasks_today') {
+            http_response_code(422);
+            echo json_encode([
+                "success" => false,
+                "message" => "No tasks found for today.",
+            ]);
+            return;
+        }
+
+        echo json_encode([
+            "success" => true,
+            "email_status" => $result['email_status'] ?? 'failed',
+            "email_error" => $result['email_error'] ?? null,
+            "message" => "Daily report processed",
         ]);
     }
 

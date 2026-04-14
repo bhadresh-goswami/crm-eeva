@@ -1,6 +1,8 @@
 <?php
 
 require_once dirname(__DIR__) . "/config/database.php";
+require_once dirname(__DIR__) . "/services/LoggerService.php";
+require_once dirname(__DIR__) . "/services/EmailService.php";
 
 class PasswordController {
 
@@ -82,18 +84,24 @@ class PasswordController {
 
             $update = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
             $update->execute([$hashedPassword, $userId]);
+            $emailResult = EmailService::sendPasswordChangedEmail((string)($user['email'] ?? ''));
 
             echo json_encode([
                 "success" => true,
-                "message" => "Password updated successfully"
+                "message" => "Password updated successfully",
+                "email_status" => $emailResult['email_status'] ?? 'failed',
+                "email_error" => $emailResult['email_error'] ?? null,
             ]);
 
         } catch (Exception $e) {
+            LoggerService::logError('Change password failed', [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
             http_response_code(500);
             echo json_encode([
                 "success" => false,
-                "message" => "Server error",
-                "error" => $e->getMessage()
+                "message" => "Something went wrong. Please try again."
             ]);
         }
     }
@@ -150,35 +158,24 @@ class PasswordController {
                 return;
             }
 
-            $subject = "Password Reset Request";
-            $body = "User Name: {$user['name']}\n"
-                . "User Email: {$user['email']}\n\n"
-                . "User has requested password reset. Please update manually.";
-            $headers = "From: no-reply@" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "\r\n"
-                . "Content-Type: text/plain; charset=UTF-8\r\n";
-
-            $mailSent = @mail($adminEmail, $subject, $body, $headers);
-
-            if (!$mailSent) {
-                http_response_code(500);
-                echo json_encode([
-                    "success" => false,
-                    "message" => "Failed to send request email"
-                ]);
-                return;
-            }
+            $emailResult = EmailService::sendForgotPasswordRequestEmail((string)$adminEmail, (string)$user['name'], (string)$user['email']);
 
             echo json_encode([
                 "success" => true,
-                "message" => "Request sent to admin"
+                "message" => "Request sent to admin",
+                "email_status" => $emailResult['email_status'] ?? 'failed',
+                "email_error" => $emailResult['email_error'] ?? null,
             ]);
 
         } catch (Exception $e) {
+            LoggerService::logError('Forgot password failed', [
+                'email' => $email ?? null,
+                'error' => $e->getMessage(),
+            ]);
             http_response_code(500);
             echo json_encode([
                 "success" => false,
-                "message" => "Server error",
-                "error" => $e->getMessage()
+                "message" => "Something went wrong. Please try again."
             ]);
         }
     }
