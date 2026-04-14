@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . "/config/database.php";
+require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class PasswordController {
 
@@ -89,11 +90,14 @@ class PasswordController {
             ]);
 
         } catch (Exception $e) {
+            LoggerService::logError('Change password failed', [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
             http_response_code(500);
             echo json_encode([
                 "success" => false,
-                "message" => "Server error",
-                "error" => $e->getMessage()
+                "message" => "Something went wrong. Please try again."
             ]);
         }
     }
@@ -174,11 +178,14 @@ class PasswordController {
             ]);
 
         } catch (Exception $e) {
+            LoggerService::logError('Forgot password failed', [
+                'email' => $email ?? null,
+                'error' => $e->getMessage(),
+            ]);
             http_response_code(500);
             echo json_encode([
                 "success" => false,
-                "message" => "Server error",
-                "error" => $e->getMessage()
+                "message" => "Something went wrong. Please try again."
             ]);
         }
     }

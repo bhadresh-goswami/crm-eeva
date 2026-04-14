@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { apiFetch } from '../../../api/client'
 import { checkExpertActiveTask, endExpertTask, startExpertTask, type EndTaskStatus, type ExpertTaskItem } from '../api/expertTasksApi'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
+import { useAlert } from '../../../shared/alerts/useAlert'
 
 type ExpertTaskTableProps = {
   tasks: ExpertTaskItem[]
@@ -79,6 +80,7 @@ const formatDateAndTimeZone = (dateValue: string, startTime: string, endTime: st
 }
 
 const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTaskUpdated }: ExpertTaskTableProps) => {
+  const { showToast } = useAlert()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'my' | 'sub'>('all')
@@ -170,10 +172,10 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
       setActionError(null)
       await startExpertTask(startTaskId)
       setStartTaskId(null)
+      showToast({ type: 'success', message: 'Task started successfully.' })
       await onTaskUpdated()
       await refreshActiveTaskState()
     } catch (startError) {
-      console.error('Start task failed:', startError)
       setActionError('Unable to start task. Please try again.')
     } finally {
       setActionLoading(false)
@@ -201,6 +203,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
       setCommentsRefreshKey((current) => current + 1)
       setEndTaskId(null)
       setViewTaskId(null)
+      showToast({ type: 'success', message: 'Task updated successfully.' })
       await onTaskUpdated()
       await refreshActiveTaskState()
     } catch (submitError) {
