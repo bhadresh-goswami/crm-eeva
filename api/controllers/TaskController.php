@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . "/config/database.php";
+require_once dirname(__DIR__) . "/services/EmailService.php";
 
 class TaskController {
     public function expertTasks($user_id) {
@@ -448,6 +449,7 @@ public function downloadFile() {
             $this->handleFileUpload($conn, $_POST['task_id'], $user_id);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$_POST['task_id'], 'updated', null, (int)$user_id);
 
             echo json_encode(["message" => "Task updated"]);
 
@@ -492,7 +494,7 @@ public function downloadFile() {
 
 
     // ================= ASSIGN =================
-    public function assign() {
+    public function assign($assignedByUserId = null) {
 
         $data = json_decode(file_get_contents("php://input"));
 
@@ -511,6 +513,8 @@ public function downloadFile() {
         $conn->prepare("
             UPDATE tasks SET status_id=? WHERE id=?
         ")->execute([$status_id, $data->task_id]);
+
+        EmailService::sendTaskNotification((int)$data->task_id, 'assigned', null, $assignedByUserId);
 
         echo json_encode(["message" => "Task assigned"]);
     }
@@ -614,6 +618,7 @@ public function downloadFile() {
                 ->execute([$assignmentId]);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$data->task_id, 'started', null, (int)$user_id);
             echo json_encode(["success" => true, "message" => "Task started"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
@@ -687,6 +692,7 @@ public function downloadFile() {
             $commentStmt->execute([(int)$data->task_id, (int)$user_id, $comment]);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$data->task_id, 'status_changed', $comment, (int)$user_id);
             echo json_encode(["success" => true, "message" => "Task updated"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();

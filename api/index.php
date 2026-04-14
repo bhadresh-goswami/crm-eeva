@@ -247,7 +247,8 @@ elseif ($uri === "/dashboard/available-experts") {
 
 elseif ($uri === "/dashboard/assign-task") {
     authorize($user,['admin','manager','coordinator']);
-    (new DashboardController())->assignTask();
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new DashboardController())->assignTask($actorUserId);
 }
 
 
@@ -299,7 +300,7 @@ elseif ($uri === "/tasks/update" && $method === "POST") {
 }
 elseif ($uri === "/tasks/assign" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
-    (new TaskController())->assign();
+    (new TaskController())->assign($user->id ?? null);
 }
 elseif ($uri === "/tasks/upload" && $method === "POST") {
     authorize($user,['admin','manager','coordinator','expert']);
