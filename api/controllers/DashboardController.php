@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . "/config/database.php";
+require_once dirname(__DIR__) . "/services/EmailService.php";
 
 class DashboardController {
 
@@ -177,7 +178,7 @@ class DashboardController {
     // ==============================
     // ✅ ASSIGN / REASSIGN TASK
     // ==============================
-    public function assignTask() {
+    public function assignTask($actorUserId = null) {
         $data = json_decode(file_get_contents("php://input"));
 
         $db = new Database();
@@ -218,6 +219,8 @@ class DashboardController {
         ");
 
         $stmt2->execute([$status_id, $data->task_id]);
+
+        EmailService::sendTaskNotification((int)$data->task_id, 'assigned', null, $actorUserId);
 
         echo json_encode([
             "message" => "Task assigned / reassigned successfully"
