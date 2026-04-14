@@ -11,7 +11,11 @@ const sessionStatusLabel: Record<'logged_in' | 'break' | 'logged_out', string> =
   logged_out: 'Logged Out',
 }
 
-const Header = () => {
+type HeaderProps = {
+  onMenuToggle: () => void
+}
+
+const Header = ({ onMenuToggle }: HeaderProps) => {
   const { user, sessionStatus, breakIn, breakOut, logout } = useAuth()
   const { showToast, showConfirm } = useAlert()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -21,9 +25,7 @@ const Header = () => {
   const [passwordSubmitError, setPasswordSubmitError] = useState<string | null>(null)
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false)
 
-  if (!user) {
-    return null
-  }
+  if (!user) return null
 
   const isLoggedIn = sessionStatus === 'logged_in'
   const isOnBreak = sessionStatus === 'break'
@@ -32,11 +34,10 @@ const Header = () => {
   const handleBreakIn = async () => {
     setError(null)
     setIsSubmitting(true)
-
     try {
       await breakIn()
       showToast({ type: 'success', message: 'Session marked as logged in.' })
-    } catch (nextError) {
+    } catch {
       setError('Unable to mark session as logged in. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -46,11 +47,10 @@ const Header = () => {
   const handleBreakOut = async () => {
     setError(null)
     setIsSubmitting(true)
-
     try {
       await breakOut()
       showToast({ type: 'info', message: 'Session marked as break.' })
-    } catch (nextError) {
+    } catch {
       setError('Unable to mark session as break. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -105,36 +105,29 @@ const Header = () => {
     }
   }
 
-  if (redirectToLogin) {
-    return <Navigate replace to="/login" />
-  }
+  if (redirectToLogin) return <Navigate replace to="/login" />
 
   return (
     <>
       <header className="header">
         <div className="header__identity">
-          <h1 className="header__title">
-            Welcome, {user.name} <span className="header__role">({user.role})</span>
-          </h1>
-          <p className="header__meta">Status: {sessionStatusLabel[sessionStatus]}</p>
-          {error ? <p className="auth-card__error">{error}</p> : null}
+          <button type="button" className="header__menu" onClick={onMenuToggle} aria-label="Toggle sidebar">☰</button>
+          <div>
+            <h1 className="header__title">Welcome, {user.name}</h1>
+            <p className="header__meta">{user.role} • {sessionStatusLabel[sessionStatus]}</p>
+          </div>
         </div>
 
         <div className="header__actions" aria-label="Session controls">
-          <button className="button" onClick={handleBreakIn} disabled={isSubmitting || isLoggedIn || isLoggedOut}>
-            Break In
-          </button>
-          <button className="button" onClick={handleBreakOut} disabled={isSubmitting || isOnBreak || isLoggedOut}>
-            Break Out
-          </button>
-          <button className="button" onClick={() => setIsPasswordModalOpen(true)} disabled={isSubmitting}>
-            Change Password
-          </button>
-          <button className="button button--danger" onClick={handleLogout} disabled={isSubmitting}>
-            Logout
-          </button>
+          <button className="header__icon-btn" type="button" aria-label="Notifications">🔔</button>
+          <button className="header__icon-btn" type="button" aria-label="Settings">⚙️</button>
+          <button className="button" onClick={handleBreakIn} disabled={isSubmitting || isLoggedIn || isLoggedOut}>Break In</button>
+          <button className="button" onClick={handleBreakOut} disabled={isSubmitting || isOnBreak || isLoggedOut}>Break Out</button>
+          <button className="button" onClick={() => setIsPasswordModalOpen(true)} disabled={isSubmitting}>Change Password</button>
+          <button className="button button--danger" onClick={handleLogout} disabled={isSubmitting}>Logout</button>
         </div>
       </header>
+      {error ? <p className="auth-card__error">{error}</p> : null}
 
       <ChangePasswordModal
         isOpen={isPasswordModalOpen}
