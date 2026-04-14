@@ -57,7 +57,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   return (
     <>
-      <aside className={`sidebar ${isOpen ? 'sidebar--open' : ''}`} aria-label="Role navigation">
+      <aside className={`sidebar ${isOpen ? 'sidebar--open' : 'sidebar--closed'}`} aria-label="Role navigation">
         <h2 className="sidebar__title">CRM Suite</h2>
         {(['Navigation', 'Management'] as const).map((section) => (
           <div className="sidebar__section" key={section}>

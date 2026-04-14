@@ -696,92 +696,94 @@ const TasksPage = () => {
         {loading ? <p className="users-loader">Loading tasks...</p> : null}
         {!loading && filteredTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
         {!loading && filteredTasks.length > 0 ? (
-          <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
-            <thead>
-              <tr>
-                <th>✓</th>
-                <th>SR No</th>
-                <th>Date</th>
-                <th>Candidate</th>
-                <th>Company</th>
-                <th>Status</th>
-                <th>Assign To</th>
-                <th>Time Start</th>
-                <th>Time End</th>
-                <th>File</th>
-                <th>Description</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedTasks.map((task, index) => {
-                const isCancelled = task.status === 'cancelled'
-               
-                return (
-                <tr key={`task-${task.id}`}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedTaskIds.includes(task.id)}
-                      onChange={(event) =>
-                        setSelectedTaskIds((prev) =>
-                          event.target.checked ? [...new Set([...prev, task.id])] : prev.filter((id) => id !== task.id),
-                        )
-                      }
-                    />
-                  </td>
-                  <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
-                  <td>{formatDisplayDate(task.due_date)}</td>
-                  <td>{task.candidate || '—'}</td>
-                  <td>{task.client || '—'}</td>
-                  <td><span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : ''}`}>{task.status}</span></td>
-                  <td>{task.assigned_to_name || '—'}</td>
-                  <td>{formatTime(task.time_start)}</td>
-                  <td>{formatTime(task.time_end)}</td>
-                  <td>
-                    {task.file_url ? (
-                      <button
-                        className="button users-icon-btn"
-                        type="button"
-                        title="Download file"
-                        onClick={() => void handleDownloadFile(task.file_url)}
-                      >
-                        📎
-                      </button>
-                    ) : '—'}
-                  </td>
-                  <td>
-                    {task.description ? (
-                      <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
-                        👁
-                      </button>
-                    ) : '—'}
-                  </td>
-                  <td>
-                    <div className="roles-table__actions users-actions">
-                      <button className="button users-icon-btn" title="View" onClick={() => void openEdit(task)}>👁</button>
-                      <button className="button users-icon-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
-                      <button className="button users-icon-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
-                      <button
-                        className="button users-icon-btn"
-                        title={
-                          task.status === 'assigned'
-                            ? 'Reassign'
-                            : task.status === 'pending'
-                              ? 'Assign'
-                              : 'Assign disabled'
-                        }
-                        disabled={!task.can_assign || !canManage || isCancelled || !['pending', 'assigned'].includes(task.status)}
-                        onClick={() => void openAssign(task)}
-                      >
-                        👤
-                      </button>
-                    </div>
-                  </td>
+          <div className="tasks-table-scroll">
+            <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
+              <thead>
+                <tr>
+                  <th>✓</th>
+                  <th>SR No</th>
+                  <th>Date</th>
+                  <th>Candidate</th>
+                  <th>Company</th>
+                  <th>Status</th>
+                  <th>Assign To</th>
+                  <th>Time Start</th>
+                  <th>Time End</th>
+                  <th>File</th>
+                  <th>Description</th>
+                  <th>Actions</th>
                 </tr>
-              )})}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedTasks.map((task, index) => {
+                  const isCancelled = task.status === 'cancelled'
+                 
+                  return (
+                  <tr key={`task-${task.id}`}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedTaskIds.includes(task.id)}
+                        onChange={(event) =>
+                          setSelectedTaskIds((prev) =>
+                            event.target.checked ? [...new Set([...prev, task.id])] : prev.filter((id) => id !== task.id),
+                          )
+                        }
+                      />
+                    </td>
+                    <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
+                    <td>{formatDisplayDate(task.due_date)}</td>
+                    <td>{task.candidate || '—'}</td>
+                    <td>{task.client || '—'}</td>
+                    <td><span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : ''}`}>{task.status}</span></td>
+                    <td>{task.assigned_to_name || '—'}</td>
+                    <td>{formatTime(task.time_start)}</td>
+                    <td>{formatTime(task.time_end)}</td>
+                    <td>
+                      {task.file_url ? (
+                        <button
+                          className="button users-icon-btn"
+                          type="button"
+                          title="Download file"
+                          onClick={() => void handleDownloadFile(task.file_url)}
+                        >
+                          📎
+                        </button>
+                      ) : '—'}
+                    </td>
+                    <td>
+                      {task.description ? (
+                        <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
+                          👁
+                        </button>
+                      ) : '—'}
+                    </td>
+                    <td>
+                      <div className="roles-table__actions users-actions">
+                        <button className="button users-icon-btn" title="View" onClick={() => void openEdit(task)}>👁</button>
+                        <button className="button users-icon-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
+                        <button className="button users-icon-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
+                        <button
+                          className="button users-icon-btn"
+                          title={
+                            task.status === 'assigned'
+                              ? 'Reassign'
+                              : task.status === 'pending'
+                                ? 'Assign'
+                                : 'Assign disabled'
+                          }
+                          disabled={!task.can_assign || !canManage || isCancelled || !['pending', 'assigned'].includes(task.status)}
+                          onClick={() => void openAssign(task)}
+                        >
+                          👤
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )})}
+              </tbody>
+            </table>
+          </div>
         ) : null}
       </div>
 
@@ -987,6 +989,7 @@ const TasksPage = () => {
             </div>
             {cancelledTasks.length === 0 ? <p className="users-empty">No cancelled tasks found.</p> : (
               <div className="tasks-table__wrapper tasks-table__wrapper--modal">
+                <div className="tasks-table-scroll">
                 <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
                   <thead>
                     <tr>
@@ -1041,6 +1044,7 @@ const TasksPage = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </div>
