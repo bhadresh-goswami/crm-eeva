@@ -1,38 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getClients, type ClientItem } from '../../clients/api/clientsApi'
+import { createInvoice, getCompletedTasks, type CompletedTask } from '../api/invoicesApi'
+import { useAlert } from '../../../shared/alerts/useAlert'
 import PageContainer from '../../../shared/components/PageContainer'
 import '../invoices.css'
 
-type ClientOption = {
-  id: string
-  label: string
-}
-
-type TaskRecord = {
-  id: string
-  clientId: string
-  date: string
-  supportType: string
-  amount: number
-}
-
-type InvoiceLineItem = {
+type GroupedLineItem = {
   supportType: string
   qty: number
-  amount: number
+  amountInInr: number
+  taskIds: number[]
 }
-
-const clients: ClientOption[] = [
-  { id: 'john-doe', label: 'John Doe' },
-  { id: 'acme', label: 'Acme Industries' },
-]
-
-const completedTasks: TaskRecord[] = [
-  { id: 'TASK-2001', clientId: 'john-doe', date: '2026-04-03', supportType: 'Call of Duty Support', amount: 24.5 },
-  { id: 'TASK-2002', clientId: 'john-doe', date: '2026-04-08', supportType: 'Call of Duty Support', amount: 40 },
-  { id: 'TASK-2003', clientId: 'john-doe', date: '2026-04-14', supportType: 'Racing Game Support', amount: 50 },
-  { id: 'TASK-2004', clientId: 'john-doe', date: '2026-04-20', supportType: 'DVD Support', amount: 10.7 },
-  { id: 'TASK-3001', clientId: 'acme', date: '2026-03-12', supportType: 'Movie Collection Support', amount: 302 },
-]
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   INR: '₹',
@@ -41,23 +19,27 @@ const CURRENCY_SYMBOL: Record<string, string> = {
   GBP: '£',
 }
 
-const LIVE_RATE_API = 'https://api.frankfurter.app/latest'
+const FALLBACK_RATE: Record<string, number> = {
+  INR: 1,
+  USD: 0.012,
+  EUR: 0.011,
+  GBP: 0.0095,
+}
+
+const LIVE_RATE_API = 'https://open.er-api.com/v6/latest/INR'
 
 const formatCurrency = (value: number, currency: string) => {
   const symbol = CURRENCY_SYMBOL[currency] ?? ''
   return `${symbol}${value.toFixed(2)}`
 }
 
-const formatRateTimestamp = (value: string | null) => {
-  if (!value) return '—'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime())
-    ? value
-    : parsed.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-}
+const toInputDate = (value: string) => value.slice(0, 10)
 
 const InvoiceCreatePage = () => {
-  const [clientId, setClientId] = useState('john-doe')
+  const { showToast } = useAlert()
+
+  const [clients, setClients] = useState<ClientItem[]>([])
+  const [clientId, setClientId] = useState<number | null>(null)
   const [fromDate, setFromDate] = useState('2026-04-01')
   const [toDate, setToDate] = useState('2026-04-24')
   const [currency, setCurrency] = useState('INR')
@@ -65,24 +47,40 @@ const InvoiceCreatePage = () => {
   const [invoiceNumber, setInvoiceNumber] = useState('INV-0007612')
   const [invoiceDate, setInvoiceDate] = useState('2026-04-24')
   const [paymentDueDate, setPaymentDueDate] = useState('2026-05-01')
-  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([])
+
+  const [lineItems, setLineItems] = useState<GroupedLineItem[]>([])
+  const [loadedTasks, setLoadedTasks] = useState<CompletedTask[]>([])
   const [loadMessage, setLoadMessage] = useState('Load completed tasks to generate invoice line items.')
-  const [rate, setRate] = useState(1)
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const [rate, setRate] = useState(FALLBACK_RATE.INR)
   const [rateLoading, setRateLoading] = useState(false)
   const [rateError, setRateError] = useState<string | null>(null)
-  const [rateUpdatedAt, setRateUpdatedAt] = useState<string | null>(null)
-
-  const subtotal = useMemo(() => lineItems.reduce((sum, row) => sum + row.amount * rate, 0), [lineItems, rate])
-  const tds = subtotal * 0.02
-  const total = subtotal - tds
 
   const isDateRangeValid = fromDate <= toDate
+
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        const data = await getClients()
+        setClients(data)
+        if (!clientId && data.length > 0) {
+          setClientId(data[0].id)
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load clients.'
+        showToast({ type: 'error', message })
+      }
+    }
+
+    void loadClients()
+  }, [clientId, showToast])
 
   const fetchLiveRate = async (targetCurrency: string) => {
     if (targetCurrency === 'INR') {
       setRate(1)
       setRateError(null)
-      setRateUpdatedAt(new Date().toISOString())
       return
     }
 
@@ -90,24 +88,23 @@ const InvoiceCreatePage = () => {
     setRateError(null)
 
     try {
-      const response = await fetch(`${LIVE_RATE_API}?from=INR&to=${targetCurrency}`)
+      const response = await fetch(LIVE_RATE_API)
       if (!response.ok) {
-        throw new Error(`Failed to fetch rate (${response.status})`)
+        throw new Error(`Rate API failed (${response.status})`)
       }
 
-      const payload = (await response.json()) as { rates?: Record<string, number>; date?: string }
+      const payload = (await response.json()) as { rates?: Record<string, number>; time_last_update_utc?: string }
       const nextRate = payload.rates?.[targetCurrency]
 
       if (!nextRate || !Number.isFinite(nextRate)) {
-        throw new Error('Live rate unavailable for selected currency.')
+        throw new Error('Selected currency not available from rate API.')
       }
 
       setRate(nextRate)
-      setRateUpdatedAt(payload.date ? `${payload.date}T00:00:00Z` : new Date().toISOString())
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to fetch live exchange rate.'
-      setRateError(message)
-      setRate(1)
+    } catch {
+      const fallback = FALLBACK_RATE[targetCurrency] ?? 1
+      setRate(fallback)
+      setRateError(`Live rate unavailable. Using fallback rate for ${targetCurrency}.`)
     } finally {
       setRateLoading(false)
     }
@@ -117,30 +114,106 @@ const InvoiceCreatePage = () => {
     void fetchLiveRate(currency)
   }, [currency])
 
-  const onLoadCompletedTasks = () => {
-    if (!isDateRangeValid) {
-      setLoadMessage('From Date must be earlier than or equal to To Date.')
-      setLineItems([])
+  const subtotal = useMemo(() => lineItems.reduce((sum, row) => sum + row.amountInInr * rate, 0), [lineItems, rate])
+  const tds = subtotal * 0.02
+  const total = subtotal - tds
+
+  const onLoadCompletedTasks = async () => {
+    if (!clientId) {
+      setLoadMessage('Please select a client.')
       return
     }
 
-    const grouped = completedTasks
-      .filter((task) => task.clientId === clientId && task.date >= fromDate && task.date <= toDate)
-      .reduce<Record<string, InvoiceLineItem>>((acc, task) => {
-        const existing = acc[task.supportType]
-        if (!existing) {
-          acc[task.supportType] = { supportType: task.supportType, qty: 1, amount: task.amount }
+    if (!isDateRangeValid) {
+      setLoadMessage('From Date must be earlier than or equal to To Date.')
+      setLineItems([])
+      setLoadedTasks([])
+      return
+    }
+
+    try {
+      setIsLoadingTasks(true)
+      const tasks = await getCompletedTasks({
+        client_id: clientId,
+        from_date: fromDate,
+        to_date: toDate,
+      })
+
+      const grouped = tasks.reduce<Record<string, GroupedLineItem>>((acc, task) => {
+        const key = task.support_type || 'Support'
+        if (!acc[key]) {
+          acc[key] = { supportType: key, qty: 1, amountInInr: task.amount, taskIds: [task.id] }
         } else {
-          existing.qty += 1
-          existing.amount += task.amount
+          acc[key].qty += 1
+          acc[key].amountInInr += task.amount
+          acc[key].taskIds.push(task.id)
         }
         return acc
       }, {})
 
-    const nextItems = Object.values(grouped)
-    setLineItems(nextItems)
-    setLoadMessage(nextItems.length ? `${nextItems.length} line item(s) loaded from completed tasks.` : 'No completed tasks found for this client/date range.')
+      const nextLineItems = Object.values(grouped)
+      setLoadedTasks(tasks)
+      setLineItems(nextLineItems)
+      setLoadMessage(nextLineItems.length ? `${nextLineItems.length} line item(s) loaded from completed tasks.` : 'No completed tasks found.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load completed tasks.'
+      setLoadMessage(message)
+      setLineItems([])
+      setLoadedTasks([])
+    } finally {
+      setIsLoadingTasks(false)
+    }
   }
+
+  const onSaveInvoice = async () => {
+    if (!clientId || !lineItems.length) {
+      showToast({ type: 'error', message: 'Load completed tasks before saving invoice.' })
+      return
+    }
+
+    try {
+      setIsSaving(true)
+
+      await createInvoice({
+        client_id: clientId,
+        from_date: fromDate,
+        to_date: toDate,
+        currency,
+        invoice_number: invoiceNumber,
+        invoice_date: invoiceDate,
+        payment_due_date: paymentDueDate,
+        notes,
+        subtotal,
+        tds_amount: tds,
+        total_amount: total,
+        grouped_items: lineItems.map((row) => ({
+          support_type: row.supportType,
+          qty: row.qty,
+          amount: row.amountInInr * rate,
+          task_ids: row.taskIds,
+        })),
+        items: loadedTasks.map((task) => ({
+          task_id: task.id,
+          qty: 1,
+          support_type: task.support_type,
+          amount: task.amount * rate,
+          status: 'pending',
+        })),
+      })
+
+      showToast({ type: 'success', message: 'Invoice saved successfully.' })
+      setLoadMessage('Invoice saved. Already invoiced tasks are now excluded from completed tasks API.')
+      setLineItems([])
+      setLoadedTasks([])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save invoice.'
+      showToast({ type: 'error', message })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const selectedClientName = clients.find((client) => client.id === clientId)?.name ?? 'John Doe'
 
   return (
     <PageContainer title="Create Invoice" description="Design-ready invoice form for managers and admins.">
@@ -149,10 +222,10 @@ const InvoiceCreatePage = () => {
           <div className="invoice-toolbar-grid">
             <label className="invoice-field">
               <span className="invoice-label">Client</span>
-              <select value={clientId} onChange={(event) => setClientId(event.target.value)}>
+              <select value={clientId ?? ''} onChange={(event) => setClientId(Number(event.target.value) || null)}>
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>
-                    {client.label}
+                    {client.name}
                   </option>
                 ))}
               </select>
@@ -178,23 +251,21 @@ const InvoiceCreatePage = () => {
               </select>
             </label>
 
-            <button type="button" className="button button--primary invoice-load-btn" onClick={onLoadCompletedTasks}>
-              Load Completed Tasks
+            <button type="button" className="button button--primary invoice-load-btn" onClick={() => void onLoadCompletedTasks()} disabled={isLoadingTasks}>
+              {isLoadingTasks ? 'Loading…' : 'Load Completed Tasks'}
             </button>
           </div>
 
           <div className="invoice-rate-row">
             <p className={`invoice-help-text ${isDateRangeValid ? '' : 'invoice-help-text--error'}`}>{loadMessage}</p>
             <div className="invoice-rate-info">
-              <span className="invoice-help-text">
-                Live rate: 1 INR = {formatCurrency(rate, currency)} ({currency}) · Updated: {formatRateTimestamp(rateUpdatedAt)}
-              </span>
+              <span className="invoice-help-text">Live rate: 1 INR = {formatCurrency(rate, currency)} ({currency})</span>
               <button type="button" className="button" onClick={() => void fetchLiveRate(currency)} disabled={rateLoading}>
                 {rateLoading ? 'Refreshing…' : 'Refresh Rate'}
               </button>
             </div>
           </div>
-          {rateError ? <p className="invoice-help-text invoice-help-text--error">{rateError} Showing INR base values.</p> : null}
+          {rateError ? <p className="invoice-help-text invoice-help-text--error">{rateError}</p> : null}
         </section>
 
         <section className="invoice-surface">
@@ -202,7 +273,7 @@ const InvoiceCreatePage = () => {
             <div className="invoice-party-grid">
               <div className="invoice-party-block">
                 <h3 className="invoice-subtitle">From</h3>
-                <input value="Iron Admin, Inc." readOnly aria-label="From party" />
+                <input value="bEdge Tech Services" readOnly aria-label="From party" />
                 <p className="invoice-party-text">795 Freedom Ave, Suite 600</p>
                 <p className="invoice-party-text">New York, NY 94107</p>
                 <p className="invoice-party-text">Phone: (123) 123-9876</p>
@@ -211,17 +282,17 @@ const InvoiceCreatePage = () => {
 
               <div className="invoice-party-block">
                 <h3 className="invoice-subtitle">To</h3>
-                <select value={clientId} onChange={(event) => setClientId(event.target.value)} aria-label="Invoice recipient">
+                <select value={clientId ?? ''} onChange={(event) => setClientId(Number(event.target.value) || null)} aria-label="Invoice recipient">
                   {clients.map((client) => (
                     <option key={client.id} value={client.id}>
-                      {client.label}
+                      {client.name}
                     </option>
                   ))}
                 </select>
                 <p className="invoice-party-text">795 Freedom Ave, Suite 600</p>
                 <p className="invoice-party-text">New York, CA 94107</p>
                 <p className="invoice-party-text">Phone: (123) 123-9876</p>
-                <p className="invoice-party-text">Email: {clientId === 'acme' ? 'finance@acme.com' : 'john@johndoe.com'}</p>
+                <p className="invoice-party-text">Email: billing@{selectedClientName.toLowerCase().replaceAll(' ', '')}.com</p>
               </div>
             </div>
 
@@ -232,11 +303,11 @@ const InvoiceCreatePage = () => {
               </label>
               <label className="invoice-field">
                 <span className="invoice-label">Invoice Date</span>
-                <input type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} />
+                <input type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(toInputDate(event.target.value))} />
               </label>
               <label className="invoice-field">
                 <span className="invoice-label">Payment Due Date</span>
-                <input type="date" value={paymentDueDate} onChange={(event) => setPaymentDueDate(event.target.value)} />
+                <input type="date" value={paymentDueDate} onChange={(event) => setPaymentDueDate(toInputDate(event.target.value))} />
               </label>
             </div>
           </div>
@@ -257,7 +328,7 @@ const InvoiceCreatePage = () => {
                   <tr key={row.supportType}>
                     <td>{row.qty}</td>
                     <td>{row.supportType}</td>
-                    <td className="numeric">{formatCurrency(row.amount * rate, currency)}</td>
+                    <td className="numeric">{formatCurrency(row.amountInInr * rate, currency)}</td>
                   </tr>
                 ))
               ) : (
@@ -272,7 +343,7 @@ const InvoiceCreatePage = () => {
 
           <div className="invoice-footer-grid">
             <label className="invoice-field">
-              <span className="invoice-label">Notes</span>
+              <span className="invoice-label">Additional Notes (Optional)</span>
               <textarea
                 className="invoice-notes"
                 value={notes}
@@ -293,7 +364,7 @@ const InvoiceCreatePage = () => {
                 <span>-{formatCurrency(tds, currency)}</span>
               </div>
               <div className="invoice-total-row invoice-total-row--strong">
-                <span>Total</span>
+                <span>Total Amount Due</span>
                 <span>{formatCurrency(total, currency)}</span>
               </div>
             </div>
@@ -306,8 +377,8 @@ const InvoiceCreatePage = () => {
             <button type="button" className="button" disabled={!lineItems.length}>
               Generate PDF
             </button>
-            <button type="button" className="button button--primary" disabled={!lineItems.length}>
-              Save Invoice
+            <button type="button" className="button button--primary" disabled={!lineItems.length || isSaving} onClick={() => void onSaveInvoice()}>
+              {isSaving ? 'Saving…' : 'Save Invoice'}
             </button>
           </div>
         </section>
