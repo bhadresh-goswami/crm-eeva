@@ -168,6 +168,7 @@ const formatDisplayDate = (value: string) => {
 
 const todayString = () => new Date().toISOString().slice(0, 10)
 const formatTime = (value: string) => (value ? value.slice(0, 5) : '—')
+const normalizeTimeValue = (value: string) => (value ? value.slice(0, 5) : '')
 const toMinutes = (value: string) => {
   if (!value) return null
   const [hour, minute] = value.slice(0, 5).split(':').map(Number)
@@ -211,8 +212,8 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
   title: state.title.trim(),
   description: state.description,
   due_date: state.due_date,
-  start_time: state.start_time,
-  end_time: state.end_time,
+  start_time: normalizeTimeValue(state.start_time),
+  end_time: normalizeTimeValue(state.end_time),
   duration: state.duration,
   total_amount: Number(state.total_amount),
   payment_mode: state.payment_mode.trim() || 'UPI',
@@ -304,6 +305,11 @@ const TasksPage = () => {
     const nextEnd = calcEndTime(formState.start_time, formState.duration)
     setFormState((prev) => ({ ...prev, end_time: nextEnd }))
   }, [formState.start_time, formState.duration])
+
+  useEffect(() => {
+    if (!isFormOpen || !editorRef.current) return
+    editorRef.current.innerHTML = formState.description || ''
+  }, [isFormOpen, formMode, activeTask?.id])
 
   const filteredTasks = useMemo(
     () =>
@@ -413,17 +419,21 @@ const TasksPage = () => {
     setFormError(null)
     setFormErrors({})
 
+    const startTime = normalizeTimeValue(task.time_start)
+    const duration = task.duration || 30
+    const endTime = task.time_end ? normalizeTimeValue(task.time_end) : calcEndTime(startTime, duration)
+
     const state: TaskFormState = {
       client_id: task.client_id,
       poc_id: task.poc_id,
       candidate_id: task.candidate_id,
       due_date: task.due_date.slice(0, 10),
-      start_time: task.time_start,
-      end_time: task.time_end,
+      start_time: startTime,
+      end_time: endTime,
       task_type_id: task.task_type_id,
       title: task.title,
-      duration: task.duration || 30,
-      description: task.description,
+      duration,
+      description: task.description || '',
       total_amount: String(task.total_amount || ''),
       payment_mode: task.payment_mode || 'UPI',
       attachment: null,
@@ -431,7 +441,6 @@ const TasksPage = () => {
 
     setFormState(state)
     setIsFormOpen(true)
-    if (editorRef.current) editorRef.current.innerHTML = state.description
 
     if (state.client_id) {
       await loadClientDependentOptions(state.client_id)
