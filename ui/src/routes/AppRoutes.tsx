@@ -64,7 +64,7 @@ const AppRoutes = () => {
           <Route element={<ProtectedRoute allowedRoles={['admin', 'manager']} />}>
             <Route path="/invoices" element={<InvoiceListPage />} />
             <Route path="/invoices/create" element={<InvoiceCreatePage />} />
-            <Route path="/invoices/:invoiceId" element={<InvoiceDetailPage />} />
+            <Route path="/invoices/detail" element={<InvoiceDetailPage />} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/users" element={<UsersPage />} />
