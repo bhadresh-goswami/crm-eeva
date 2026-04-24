@@ -174,7 +174,8 @@ table tbody tr:hover { background: #f3f4f6; }
 }
 .activity-item { display: flex; gap: 10px; margin-bottom: 15px; }
 .dot { width: 10px; height: 10px; background: #3b82f6; border-radius: 50%; margin-top: 6px; }
-.manager-dashboard-layout { display: grid; grid-template-columns: minmax(300px, 360px) 1fr; gap: 1rem; align-items: start; }
+.manager-dashboard-layout { display: grid; grid-template-columns: minmax(280px, 320px) 1fr; gap: 0.45rem; align-items: start; }
+.manager-dashboard-layout .activity-panel { margin-bottom: 0; }
 .dashboard-time { font-size: 0.95rem; font-weight: 600; letter-spacing: .01em; }
 
 .page-container { display: grid; gap: 1rem; }
