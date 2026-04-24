@@ -69,6 +69,11 @@ type TaskQuery = {
   excludeStatus?: string
 }
 
+export type TaskUpdateCheck = {
+  newTasks: TaskRecord[]
+  upcomingTasks: TaskRecord[]
+}
+
 type UnknownMap = Record<string, unknown>
 
 const getList = (value: unknown): unknown[] => {
@@ -117,7 +122,7 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   task_type_id: asNullableNumber(raw.task_type_id),
   task_type: String(raw.task_type ?? raw.task_type_name ?? '').trim(),
   title: String(raw.title ?? raw.task_title ?? '').trim(),
-  description: String(raw.description ?? '').trim(),
+  description: String(raw.description ?? raw.task_description ?? raw.desc ?? '').trim(),
   due_date: String(raw.due_date ?? raw.date ?? '').trim(),
   time_start: String(raw.time_start ?? raw.start_time ?? raw.startTime ?? raw.from_time ?? raw.time_from ?? '').trim(),
   time_end: String(raw.time_end ?? raw.end_time ?? raw.endTime ?? raw.to_time ?? raw.time_to ?? '').trim(),
@@ -147,6 +152,24 @@ export const getTasks = async (query: TaskQuery = {}) => {
   return getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
     .filter((item): item is TaskRecord => Boolean(item?.id))
+}
+
+export const checkTaskUpdates = async (sinceId = 0, windowMinutes = 30): Promise<TaskUpdateCheck> => {
+  const params = new URLSearchParams()
+  if (sinceId > 0) params.set('since_id', String(sinceId))
+  params.set('window_minutes', String(windowMinutes))
+
+  const response = await apiRequest<Record<string, unknown>>(`/tasks/check-updates?${params.toString()}`)
+
+  const newTasks = getList(response.new_tasks ?? response.newTasks)
+    .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
+    .filter((item): item is TaskRecord => Boolean(item?.id))
+
+  const upcomingTasks = getList(response.upcoming_tasks ?? response.upcomingTasks)
+    .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
+    .filter((item): item is TaskRecord => Boolean(item?.id))
+
+  return { newTasks, upcomingTasks }
 }
 
 export const createTask = async (payload: TaskPayload) => {
@@ -186,6 +209,7 @@ const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: Task
   } catch (error) {
     if (error instanceof Error && error.message.trim()) {
       const shouldFallback =
+        (!payload.attachment && path === '/tasks/update') ||
         error.message.includes('415') ||
         error.message.includes('Unsupported Media Type') ||
         error.message.includes('Cannot parse') ||
@@ -222,6 +246,13 @@ const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: Task
 
 const throwIfApiError = (response: Record<string, unknown> | undefined) => {
   if (!response || typeof response !== 'object') return
+
+  const success = response.success
+  if (typeof success === 'boolean' && !success) {
+    const message = String(response.message ?? response.error ?? 'Request failed').trim()
+    throw new Error(message || 'Request failed')
+  }
+
   const error = String(response.error ?? '').trim()
   if (error) {
     throw new Error(error)

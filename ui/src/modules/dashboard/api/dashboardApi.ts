@@ -59,6 +59,15 @@ const asNumber = (value: unknown) => {
   return Number.isNaN(parsed) ? 0 : parsed
 }
 
+const formatTime12h = (value: unknown) => {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+  const normalized = raw.length >= 5 ? raw.slice(0, 5) : raw
+  const date = new Date(`1970-01-01T${normalized}:00`)
+  if (Number.isNaN(date.getTime())) return normalized
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+}
+
 const normalizeTask = (task: Record<string, unknown>): DashboardTask => ({
   id: String(task.id ?? task.task_id ?? task.taskId ?? task._id ?? `${Date.now()}`),
   title: String(task.title ?? task.task_title ?? task.taskTitle ?? task.name ?? 'Untitled Task'),
@@ -69,9 +78,9 @@ const normalizeTask = (task: Record<string, unknown>): DashboardTask => ({
       task.scheduledAt ??
       task.interviewTime ??
       (task.task_date && task.start_time && task.end_time
-        ? `${task.task_date} ${task.start_time}-${task.end_time}`
+        ? `${task.task_date} ${formatTime12h(task.start_time)}-${formatTime12h(task.end_time)}`
         : task.due_date && task.time_start && task.time_end
-          ? `${task.due_date} ${task.time_start}-${task.time_end}`
+          ? `${task.due_date} ${formatTime12h(task.time_start)}-${formatTime12h(task.time_end)}`
           : task.due_date ?? '—'),
   ),
   status: String(task.status ?? 'pending').toLowerCase(),
@@ -119,7 +128,11 @@ const managerStatusMap: Record<ManagerTaskStatus, string> = {
 
 const getTasksByStatusRequest = async (status: ManagerTaskStatus) => {
   const response = await apiRequest<unknown>(`/dashboard/tasks-by-status?status=${managerStatusMap[status]}`)
-  return asArray<Record<string, unknown>>(response).map((task) => normalizeTask({ ...task, status: task.status ?? status }))
+  const primary = asArray<Record<string, unknown>>(response).map((task) => normalizeTask({ ...task, status: task.status ?? status }))
+  if (primary.length > 0) return primary
+
+  const fallback = await apiRequest<unknown>(`/tasks/list?status=${status}`)
+  return asArray<Record<string, unknown>>(fallback).map((task) => normalizeTask({ ...task, status: task.status ?? status }))
 }
 
 export const getManagerDashboardSummary = async () => {

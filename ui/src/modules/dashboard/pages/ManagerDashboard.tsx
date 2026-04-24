@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import { useAlert } from '../../../shared/alerts/useAlert'
-import ChartCard from '../../../shared/components/ChartCard'
-import DashboardCard from '../../../shared/components/DashboardCard'
 import PageContainer from '../../../shared/components/PageContainer'
 import {
   assignManagerTask,
@@ -34,10 +32,28 @@ const tabLabels: Record<ManagerTaskStatus, string> = {
   cancelled: 'Cancelled',
 }
 
+const formatToAmPm = (value?: string) => {
+  if (!value) return '—'
+  const normalized = value.length >= 5 ? value.slice(0, 5) : value
+  const date = new Date(`1970-01-01T${normalized}:00`)
+  if (Number.isNaN(date.getTime())) return normalized
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+}
+
+const isOverdueTask = (task: DashboardTask) => {
+  if (!task.dueDate) return false
+  const due = new Date(task.dueDate.slice(0, 10))
+  const today = new Date()
+  due.setHours(0, 0, 0, 0)
+  today.setHours(0, 0, 0, 0)
+  return due < today && !['completed', 'cancelled'].includes(task.status)
+}
+
 const ManagerDashboard = () => {
   const { showToast, showAlert } = useAlert()
   const [summaryData, setSummaryData] = useState<DashboardSummary>(defaultSummary)
   const [tasksData, setTasksData] = useState<DashboardTask[]>([])
+  const [liveTasks, setLiveTasks] = useState<DashboardTask[]>([])
   const [activeTab, setActiveTab] = useState<ManagerTaskStatus>('pending')
   const [loadingSummary, setLoadingSummary] = useState<boolean>(true)
   const [loadingTasks, setLoadingTasks] = useState<boolean>(true)
@@ -81,6 +97,19 @@ const ManagerDashboard = () => {
     }
   }
 
+  const loadLiveTasks = async () => {
+    try {
+      const statuses: ManagerTaskStatus[] = ['assigned', 'pending', 'completed', 'cancelled']
+      const grouped = await Promise.all(statuses.map((status) => getManagerTasksByStatus(status)))
+      const merged = grouped.flat()
+      const unique = Array.from(new Map(merged.map((task) => [task.id, task])).values())
+      unique.sort((a, b) => Number(b.id) - Number(a.id))
+      setLiveTasks(unique)
+    } catch {
+      setLiveTasks([])
+    }
+  }
+
   useEffect(() => {
     void loadSummary()
   }, [])
@@ -88,6 +117,28 @@ const ManagerDashboard = () => {
   useEffect(() => {
     void loadTasksByStatus(activeTab)
   }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'pending' && summaryData.pendingTasks === 0 && summaryData.assignedTasks > 0) {
+      setActiveTab('assigned')
+    }
+  }, [activeTab, summaryData.assignedTasks, summaryData.pendingTasks])
+
+  useEffect(() => {
+    void loadLiveTasks()
+  }, [])
+
+  useEffect(() => {
+    const isUserBusy = Boolean(assigningTask) || Boolean(detailTask)
+    const interval = window.setInterval(() => {
+      if (isUserBusy) return
+      void loadTasksByStatus(activeTab)
+      void loadSummary()
+      void loadLiveTasks()
+    }, 10_000)
+
+    return () => window.clearInterval(interval)
+  }, [activeTab, assigningTask, detailTask])
 
   useEffect(() => {
     let mounted = true
@@ -131,16 +182,25 @@ const ManagerDashboard = () => {
     }
   }, [assigningTask, isAssignModalOpen])
 
+  const kpi = useMemo(() => {
+    const overdue = liveTasks.filter(isOverdueTask).length
+    const today = new Date().toISOString().slice(0, 10)
+    const completedToday = liveTasks.filter((task) => task.status === 'completed' && task.dueDate?.slice(0, 10) === today).length
+    const productiveBase = summaryData.pendingTasks + summaryData.assignedTasks + summaryData.completedTasks
+    const productivity = productiveBase > 0 ? Math.round((summaryData.completedTasks / productiveBase) * 100) : 0
+    return { overdue, completedToday, productivity }
+  }, [liveTasks, summaryData.assignedTasks, summaryData.completedTasks, summaryData.pendingTasks])
+
   const cards = useMemo(
     () => [
-      { label: 'Total Tasks', value: summaryData.totalTasks },
-      { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const },
-      { label: 'Assigned Tasks', value: summaryData.assignedTasks, tab: 'assigned' as const },
-      { label: 'Cancelled Tasks', value: summaryData.cancelledTasks ?? 0, tab: 'cancelled' as const },
-      { label: 'Total Clients', value: summaryData.totalClients },
-      { label: 'Experts', value: summaryData.expertsTotal },
+      { label: 'Total Tasks', value: summaryData.totalTasks, tone: 'default' },
+      { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const, tone: 'warning' },
+      { label: 'Assigned Tasks', value: summaryData.assignedTasks, tab: 'assigned' as const, tone: 'default' },
+      { label: 'Overdue Tasks', value: kpi.overdue, tone: 'danger' },
+      { label: 'Completed Today', value: kpi.completedToday, tab: 'completed' as const, tone: 'success' },
+      { label: 'Team Productivity', value: `${kpi.productivity}%`, tone: 'success' },
     ],
-    [summaryData],
+    [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingTasks, summaryData.totalTasks],
   )
 
   const getActionConfig = (status: string) => {
@@ -148,6 +208,41 @@ const ManagerDashboard = () => {
     if (status === 'assigned') return { label: 'Reassign', disabled: false }
     return { label: 'Assign', disabled: true }
   }
+
+  const liveActivityTasks = useMemo(
+    () => liveTasks.filter((task) => ['pending', 'assigned'].includes(task.status)).slice(0, 6),
+    [liveTasks],
+  )
+
+  const criticalAlerts = useMemo(() => {
+    const now = new Date()
+    const in30 = new Date(now.getTime() + 30 * 60 * 1000)
+    const upcoming = liveTasks.filter((task) => {
+      if (!task.dueDate || !task.startTime || ['completed', 'cancelled'].includes(task.status)) return false
+      const ts = new Date(`${task.dueDate.slice(0, 10)}T${task.startTime.slice(0, 5)}:00`)
+      return ts >= now && ts <= in30
+    })
+    const unassigned = liveTasks.filter((task) => !task.assignedToName || task.assignedToName === 'Unassigned')
+    const overdue = liveTasks.filter(isOverdueTask)
+    return { overdue, upcoming, unassigned }
+  }, [liveTasks])
+
+  const teamWorkload = useMemo(() => {
+    const map = new Map<string, { assigned: number; pending: number; overdue: number }>()
+    liveTasks.forEach((task) => {
+      const owner = task.assignedToName?.trim() || 'Unassigned'
+      const row = map.get(owner) ?? { assigned: 0, pending: 0, overdue: 0 }
+      if (task.status === 'assigned') row.assigned += 1
+      if (task.status === 'pending') row.pending += 1
+      if (isOverdueTask(task)) row.overdue += 1
+      map.set(owner, row)
+    })
+    return Array.from(map.entries()).map(([name, row]) => {
+      const total = row.assigned + row.pending + row.overdue
+      const load = Math.min(100, total * 20)
+      return { name, ...row, load }
+    })
+  }, [liveTasks])
 
   const handleAssign = async () => {
     if (!assigningTask || !selectedExpertId) return
@@ -185,40 +280,52 @@ const ManagerDashboard = () => {
           : cards.map((card) => {
               if (!card.tab) {
                 return (
-                  <DashboardCard key={card.label} title={card.label} value={card.value} trend={4} />
+                  <div key={card.label} className={`card metric-card metric-card--${card.tone}`}>
+                    <span className="metric-card__title">{card.label}</span>
+                    <h3 className="metric-card__value">{card.value}</h3>
+                  </div>
                 )
               }
 
               return (
-                <DashboardCard key={card.label} title={card.label} value={card.value} trend={card.tab === 'cancelled' ? -2 : 5} onClick={() => setActiveTab(card.tab)} />
+                <button key={card.label} type="button" className={`card metric-card metric-card--button metric-card--${card.tone}`} onClick={() => setActiveTab(card.tab)}>
+                  <span className="metric-card__title">{card.label}</span>
+                  <h3 className="metric-card__value">{card.value}</h3>
+                </button>
               )
             })}
       </div>
-      <div className="charts-grid section">
-        <ChartCard title="Task Activity">
-          <p className="card-text">Pending {summaryData.pendingTasks} • Assigned {summaryData.assignedTasks} • Completed {summaryData.completedTasks}</p>
-        </ChartCard>
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          <ChartCard title="Donut">
-            <p className="card-text">Experts {summaryData.expertsPresent}/{summaryData.expertsTotal}</p>
-          </ChartCard>
-          <ChartCard title="Pie">
-            <p className="card-text">Cancelled {summaryData.cancelledTasks}</p>
-          </ChartCard>
+      <div className="card section">
+        <h3 className="tasks-activity__title">Critical Alerts</h3>
+        <p className="card-text">Overdue: {criticalAlerts.overdue.length} • Upcoming (30m): {criticalAlerts.upcoming.length} • Unassigned: {criticalAlerts.unassigned.length}</p>
+      </div>
+
+      <div className="card section">
+        <h3 className="tasks-activity__title">Team Workload</h3>
+        <div className="roles-table__wrapper">
+          <table className="roles-table">
+            <thead><tr><th>Coordinator</th><th>Assigned</th><th>Pending</th><th>Overdue</th><th>Load %</th></tr></thead>
+            <tbody>
+              {teamWorkload.map((row) => (
+                <tr key={row.name}>
+                  <td>{row.name}</td><td>{row.assigned}</td><td>{row.pending}</td><td>{row.overdue}</td>
+                  <td><div style={{ background: '#e5e7eb', borderRadius: 999, height: 8 }}><div style={{ width: `${row.load}%`, height: '100%', borderRadius: 999, background: row.load > 80 ? '#ef4444' : '#3b82f6' }} /></div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-      <aside className="activity-panel section">
-        <h3 className="tasks-activity__title">Live Activity</h3>
-        {tasksData.slice(0, 4).map((task) => (
-          <div className="activity-item" key={`activity-${task.id}`}>
-            <span className="dot" />
-            <div>
-              <p className="name">{task.title}</p>
-              <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
-            </div>
-          </div>
-        ))}
-      </aside>
+
+      <div className="card section">
+        <h3 className="tasks-activity__title">Quick Actions</h3>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="button" type="button" onClick={() => (window.location.href = '/tasks')}>Create Task</button>
+          <button className="button" type="button" onClick={() => setActiveTab('assigned')}>Bulk Assign</button>
+          <button className="button" type="button" onClick={() => setActiveTab('assigned')}>Reassign Tasks</button>
+          <button className="button" type="button" onClick={() => window.print()}>Export Data</button>
+        </div>
+      </div>
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
@@ -238,8 +345,24 @@ const ManagerDashboard = () => {
 
       {tasksError ? <p className="dashboard-notice">{tasksError}</p> : null}
 
-      <div className="roles-table__wrapper dashboard-table-wrap">
-        <table className="roles-table dashboard-table">
+      <div className="manager-dashboard-layout">
+        <aside className="activity-panel section">
+          <h3 className="tasks-activity__title">Live Activity</h3>
+          {liveActivityTasks.length === 0 ? <p className="card-text">No live tasks running.</p> : null}
+          {liveActivityTasks.map((task) => (
+            <div className="activity-item" key={`activity-${task.id}`}>
+              <span className="dot" />
+              <div>
+                <p className="name">{task.title}</p>
+                <p className="email">{task.dueDate || '—'} • {task.startTime ? formatToAmPm(task.startTime) : '—'}</p>
+                <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
+              </div>
+            </div>
+          ))}
+        </aside>
+
+        <div className="roles-table__wrapper dashboard-table-wrap">
+          <table className="roles-table dashboard-table">
           <thead>
             <tr>
               <th>SR No</th>
@@ -271,13 +394,13 @@ const ManagerDashboard = () => {
                     <td>{task.title}</td>
                     <td>{task.candidate || '—'}</td>
                     <td>{task.client || '—'}</td>
-                    <td>{task.startTime && task.endTime ? `${task.startTime} - ${task.endTime}` : task.scheduleTime || '—'}</td>
+                    <td className="dashboard-time">{task.startTime && task.endTime ? `${formatToAmPm(task.startTime)} - ${formatToAmPm(task.endTime)}` : task.scheduleTime || '—'}</td>
                     <td><span className="status-pill">{task.status}</span></td>
                     <td>{task.assignedToName || '—'}</td>
                     <td>
                       <button
                         type="button"
-                        className="button users-icon-btn"
+                        className="button users-icon-btn action-btn"
                         title="View task details"
                         aria-label="View task details"
                         onClick={() => setDetailTask(task)}
@@ -288,7 +411,7 @@ const ManagerDashboard = () => {
                     <td>
                       <button
                         type="button"
-                        className="button users-icon-btn"
+                        className="button users-icon-btn action-btn"
                         disabled={action.disabled}
                         title={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
                         aria-label={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
@@ -302,7 +425,8 @@ const ManagerDashboard = () => {
               })
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       <AnimatedModal
@@ -341,7 +465,7 @@ const ManagerDashboard = () => {
                       <td>
                         <button
                           type="button"
-                          className="button users-icon-btn"
+                          className="button users-icon-btn action-btn"
                           disabled={expert.status !== 'available'}
                           title={
                             expert.status === 'available'
