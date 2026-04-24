@@ -486,7 +486,10 @@ p {
 }
 
 .users-actions {
+  display: flex;
+  gap: 0.35rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .users-icon-btn {
@@ -495,6 +498,15 @@ p {
   display: inline-grid;
   place-items: center;
   padding: 0;
+}
+
+.action-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .users-more-actions {
@@ -722,6 +734,14 @@ p {
 
 .dashboard-cards {
   margin-bottom: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.dashboard-cards .metric-card {
+  padding: 0.8rem;
+  min-height: 88px;
 }
 
 .dashboard-card__label {
