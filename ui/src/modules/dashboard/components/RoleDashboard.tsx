@@ -35,9 +35,9 @@ const defaultSummary: DashboardSummary = {
 }
 
 const taskPathsByMode: Record<DashboardMode, string[]> = {
-  admin: ['/dashboard/tasks'],
-  manager: ['/dashboard/tasks'],
-  coordinator: ['/dashboard/tasks'],
+  admin: ['/tasks/list', '/dashboard/tasks'],
+  manager: ['/tasks/list', '/dashboard/tasks'],
+  coordinator: ['/tasks/list', '/dashboard/tasks'],
   expertlead: ['/dashboard/team-tasks'],
   expert: ['/dashboard/my-tasks'],
 }
