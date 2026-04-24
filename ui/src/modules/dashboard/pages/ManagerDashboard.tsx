@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import { useAlert } from '../../../shared/alerts/useAlert'
-import ChartCard from '../../../shared/components/ChartCard'
-import DashboardCard from '../../../shared/components/DashboardCard'
 import PageContainer from '../../../shared/components/PageContainer'
 import {
   assignManagerTask,
@@ -40,6 +38,15 @@ const formatToAmPm = (value?: string) => {
   const date = new Date(`1970-01-01T${normalized}:00`)
   if (Number.isNaN(date.getTime())) return normalized
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+}
+
+const isOverdueTask = (task: DashboardTask) => {
+  if (!task.dueDate) return false
+  const due = new Date(task.dueDate.slice(0, 10))
+  const today = new Date()
+  due.setHours(0, 0, 0, 0)
+  today.setHours(0, 0, 0, 0)
+  return due < today && !['completed', 'cancelled'].includes(task.status)
 }
 
 const ManagerDashboard = () => {
@@ -175,16 +182,25 @@ const ManagerDashboard = () => {
     }
   }, [assigningTask, isAssignModalOpen])
 
+  const kpi = useMemo(() => {
+    const overdue = liveTasks.filter(isOverdueTask).length
+    const today = new Date().toISOString().slice(0, 10)
+    const completedToday = liveTasks.filter((task) => task.status === 'completed' && task.dueDate?.slice(0, 10) === today).length
+    const productiveBase = summaryData.pendingTasks + summaryData.assignedTasks + summaryData.completedTasks
+    const productivity = productiveBase > 0 ? Math.round((summaryData.completedTasks / productiveBase) * 100) : 0
+    return { overdue, completedToday, productivity }
+  }, [liveTasks, summaryData.assignedTasks, summaryData.completedTasks, summaryData.pendingTasks])
+
   const cards = useMemo(
     () => [
-      { label: 'Total Tasks', value: summaryData.totalTasks },
-      { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const },
-      { label: 'Assigned Tasks', value: summaryData.assignedTasks, tab: 'assigned' as const },
-      { label: 'Cancelled Tasks', value: summaryData.cancelledTasks ?? 0, tab: 'cancelled' as const },
-      { label: 'Total Clients', value: summaryData.totalClients },
-      { label: 'Experts', value: summaryData.expertsTotal },
+      { label: 'Total Tasks', value: summaryData.totalTasks, tone: 'default' },
+      { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const, tone: 'warning' },
+      { label: 'Assigned Tasks', value: summaryData.assignedTasks, tab: 'assigned' as const, tone: 'default' },
+      { label: 'Overdue Tasks', value: kpi.overdue, tone: 'danger' },
+      { label: 'Completed Today', value: kpi.completedToday, tab: 'completed' as const, tone: 'success' },
+      { label: 'Team Productivity', value: `${kpi.productivity}%`, tone: 'success' },
     ],
-    [summaryData],
+    [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingTasks, summaryData.totalTasks],
   )
 
   const getActionConfig = (status: string) => {
@@ -197,6 +213,36 @@ const ManagerDashboard = () => {
     () => liveTasks.filter((task) => ['pending', 'assigned'].includes(task.status)).slice(0, 6),
     [liveTasks],
   )
+
+  const criticalAlerts = useMemo(() => {
+    const now = new Date()
+    const in30 = new Date(now.getTime() + 30 * 60 * 1000)
+    const upcoming = liveTasks.filter((task) => {
+      if (!task.dueDate || !task.startTime || ['completed', 'cancelled'].includes(task.status)) return false
+      const ts = new Date(`${task.dueDate.slice(0, 10)}T${task.startTime.slice(0, 5)}:00`)
+      return ts >= now && ts <= in30
+    })
+    const unassigned = liveTasks.filter((task) => !task.assignedToName || task.assignedToName === 'Unassigned')
+    const overdue = liveTasks.filter(isOverdueTask)
+    return { overdue, upcoming, unassigned }
+  }, [liveTasks])
+
+  const teamWorkload = useMemo(() => {
+    const map = new Map<string, { assigned: number; pending: number; overdue: number }>()
+    liveTasks.forEach((task) => {
+      const owner = task.assignedToName?.trim() || 'Unassigned'
+      const row = map.get(owner) ?? { assigned: 0, pending: 0, overdue: 0 }
+      if (task.status === 'assigned') row.assigned += 1
+      if (task.status === 'pending') row.pending += 1
+      if (isOverdueTask(task)) row.overdue += 1
+      map.set(owner, row)
+    })
+    return Array.from(map.entries()).map(([name, row]) => {
+      const total = row.assigned + row.pending + row.overdue
+      const load = Math.min(100, total * 20)
+      return { name, ...row, load }
+    })
+  }, [liveTasks])
 
   const handleAssign = async () => {
     if (!assigningTask || !selectedExpertId) return
@@ -234,26 +280,50 @@ const ManagerDashboard = () => {
           : cards.map((card) => {
               if (!card.tab) {
                 return (
-                  <DashboardCard key={card.label} title={card.label} value={card.value} trend={4} />
+                  <div key={card.label} className={`card metric-card metric-card--${card.tone}`}>
+                    <span className="metric-card__title">{card.label}</span>
+                    <h3 className="metric-card__value">{card.value}</h3>
+                  </div>
                 )
               }
 
               return (
-                <DashboardCard key={card.label} title={card.label} value={card.value} trend={card.tab === 'cancelled' ? -2 : 5} onClick={() => setActiveTab(card.tab)} />
+                <button key={card.label} type="button" className={`card metric-card metric-card--button metric-card--${card.tone}`} onClick={() => setActiveTab(card.tab)}>
+                  <span className="metric-card__title">{card.label}</span>
+                  <h3 className="metric-card__value">{card.value}</h3>
+                </button>
               )
             })}
       </div>
-      <div className="charts-grid section">
-        <ChartCard title="Task Activity">
-          <p className="card-text">Pending {summaryData.pendingTasks} • Assigned {summaryData.assignedTasks} • Completed {summaryData.completedTasks}</p>
-        </ChartCard>
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          <ChartCard title="Donut">
-            <p className="card-text">Experts {summaryData.expertsPresent}/{summaryData.expertsTotal}</p>
-          </ChartCard>
-          <ChartCard title="Pie">
-            <p className="card-text">Cancelled {summaryData.cancelledTasks}</p>
-          </ChartCard>
+      <div className="card section">
+        <h3 className="tasks-activity__title">Critical Alerts</h3>
+        <p className="card-text">Overdue: {criticalAlerts.overdue.length} • Upcoming (30m): {criticalAlerts.upcoming.length} • Unassigned: {criticalAlerts.unassigned.length}</p>
+      </div>
+
+      <div className="card section">
+        <h3 className="tasks-activity__title">Team Workload</h3>
+        <div className="roles-table__wrapper">
+          <table className="roles-table">
+            <thead><tr><th>Coordinator</th><th>Assigned</th><th>Pending</th><th>Overdue</th><th>Load %</th></tr></thead>
+            <tbody>
+              {teamWorkload.map((row) => (
+                <tr key={row.name}>
+                  <td>{row.name}</td><td>{row.assigned}</td><td>{row.pending}</td><td>{row.overdue}</td>
+                  <td><div style={{ background: '#e5e7eb', borderRadius: 999, height: 8 }}><div style={{ width: `${row.load}%`, height: '100%', borderRadius: 999, background: row.load > 80 ? '#ef4444' : '#3b82f6' }} /></div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card section">
+        <h3 className="tasks-activity__title">Quick Actions</h3>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="button" type="button" onClick={() => (window.location.href = '/tasks')}>Create Task</button>
+          <button className="button" type="button" onClick={() => setActiveTab('assigned')}>Bulk Assign</button>
+          <button className="button" type="button" onClick={() => setActiveTab('assigned')}>Reassign Tasks</button>
+          <button className="button" type="button" onClick={() => window.print()}>Export Data</button>
         </div>
       </div>
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}

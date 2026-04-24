@@ -61,12 +61,12 @@ body {
 .header__title { font-size: 1.05rem; }
 .header__meta { font-size: 0.95rem; }
 
-.card { background: #ffffff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); border: 1px solid #eef2f7; }
-.section { margin-bottom: 24px; }
+.card { background: #ffffff; border-radius: 12px; padding: 10px 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); border: 1px solid #eef2f7; }
+.section { margin-bottom: 12px; }
 
 .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-.metric-card__title { font-size: 0.85rem; color: #6b7280; }
-.metric-card__value { font-size: 1.85rem; margin: 0.35rem 0; }
+.metric-card__title { font-size: 12px; color: #6b7280; }
+.metric-card__value { font-size: 18px; margin: 0.35rem 0; font-weight: 600; }
 .metric-card--button { width: 100%; border: 0; cursor: pointer; text-align: left; }
 .trend { font-size: 0.85rem; margin: 0; font-weight: 600; }
 .trend.up { color: #059669; }
@@ -80,7 +80,8 @@ body {
 .roles-table__wrapper { width: 100%; overflow-x: auto; }
 
 table thead { background: #f9fafb; font-weight: 600; }
-table th, table td { padding: 0.8rem; }
+table th, table td { padding: 0.65rem; }
+table td { font-size: 13px; }
 table tbody tr:hover { background: #f3f4f6; }
 .crm-table,
 .roles-table {
@@ -92,7 +93,7 @@ table tbody tr:hover { background: #f3f4f6; }
 .roles-table th {
   text-align: left;
   padding: 12px;
-  font-size: 13px;
+  font-size: 12px;
   background: #f1f5f9;
   position: sticky;
   top: 0;
@@ -126,8 +127,8 @@ table tbody tr:hover { background: #f3f4f6; }
 .btn.view { background: #6366f1; color: white; }
 .btn.edit { background: #3b82f6; color: white; }
 .btn.delete { background: #ef4444; color: white; }
-.page-title { font-size: 2.15rem; font-weight: 700; letter-spacing: -0.02em; }
-.page-description { font-size: 1.05rem; line-height: 1.5; }
+.page-title { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.page-description { font-size: 13px; line-height: 1.45; color: #6b7280; }
 .button { font-size: 0.95rem; }
 .tasks-table__wrapper {
   margin-top: 0.5rem;
@@ -155,7 +156,7 @@ table tbody tr:hover { background: #f3f4f6; }
 }
 .tasks-table__wrapper--modal .tasks-table-scroll { max-height: 50vh; }
 
-.tasks-activity__title { margin: 0 0 0.35rem; font-size: 1rem; }
+.tasks-activity__title { margin: 0 0 0.35rem; font-size: 14px; font-weight: 600; }
 .tasks-activity__chart { display: flex; gap: 0.8rem; align-items: flex-end; overflow-x: auto; padding: 0.8rem 0.2rem 0.2rem; }
 .tasks-activity__day { min-width: 72px; display: grid; gap: 0.4rem; justify-items: center; }
 .tasks-activity__bars { height: 92px; display: flex; gap: 0.2rem; align-items: flex-end; }
