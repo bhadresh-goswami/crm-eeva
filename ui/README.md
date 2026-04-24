@@ -71,3 +71,16 @@ export default defineConfig([
   },
 ])
 ```
+
+## SPA routing on reload (production)
+
+This app uses browser history routing, so your web server must route unknown frontend paths back to `index.html`.
+
+- **Apache**: `public/.htaccess` is included and rewrites non-file requests to `index.html`.
+- **Nginx**: use `ui/nginx.conf` and keep this in `location /`:
+
+```nginx
+try_files $uri $uri/ /index.html;
+```
+
+The React router already handles unmatched client routes by redirecting to `/404`.

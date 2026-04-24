@@ -330,15 +330,18 @@ elseif ($uri === "/tasks/create" && $method === "POST") {
 }
 elseif ($uri === "/tasks/update" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
-    (new TaskController())->update($user->id);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->update($actorUserId);
 }
 elseif ($uri === "/tasks/assign" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
-    (new TaskController())->assign($user->id ?? null);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->assign($actorUserId);
 }
 elseif ($uri === "/tasks/upload" && $method === "POST") {
     authorize($user,['admin','manager','coordinator','expert']);
-    (new TaskController())->uploadFile($user->id);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->uploadFile($actorUserId);
 }
 elseif ($uri === "/tasks/file" && $method === "GET") {
     (new TaskController())->downloadFile();
