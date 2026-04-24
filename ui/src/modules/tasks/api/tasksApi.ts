@@ -69,6 +69,11 @@ type TaskQuery = {
   excludeStatus?: string
 }
 
+export type TaskUpdateCheck = {
+  newTasks: TaskRecord[]
+  upcomingTasks: TaskRecord[]
+}
+
 type UnknownMap = Record<string, unknown>
 
 const getList = (value: unknown): unknown[] => {
@@ -147,6 +152,24 @@ export const getTasks = async (query: TaskQuery = {}) => {
   return getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
     .filter((item): item is TaskRecord => Boolean(item?.id))
+}
+
+export const checkTaskUpdates = async (sinceId = 0, windowMinutes = 30): Promise<TaskUpdateCheck> => {
+  const params = new URLSearchParams()
+  if (sinceId > 0) params.set('since_id', String(sinceId))
+  params.set('window_minutes', String(windowMinutes))
+
+  const response = await apiRequest<Record<string, unknown>>(`/tasks/check-updates?${params.toString()}`)
+
+  const newTasks = getList(response.new_tasks ?? response.newTasks)
+    .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
+    .filter((item): item is TaskRecord => Boolean(item?.id))
+
+  const upcomingTasks = getList(response.upcoming_tasks ?? response.upcomingTasks)
+    .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
+    .filter((item): item is TaskRecord => Boolean(item?.id))
+
+  return { newTasks, upcomingTasks }
 }
 
 export const createTask = async (payload: TaskPayload) => {

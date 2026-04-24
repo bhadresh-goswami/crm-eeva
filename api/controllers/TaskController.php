@@ -407,7 +407,7 @@ public function downloadFile() {
             $params[] = $date;
         }
 
-        $query .= " ORDER BY t.id DESC";
+        $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
 
         $stmt = $conn->prepare($query);
         $stmt->execute($params);
@@ -420,6 +420,80 @@ public function downloadFile() {
             "success" => true,
             "data" => $rows
         ]);
+    }
+
+    public function checkUpdates($user_id = null) {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $sinceId = max(0, (int)($_GET['since_id'] ?? 0));
+            $windowMinutes = (int)($_GET['window_minutes'] ?? 30);
+            if ($windowMinutes <= 0) $windowMinutes = 30;
+            if ($windowMinutes > 180) $windowMinutes = 180;
+
+            $newSql = "
+                SELECT t.id, t.title, t.due_date, t.start_time
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON t.status_id = ts.id
+                WHERE t.id > ?
+                  AND LOWER(COALESCE(ts.name, 'pending')) <> 'cancelled'
+                ORDER BY t.id DESC
+                LIMIT 20
+            ";
+
+            $newParams = [$sinceId];
+
+            $upcomingSql = "
+                SELECT t.id, t.title, t.due_date, t.start_time
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON t.status_id = ts.id
+                WHERE LOWER(COALESCE(ts.name, 'pending')) IN ('pending', 'assigned', 'active')
+                  AND TIMESTAMP(t.due_date, t.start_time) BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL ? MINUTE)
+                ORDER BY t.due_date ASC, t.start_time ASC
+                LIMIT 20
+            ";
+
+            $upcomingParams = [$windowMinutes];
+
+            if ($user_id) {
+                $assignmentFilter = " AND EXISTS (
+                    SELECT 1
+                    FROM task_assignments ta
+                    WHERE ta.task_id = t.id
+                      AND ta.user_id = ?
+                      AND ta.is_active = 1
+                )";
+                $newSql = str_replace(" ORDER BY", $assignmentFilter . " ORDER BY", $newSql);
+                $upcomingSql = str_replace(" ORDER BY", $assignmentFilter . " ORDER BY", $upcomingSql);
+                $newParams[] = (int)$user_id;
+                $upcomingParams[] = (int)$user_id;
+            }
+
+            $newStmt = $conn->prepare($newSql);
+            $newStmt->execute($newParams);
+            $newTasks = $newStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $upcomingStmt = $conn->prepare($upcomingSql);
+            $upcomingStmt->execute($upcomingParams);
+            $upcomingTasks = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode([
+                "success" => true,
+                "new_tasks" => $newTasks,
+                "upcoming_tasks" => $upcomingTasks,
+            ]);
+        } catch (Exception $e) {
+            LoggerService::logError('Task check updates failed', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage(),
+            ]);
+            http_response_code(500);
+            echo json_encode([
+                "success" => false,
+                "message" => "Unable to check task updates right now.",
+            ]);
+        }
     }
 
 

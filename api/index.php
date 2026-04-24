@@ -293,6 +293,15 @@ elseif ($uri === "/tasks/comments" && $method === "GET") {
     authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert','technical lead']);
     (new TaskController())->comments();
 }
+elseif ($uri === "/tasks/check-updates" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert','technical lead']);
+    $actorUserId = null;
+    $role = is_array($user) ? ($user['role'] ?? null) : ($user->role ?? null);
+    if (in_array($role, ['expert', 'expertlead', 'technical expert', 'technical lead'], true)) {
+        $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    }
+    (new TaskController())->checkUpdates($actorUserId);
+}
 elseif ($uri === "/expert/tasks" && $method === "GET") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
     $expertUserId = null;
