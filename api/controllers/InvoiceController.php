@@ -110,6 +110,11 @@ class InvoiceController {
             $fromDate = $_GET['from_date'] ?? null;
             $toDate = $_GET['to_date'] ?? null;
             $hasStatusColumn = $this->hasColumn($conn, 'tasks', 'status');
+            $hasClientEmailColumn = $this->hasColumn($conn, 'clients', 'email');
+            $hasClientMobileColumn = $this->hasColumn($conn, 'clients', 'mobile');
+
+            $clientPhoneSelect = $hasClientMobileColumn ? 'c.mobile AS client_phone' : "'' AS client_phone";
+            $clientEmailSelect = $hasClientEmailColumn ? 'c.email AS client_email' : "'' AS client_email";
 
             $query = "
                 SELECT
@@ -118,8 +123,8 @@ class InvoiceController {
                     t.client_id,
                     c.name AS client_name,
                     c.company_name,
-                    c.mobile AS client_phone,
-                    c.email AS client_email,
+                    {$clientPhoneSelect},
+                    {$clientEmailSelect},
                     COALESCE(tt.name, 'Support') AS support_type,
                     t.total_amount AS amount,
                     t.due_date
