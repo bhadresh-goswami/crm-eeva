@@ -34,10 +34,19 @@ const tabLabels: Record<ManagerTaskStatus, string> = {
   cancelled: 'Cancelled',
 }
 
+const formatToAmPm = (value?: string) => {
+  if (!value) return '—'
+  const normalized = value.length >= 5 ? value.slice(0, 5) : value
+  const date = new Date(`1970-01-01T${normalized}:00`)
+  if (Number.isNaN(date.getTime())) return normalized
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+}
+
 const ManagerDashboard = () => {
   const { showToast, showAlert } = useAlert()
   const [summaryData, setSummaryData] = useState<DashboardSummary>(defaultSummary)
   const [tasksData, setTasksData] = useState<DashboardTask[]>([])
+  const [liveTasks, setLiveTasks] = useState<DashboardTask[]>([])
   const [activeTab, setActiveTab] = useState<ManagerTaskStatus>('pending')
   const [loadingSummary, setLoadingSummary] = useState<boolean>(true)
   const [loadingTasks, setLoadingTasks] = useState<boolean>(true)
@@ -81,6 +90,19 @@ const ManagerDashboard = () => {
     }
   }
 
+  const loadLiveTasks = async () => {
+    try {
+      const statuses: ManagerTaskStatus[] = ['assigned', 'pending', 'completed', 'cancelled']
+      const grouped = await Promise.all(statuses.map((status) => getManagerTasksByStatus(status)))
+      const merged = grouped.flat()
+      const unique = Array.from(new Map(merged.map((task) => [task.id, task])).values())
+      unique.sort((a, b) => Number(b.id) - Number(a.id))
+      setLiveTasks(unique)
+    } catch {
+      setLiveTasks([])
+    }
+  }
+
   useEffect(() => {
     void loadSummary()
   }, [])
@@ -88,6 +110,28 @@ const ManagerDashboard = () => {
   useEffect(() => {
     void loadTasksByStatus(activeTab)
   }, [activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'pending' && summaryData.pendingTasks === 0 && summaryData.assignedTasks > 0) {
+      setActiveTab('assigned')
+    }
+  }, [activeTab, summaryData.assignedTasks, summaryData.pendingTasks])
+
+  useEffect(() => {
+    void loadLiveTasks()
+  }, [])
+
+  useEffect(() => {
+    const isUserBusy = Boolean(assigningTask) || Boolean(detailTask)
+    const interval = window.setInterval(() => {
+      if (isUserBusy) return
+      void loadTasksByStatus(activeTab)
+      void loadSummary()
+      void loadLiveTasks()
+    }, 10_000)
+
+    return () => window.clearInterval(interval)
+  }, [activeTab, assigningTask, detailTask])
 
   useEffect(() => {
     let mounted = true
@@ -149,6 +193,11 @@ const ManagerDashboard = () => {
     return { label: 'Assign', disabled: true }
   }
 
+  const liveActivityTasks = useMemo(
+    () => liveTasks.filter((task) => ['pending', 'assigned'].includes(task.status)).slice(0, 6),
+    [liveTasks],
+  )
+
   const handleAssign = async () => {
     if (!assigningTask || !selectedExpertId) return
 
@@ -207,18 +256,6 @@ const ManagerDashboard = () => {
           </ChartCard>
         </div>
       </div>
-      <aside className="activity-panel section">
-        <h3 className="tasks-activity__title">Live Activity</h3>
-        {tasksData.slice(0, 4).map((task) => (
-          <div className="activity-item" key={`activity-${task.id}`}>
-            <span className="dot" />
-            <div>
-              <p className="name">{task.title}</p>
-              <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
-            </div>
-          </div>
-        ))}
-      </aside>
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
@@ -238,8 +275,24 @@ const ManagerDashboard = () => {
 
       {tasksError ? <p className="dashboard-notice">{tasksError}</p> : null}
 
-      <div className="roles-table__wrapper dashboard-table-wrap">
-        <table className="roles-table dashboard-table">
+      <div className="manager-dashboard-layout">
+        <aside className="activity-panel section">
+          <h3 className="tasks-activity__title">Live Activity</h3>
+          {liveActivityTasks.length === 0 ? <p className="card-text">No live tasks running.</p> : null}
+          {liveActivityTasks.map((task) => (
+            <div className="activity-item" key={`activity-${task.id}`}>
+              <span className="dot" />
+              <div>
+                <p className="name">{task.title}</p>
+                <p className="email">{task.dueDate || '—'} • {task.startTime ? formatToAmPm(task.startTime) : '—'}</p>
+                <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
+              </div>
+            </div>
+          ))}
+        </aside>
+
+        <div className="roles-table__wrapper dashboard-table-wrap">
+          <table className="roles-table dashboard-table">
           <thead>
             <tr>
               <th>SR No</th>
@@ -271,13 +324,13 @@ const ManagerDashboard = () => {
                     <td>{task.title}</td>
                     <td>{task.candidate || '—'}</td>
                     <td>{task.client || '—'}</td>
-                    <td>{task.startTime && task.endTime ? `${task.startTime} - ${task.endTime}` : task.scheduleTime || '—'}</td>
+                    <td className="dashboard-time">{task.startTime && task.endTime ? `${formatToAmPm(task.startTime)} - ${formatToAmPm(task.endTime)}` : task.scheduleTime || '—'}</td>
                     <td><span className="status-pill">{task.status}</span></td>
                     <td>{task.assignedToName || '—'}</td>
                     <td>
                       <button
                         type="button"
-                        className="button users-icon-btn"
+                        className="button users-icon-btn action-btn"
                         title="View task details"
                         aria-label="View task details"
                         onClick={() => setDetailTask(task)}
@@ -288,7 +341,7 @@ const ManagerDashboard = () => {
                     <td>
                       <button
                         type="button"
-                        className="button users-icon-btn"
+                        className="button users-icon-btn action-btn"
                         disabled={action.disabled}
                         title={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
                         aria-label={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
@@ -302,7 +355,8 @@ const ManagerDashboard = () => {
               })
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       <AnimatedModal
@@ -341,7 +395,7 @@ const ManagerDashboard = () => {
                       <td>
                         <button
                           type="button"
-                          className="button users-icon-btn"
+                          className="button users-icon-btn action-btn"
                           disabled={expert.status !== 'available'}
                           title={
                             expert.status === 'available'

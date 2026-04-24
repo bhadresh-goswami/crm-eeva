@@ -486,7 +486,10 @@ p {
 }
 
 .users-actions {
+  display: flex;
+  gap: 0.35rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .users-icon-btn {
@@ -495,6 +498,15 @@ p {
   display: inline-grid;
   place-items: center;
   padding: 0;
+}
+
+.action-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .users-more-actions {
@@ -561,6 +573,7 @@ p {
 }
 
 .table-container {
+  width: 100%;
   max-height: min(500px, calc(100vh - 300px));
   overflow-y: auto;
   overflow-x: auto;
@@ -568,9 +581,8 @@ p {
 }
 
 .tasks-table__wrapper {
-  height: 400px;   /* set your required height */
-  width: 1000px;     /* or fixed like 800px */
-
+  height: min(420px, calc(100vh - 340px));
+  width: 100%;
   overflow-y: auto;
   overflow-x: auto;
   border-radius: 1rem;
@@ -586,6 +598,12 @@ p {
   top: 0;
   z-index: 2;
   background: #fff;
+}
+
+.tasks-table {
+  width: 100%;
+  min-width: 900px;
+  white-space: nowrap;
 }
 
 @media (max-width: 960px) {
@@ -716,6 +734,14 @@ p {
 
 .dashboard-cards {
   margin-bottom: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.dashboard-cards .metric-card {
+  padding: 0.8rem;
+  min-height: 88px;
 }
 
 .dashboard-card__label {

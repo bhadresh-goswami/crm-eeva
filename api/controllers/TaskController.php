@@ -407,7 +407,7 @@ public function downloadFile() {
             $params[] = $date;
         }
 
-        $query .= " ORDER BY t.id DESC";
+        $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
 
         $stmt = $conn->prepare($query);
         $stmt->execute($params);
@@ -422,6 +422,80 @@ public function downloadFile() {
         ]);
     }
 
+    public function checkUpdates($user_id = null) {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $sinceId = max(0, (int)($_GET['since_id'] ?? 0));
+            $windowMinutes = (int)($_GET['window_minutes'] ?? 30);
+            if ($windowMinutes <= 0) $windowMinutes = 30;
+            if ($windowMinutes > 180) $windowMinutes = 180;
+
+            $newSql = "
+                SELECT t.id, t.title, t.due_date, t.start_time
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON t.status_id = ts.id
+                WHERE t.id > ?
+                  AND LOWER(COALESCE(ts.name, 'pending')) <> 'cancelled'
+                ORDER BY t.id DESC
+                LIMIT 20
+            ";
+
+            $newParams = [$sinceId];
+
+            $upcomingSql = "
+                SELECT t.id, t.title, t.due_date, t.start_time
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON t.status_id = ts.id
+                WHERE LOWER(COALESCE(ts.name, 'pending')) IN ('pending', 'assigned', 'active')
+                  AND TIMESTAMP(t.due_date, t.start_time) BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL ? MINUTE)
+                ORDER BY t.due_date ASC, t.start_time ASC
+                LIMIT 20
+            ";
+
+            $upcomingParams = [$windowMinutes];
+
+            if ($user_id) {
+                $assignmentFilter = " AND EXISTS (
+                    SELECT 1
+                    FROM task_assignments ta
+                    WHERE ta.task_id = t.id
+                      AND ta.user_id = ?
+                      AND ta.is_active = 1
+                )";
+                $newSql = str_replace(" ORDER BY", $assignmentFilter . " ORDER BY", $newSql);
+                $upcomingSql = str_replace(" ORDER BY", $assignmentFilter . " ORDER BY", $upcomingSql);
+                $newParams[] = (int)$user_id;
+                $upcomingParams[] = (int)$user_id;
+            }
+
+            $newStmt = $conn->prepare($newSql);
+            $newStmt->execute($newParams);
+            $newTasks = $newStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $upcomingStmt = $conn->prepare($upcomingSql);
+            $upcomingStmt->execute($upcomingParams);
+            $upcomingTasks = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode([
+                "success" => true,
+                "new_tasks" => $newTasks,
+                "upcoming_tasks" => $upcomingTasks,
+            ]);
+        } catch (Exception $e) {
+            LoggerService::logError('Task check updates failed', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage(),
+            ]);
+            http_response_code(500);
+            echo json_encode([
+                "success" => false,
+                "message" => "Unable to check task updates right now.",
+            ]);
+        }
+    }
+
 
     // ================= UPDATE =================
     public function update($user_id) {
@@ -430,15 +504,42 @@ public function downloadFile() {
         $conn = $db->connect();
 
         try {
+            $rawInput = file_get_contents('php://input');
+            $jsonInput = json_decode($rawInput ?: '', true);
+            $payload = $_POST;
 
-            if (empty($_POST['task_id'])) {
+            if ((!is_array($payload) || count($payload) === 0) && is_array($jsonInput)) {
+                $payload = $jsonInput;
+            }
+
+            LoggerService::logInfo('Task update request payload', [
+                'task_id' => $payload['task_id'] ?? null,
+                'has_description' => array_key_exists('description', $payload),
+                'description_length' => strlen((string)($payload['description'] ?? '')),
+                'keys' => array_keys($payload),
+            ]);
+
+            if (empty($payload['task_id'])) {
                 throw new Exception("task_id required");
             }
 
-            $start_time = $_POST['start_time'];
-            $duration = (int)$_POST['duration'];
+            $start_time = trim((string)($payload['start_time'] ?? ''));
+            $due_date = trim((string)($payload['due_date'] ?? ''));
+            $duration = (int)($payload['duration'] ?? 0);
 
-            $dt = new DateTime($_POST['due_date'] . ' ' . $start_time);
+            if ($start_time === '') {
+                throw new Exception("start_time required");
+            }
+
+            if ($due_date === '') {
+                throw new Exception("due_date required");
+            }
+
+            if ($duration <= 0) {
+                throw new Exception("duration required");
+            }
+
+            $dt = new DateTime($due_date . ' ' . $start_time);
             $dt->modify("+$duration minutes");
             $end_time = $dt->format("H:i:s");
 
@@ -463,35 +564,39 @@ public function downloadFile() {
             ");
 
             $stmt->execute([
-                $_POST['client_id'],
-                $_POST['candidate_id'] ?? null,
-                $_POST['poc_id'] ?? null,
-                $_POST['task_type_id'],
-                $_POST['title'],
-                $_POST['description'] ?? null,
-                $_POST['due_date'],
+                $payload['client_id'] ?? null,
+                $payload['candidate_id'] ?? null,
+                $payload['poc_id'] ?? null,
+                $payload['task_type_id'] ?? null,
+                $payload['title'] ?? null,
+                $payload['description'] ?? null,
+                $due_date,
                 $start_time,
                 $end_time,
                 $duration,
-                $_POST['total_amount'] ?? 0,
-                $_POST['payment_mode'] ?? null,
-                $_POST['task_id']
+                $payload['total_amount'] ?? 0,
+                $payload['payment_mode'] ?? null,
+                $payload['task_id']
             ]);
 
             // FILE
-            $this->handleFileUpload($conn, $_POST['task_id'], $user_id);
+            $this->handleFileUpload($conn, $payload['task_id'], $user_id);
 
             $conn->commit();
-            EmailService::sendTaskNotification((int)$_POST['task_id'], 'updated', null, (int)$user_id);
+            EmailService::sendTaskNotification((int)$payload['task_id'], 'updated', null, (int)$user_id);
 
-            echo json_encode(["message" => "Task updated"]);
+            echo json_encode(["success" => true, "message" => "Task updated"]);
 
         } catch (Exception $e) {
-            $conn->rollback();
+            $failedTaskId = $_POST['task_id'] ?? ($payload['task_id'] ?? null);
+            if ($conn->inTransaction()) {
+                $conn->rollback();
+            }
             LoggerService::logError('Task update failed', [
-                'task_id' => $_POST['task_id'] ?? null,
+                'task_id' => $failedTaskId,
                 'error' => $e->getMessage()
             ]);
+            http_response_code(500);
             echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }

@@ -8,7 +8,7 @@ type SidebarProps = {
   onClose: () => void
 }
 
-type MenuLink = { label: string; to: string }
+type MenuLink = { label: string; to: string; icon?: string }
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { user } = useAuth()
@@ -20,30 +20,30 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     const management: MenuLink[] = []
     if (user.role === 'admin') {
       management.push(
-        { label: 'Users', to: '/users' },
-        { label: 'Roles', to: '/roles' },
-        { label: 'Clients', to: '/clients' },
-        { label: 'POC', to: '/pocs' },
+        { label: 'Users', to: '/users', icon: '👥' },
+        { label: 'Roles', to: '/roles', icon: '🛡️' },
+        { label: 'Clients', to: '/clients', icon: '🏢' },
+        { label: 'POC', to: '/pocs', icon: '📇' },
       )
     }
 
     if (user.role === 'manager' || user.role === 'coordinator') {
-      management.push({ label: 'Clients', to: '/clients' }, { label: 'POC', to: '/pocs' })
+      management.push({ label: 'Clients', to: '/clients', icon: '🏢' }, { label: 'POC', to: '/pocs', icon: '📇' })
     }
 
     const tasks: MenuLink[] = []
     if (['admin', 'manager', 'coordinator', 'expert', 'expertlead'].includes(user.role)) {
-      tasks.push({ label: 'All Tasks', to: '/tasks' }, { label: 'Assigned Tasks', to: '/tasks?view=assigned' })
+      tasks.push({ label: 'All Tasks', to: '/tasks', icon: '📝' }, { label: 'Assigned Tasks', to: '/tasks?view=assigned', icon: '📌' })
     }
 
     const managerMenu: MenuLink[] =
       user.role === 'manager'
         ? [
-            { label: 'Dashboard', to: roleDashboardPath.manager },
-            { label: 'Tasks', to: '/tasks' },
-            { label: 'Client', to: '/clients' },
-            { label: 'POC', to: '/pocs' },
-            { label: 'Candidate', to: '/candidates' },
+            { label: 'Dashboard', to: roleDashboardPath.manager, icon: '📊' },
+            { label: 'Tasks', to: '/tasks', icon: '📝' },
+            { label: 'Client', to: '/clients', icon: '🏢' },
+            { label: 'POC', to: '/pocs', icon: '📇' },
+            { label: 'Candidate', to: '/candidates', icon: '🧑‍💼' },
           ]
         : []
 
@@ -65,25 +65,28 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         {user.role === 'manager' ? (
           links.managerMenu.map((item) => (
             <NavLink key={item.label} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
-              {item.label}
+              {item.icon ? <span className="menu-icon">{item.icon}</span> : null}
+              <span className="menu-label">{item.label}</span>
             </NavLink>
           ))
         ) : (
           <NavLink to={links.dashboard} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
-            Dashboard
+            <span className="menu-icon">📊</span>
+            <span className="menu-label">Dashboard</span>
           </NavLink>
         )}
 
         {user.role !== 'manager' && links.management.length > 0 ? (
           <div>
             <button type="button" className="menu-item sidebar__menu-trigger" onClick={() => setOpenGroup((prev) => (prev === 'management' ? 'tasks' : 'management'))}>
-              Management
+              <span className="menu-icon">🧰</span>
+              <span className="menu-label">Management</span>
             </button>
             {openGroup === 'management' ? (
               <div className="submenu">
                 {links.management.map((item) => (
                   <NavLink key={item.to} to={item.to} className={({ isActive }) => `submenu-item ${isActive ? 'submenu-item--active' : ''}`}>
-                    {item.label}
+                    {item.icon ? `${item.icon} ` : ''}{item.label}
                   </NavLink>
                 ))}
               </div>
@@ -94,13 +97,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         {user.role !== 'manager' && links.tasks.length > 0 ? (
           <div>
             <button type="button" className="menu-item sidebar__menu-trigger" onClick={() => setOpenGroup((prev) => (prev === 'tasks' ? 'management' : 'tasks'))}>
-              Tasks
+              <span className="menu-icon">🗂️</span>
+              <span className="menu-label">Tasks</span>
             </button>
             {openGroup === 'tasks' ? (
               <div className="submenu">
                 {links.tasks.map((item) => (
                   <NavLink key={item.label} to={item.to} className={({ isActive }) => `submenu-item ${isActive ? 'submenu-item--active' : ''}`}>
-                    {item.label}
+                    {item.icon ? `${item.icon} ` : ''}{item.label}
                   </NavLink>
                 ))}
               </div>
