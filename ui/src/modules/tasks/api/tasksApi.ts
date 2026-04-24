@@ -186,6 +186,7 @@ const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: Task
   } catch (error) {
     if (error instanceof Error && error.message.trim()) {
       const shouldFallback =
+        (!payload.attachment && path === '/tasks/update') ||
         error.message.includes('415') ||
         error.message.includes('Unsupported Media Type') ||
         error.message.includes('Cannot parse') ||
