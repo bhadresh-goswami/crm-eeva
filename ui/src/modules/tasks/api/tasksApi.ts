@@ -117,7 +117,7 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   task_type_id: asNullableNumber(raw.task_type_id),
   task_type: String(raw.task_type ?? raw.task_type_name ?? '').trim(),
   title: String(raw.title ?? raw.task_title ?? '').trim(),
-  description: String(raw.description ?? '').trim(),
+  description: String(raw.description ?? raw.task_description ?? raw.desc ?? '').trim(),
   due_date: String(raw.due_date ?? raw.date ?? '').trim(),
   time_start: String(raw.time_start ?? raw.start_time ?? raw.startTime ?? raw.from_time ?? raw.time_from ?? '').trim(),
   time_end: String(raw.time_end ?? raw.end_time ?? raw.endTime ?? raw.to_time ?? raw.time_to ?? '').trim(),
@@ -222,6 +222,13 @@ const submitTask = async (path: '/tasks/create' | '/tasks/update', payload: Task
 
 const throwIfApiError = (response: Record<string, unknown> | undefined) => {
   if (!response || typeof response !== 'object') return
+
+  const success = response.success
+  if (typeof success === 'boolean' && !success) {
+    const message = String(response.message ?? response.error ?? 'Request failed').trim()
+    throw new Error(message || 'Request failed')
+  }
+
   const error = String(response.error ?? '').trim()
   if (error) {
     throw new Error(error)
