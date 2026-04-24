@@ -119,7 +119,7 @@ const InvoiceCreatePage = () => {
 
   const subtotal = useMemo(() => lineItems.reduce((sum, row) => sum + row.amountInInr * rate, 0), [lineItems, rate])
   const tds = subtotal * 0.02
-  const total = subtotal - tds
+  const total = subtotal + tds
 
   const onLoadCompletedTasks = async () => {
     if (!clientId) {
@@ -200,11 +200,9 @@ const InvoiceCreatePage = () => {
     }
   }
 
-  const selectedClient = clients.find((client) => client.id === clientId)
-
   return (
     <PageContainer title="Create Invoice" description="Design-ready invoice form for managers and admins.">
-      <div className="invoice-layout">
+      <div className="invoice-layout invoice-print-area">
         <section className="invoice-surface">
           <div className="invoice-toolbar-grid">
             <label className="invoice-field">
@@ -256,6 +254,7 @@ const InvoiceCreatePage = () => {
         </section>
 
         <section className="invoice-surface">
+          <h1 className="invoice-doc-title">Invoice</h1>
           <div className="invoice-meta-grid">
             <div className="invoice-party-grid">
               <div className="invoice-party-block">
@@ -268,8 +267,6 @@ const InvoiceCreatePage = () => {
               <div className="invoice-party-block">
                 <h3 className="invoice-subtitle">To</h3>
                 <input value={toCompany} readOnly />
-                <p className="invoice-party-text">Email: {selectedClient?.email || '-'}</p>
-                <p className="invoice-party-text">Phone: {selectedClient?.mobile || '-'}</p>
               </div>
             </div>
 
@@ -330,9 +327,66 @@ const InvoiceCreatePage = () => {
             </div>
           </div>
 
+          <div className="invoice-signature-box" aria-label="Signature box" />
+
           <div className="invoice-actions">
-            <button type="button" className="button" onClick={() => window.print()}>Print</button>
-            <button type="button" className="button" disabled={!lineItems.length}>Generate PDF</button>
+            <button type="button" className="button" onClick={() => {
+              window.print()
+            }}>Print</button>
+            <button type="button" className="button" disabled={!lineItems.length} onClick={() => {
+              const escapePdfText = (value: string) => value.replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)')
+              const rows = lineItems.map((row) => `${row.qty} | ${row.supportType} | ${formatCurrency(row.amountInInr * rate, currency)}`)
+              const lines = [
+                'Invoice',
+                `Invoice #: ${invoiceNumber}`,
+                `Client: ${toCompany || '-'}`,
+                `Date: ${invoiceDate}`,
+                '',
+                'Qty | Support Type | Amount',
+                ...rows,
+                '',
+                `Subtotal: ${formatCurrency(subtotal, currency)}`,
+                `TDS (2%): ${formatCurrency(tds, currency)}`,
+                `Total: ${formatCurrency(total, currency)}`
+              ]
+
+              const content = ['BT', '/F1 12 Tf', '36 800 Td']
+              lines.forEach((line, index) => {
+                if (index > 0) content.push('0 -16 Td')
+                content.push(`(${escapePdfText(line)}) Tj`)
+              })
+              content.push('ET')
+
+              const stream = content.join('\n')
+              const objects = [
+                '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+                '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+                '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj',
+                '4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
+                `5 0 obj << /Length ${stream.length} >> stream\n${stream}\nendstream endobj`,
+              ]
+
+              let pdf = '%PDF-1.4\n'
+              const offsets: number[] = []
+              objects.forEach((obj) => {
+                offsets.push(pdf.length)
+                pdf += `${obj}\n`
+              })
+              const xrefStart = pdf.length
+              pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+              offsets.forEach((offset) => {
+                pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
+              })
+              pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`
+
+              const blob = new Blob([pdf], { type: 'application/pdf' })
+              const url = URL.createObjectURL(blob)
+              const anchor = document.createElement('a')
+              anchor.href = url
+              anchor.download = `${invoiceNumber || 'invoice'}.pdf`
+              anchor.click()
+              URL.revokeObjectURL(url)
+            }}>Generate PDF</button>
             <button type="button" className="button button--primary" disabled={!lineItems.length || isSaving} onClick={() => void onSaveInvoice()}>{isSaving ? 'Saving…' : 'Save Invoice'}</button>
           </div>
         </section>

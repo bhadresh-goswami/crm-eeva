@@ -327,3 +327,46 @@
     grid-template-columns: 1fr;
   }
 }
+
+.invoice-doc-title {
+  margin: 0 0 10px;
+  font-size: var(--font-h1);
+  color: var(--color-text);
+}
+
+.invoice-signature-box {
+  margin-top: 12px;
+  margin-left: auto;
+  width: 220px;
+  height: 76px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .invoice-print-area,
+  .invoice-print-area * {
+    visibility: visible !important;
+  }
+
+  .invoice-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff;
+  }
+
+  .invoice-actions,
+  .invoice-load-btn,
+  .invoice-rate-info,
+  .header,
+  .sidebar {
+    display: none !important;
+  }
+}
