@@ -193,6 +193,11 @@ const ManagerDashboard = () => {
     return { label: 'Assign', disabled: true }
   }
 
+  const liveActivityTasks = useMemo(
+    () => liveTasks.filter((task) => ['pending', 'assigned'].includes(task.status)).slice(0, 6),
+    [liveTasks],
+  )
+
   const handleAssign = async () => {
     if (!assigningTask || !selectedExpertId) return
 
@@ -251,19 +256,6 @@ const ManagerDashboard = () => {
           </ChartCard>
         </div>
       </div>
-      <aside className="activity-panel section">
-        <h3 className="tasks-activity__title">Live Activity</h3>
-        {liveTasks.length === 0 ? <p className="card-text">No tasks found.</p> : null}
-        {liveTasks.slice(0, 4).map((task) => (
-          <div className="activity-item" key={`activity-${task.id}`}>
-            <span className="dot" />
-            <div>
-              <p className="name">{task.title}</p>
-              <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
-            </div>
-          </div>
-        ))}
-      </aside>
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
@@ -283,8 +275,24 @@ const ManagerDashboard = () => {
 
       {tasksError ? <p className="dashboard-notice">{tasksError}</p> : null}
 
-      <div className="roles-table__wrapper dashboard-table-wrap">
-        <table className="roles-table dashboard-table">
+      <div className="manager-dashboard-layout">
+        <aside className="activity-panel section">
+          <h3 className="tasks-activity__title">Live Activity</h3>
+          {liveActivityTasks.length === 0 ? <p className="card-text">No live tasks running.</p> : null}
+          {liveActivityTasks.map((task) => (
+            <div className="activity-item" key={`activity-${task.id}`}>
+              <span className="dot" />
+              <div>
+                <p className="name">{task.title}</p>
+                <p className="email">{task.dueDate || '—'} • {task.startTime ? formatToAmPm(task.startTime) : '—'}</p>
+                <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
+              </div>
+            </div>
+          ))}
+        </aside>
+
+        <div className="roles-table__wrapper dashboard-table-wrap">
+          <table className="roles-table dashboard-table">
           <thead>
             <tr>
               <th>SR No</th>
@@ -316,7 +324,7 @@ const ManagerDashboard = () => {
                     <td>{task.title}</td>
                     <td>{task.candidate || '—'}</td>
                     <td>{task.client || '—'}</td>
-                    <td>{task.startTime && task.endTime ? `${formatToAmPm(task.startTime)} - ${formatToAmPm(task.endTime)}` : task.scheduleTime || '—'}</td>
+                    <td className="dashboard-time">{task.startTime && task.endTime ? `${formatToAmPm(task.startTime)} - ${formatToAmPm(task.endTime)}` : task.scheduleTime || '—'}</td>
                     <td><span className="status-pill">{task.status}</span></td>
                     <td>{task.assignedToName || '—'}</td>
                     <td>
@@ -347,7 +355,8 @@ const ManagerDashboard = () => {
               })
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       <AnimatedModal
