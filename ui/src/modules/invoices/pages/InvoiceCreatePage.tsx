@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
-import { createInvoice, getCompletedTasks, type CompletedTask } from '../api/invoicesApi'
+import { createInvoice, getCompletedTasks, getNextInvoiceNumber, type CompletedTask } from '../api/invoicesApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import PageContainer from '../../../shared/components/PageContainer'
 import '../invoices.css'
@@ -33,8 +33,6 @@ const formatCurrency = (value: number, currency: string) => {
   return `${symbol}${value.toFixed(2)}`
 }
 
-const toInputDate = (value: string) => value.slice(0, 10)
-
 const InvoiceCreatePage = () => {
   const { showToast } = useAlert()
 
@@ -44,7 +42,11 @@ const InvoiceCreatePage = () => {
   const [toDate, setToDate] = useState('2026-04-24')
   const [currency, setCurrency] = useState('INR')
   const [notes, setNotes] = useState('')
-  const [invoiceNumber, setInvoiceNumber] = useState('INV-0007612')
+
+  const [fromCompany, setFromCompany] = useState('')
+  const [toCompany, setToCompany] = useState('')
+
+  const [invoiceNumber, setInvoiceNumber] = useState('')
   const [invoiceDate, setInvoiceDate] = useState('2026-04-24')
   const [paymentDueDate, setPaymentDueDate] = useState('2026-05-01')
 
@@ -61,21 +63,30 @@ const InvoiceCreatePage = () => {
   const isDateRangeValid = fromDate <= toDate
 
   useEffect(() => {
-    const loadClients = async () => {
+    const loadInitial = async () => {
       try {
-        const data = await getClients()
-        setClients(data)
-        if (!clientId && data.length > 0) {
-          setClientId(data[0].id)
+        const [clientsData, nextInvoice] = await Promise.all([getClients(), getNextInvoiceNumber()])
+        setClients(clientsData)
+        if (clientsData.length > 0) {
+          setClientId(clientsData[0].id)
+          setToCompany(clientsData[0].company_name || clientsData[0].name)
+        }
+        if (nextInvoice) {
+          setInvoiceNumber(nextInvoice)
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to load clients.'
+        const message = error instanceof Error ? error.message : 'Failed to load invoice defaults.'
         showToast({ type: 'error', message })
       }
     }
 
-    void loadClients()
-  }, [clientId, showToast])
+    void loadInitial()
+  }, [showToast])
+
+  useEffect(() => {
+    const selected = clients.find((client) => client.id === clientId)
+    setToCompany(selected?.company_name || selected?.name || '')
+  }, [clientId, clients])
 
   const fetchLiveRate = async (targetCurrency: string) => {
     if (targetCurrency === 'INR') {
@@ -89,21 +100,13 @@ const InvoiceCreatePage = () => {
 
     try {
       const response = await fetch(LIVE_RATE_API)
-      if (!response.ok) {
-        throw new Error(`Rate API failed (${response.status})`)
-      }
-
-      const payload = (await response.json()) as { rates?: Record<string, number>; time_last_update_utc?: string }
+      if (!response.ok) throw new Error()
+      const payload = (await response.json()) as { rates?: Record<string, number> }
       const nextRate = payload.rates?.[targetCurrency]
-
-      if (!nextRate || !Number.isFinite(nextRate)) {
-        throw new Error('Selected currency not available from rate API.')
-      }
-
+      if (!nextRate || !Number.isFinite(nextRate)) throw new Error()
       setRate(nextRate)
     } catch {
-      const fallback = FALLBACK_RATE[targetCurrency] ?? 1
-      setRate(fallback)
+      setRate(FALLBACK_RATE[targetCurrency] ?? 1)
       setRateError(`Live rate unavailable. Using fallback rate for ${targetCurrency}.`)
     } finally {
       setRateLoading(false)
@@ -133,20 +136,16 @@ const InvoiceCreatePage = () => {
 
     try {
       setIsLoadingTasks(true)
-      const tasks = await getCompletedTasks({
-        client_id: clientId,
-        from_date: fromDate,
-        to_date: toDate,
-      })
+      const tasks = await getCompletedTasks({ client_id: clientId, from_date: fromDate, to_date: toDate })
 
       const grouped = tasks.reduce<Record<string, GroupedLineItem>>((acc, task) => {
         const key = task.support_type || 'Support'
         if (!acc[key]) {
-          acc[key] = { supportType: key, qty: 1, amountInInr: task.amount, taskIds: [task.id] }
+          acc[key] = { supportType: key, qty: 1, amountInInr: task.amount, taskIds: [task.task_id] }
         } else {
           acc[key].qty += 1
           acc[key].amountInInr += task.amount
-          acc[key].taskIds.push(task.id)
+          acc[key].taskIds.push(task.task_id)
         }
         return acc
       }, {})
@@ -154,12 +153,11 @@ const InvoiceCreatePage = () => {
       const nextLineItems = Object.values(grouped)
       setLoadedTasks(tasks)
       setLineItems(nextLineItems)
-      setLoadMessage(nextLineItems.length ? `${nextLineItems.length} line item(s) loaded from completed tasks.` : 'No completed tasks found.')
+      setLoadMessage(nextLineItems.length ? `${nextLineItems.length} line item(s) loaded from completed tasks.` : 'No completed tasks available for invoicing')
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load completed tasks.'
-      setLoadMessage(message)
       setLineItems([])
       setLoadedTasks([])
+      setLoadMessage(error instanceof Error ? error.message : 'Failed to load completed tasks.')
     } finally {
       setIsLoadingTasks(false)
     }
@@ -173,7 +171,6 @@ const InvoiceCreatePage = () => {
 
     try {
       setIsSaving(true)
-
       await createInvoice({
         client_id: clientId,
         from_date: fromDate,
@@ -186,34 +183,24 @@ const InvoiceCreatePage = () => {
         subtotal,
         tds_amount: tds,
         total_amount: total,
-        grouped_items: lineItems.map((row) => ({
-          support_type: row.supportType,
-          qty: row.qty,
-          amount: row.amountInInr * rate,
-          task_ids: row.taskIds,
-        })),
-        items: loadedTasks.map((task) => ({
-          task_id: task.id,
-          qty: 1,
-          support_type: task.support_type,
-          amount: task.amount * rate,
-          status: 'pending',
-        })),
+        grouped_items: lineItems.map((row) => ({ support_type: row.supportType, qty: row.qty, amount: row.amountInInr * rate, task_ids: row.taskIds })),
+        items: loadedTasks.map((task) => ({ task_id: task.task_id, qty: 1, support_type: task.support_type, amount: task.amount * rate, status: 'pending' })),
       })
 
       showToast({ type: 'success', message: 'Invoice saved successfully.' })
-      setLoadMessage('Invoice saved. Already invoiced tasks are now excluded from completed tasks API.')
       setLineItems([])
       setLoadedTasks([])
+      setLoadMessage('Invoice saved. No duplicate tasks can be invoiced.')
+      const nextInvoice = await getNextInvoiceNumber()
+      if (nextInvoice) setInvoiceNumber(nextInvoice)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to save invoice.'
-      showToast({ type: 'error', message })
+      showToast({ type: 'error', message: error instanceof Error ? error.message : 'Failed to save invoice.' })
     } finally {
       setIsSaving(false)
     }
   }
 
-  const selectedClientName = clients.find((client) => client.id === clientId)?.name ?? 'John Doe'
+  const selectedClient = clients.find((client) => client.id === clientId)
 
   return (
     <PageContainer title="Create Invoice" description="Design-ready invoice form for managers and admins.">
@@ -225,7 +212,7 @@ const InvoiceCreatePage = () => {
               <select value={clientId ?? ''} onChange={(event) => setClientId(Number(event.target.value) || null)}>
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>
-                    {client.name}
+                    {client.company_name || client.name}
                   </option>
                 ))}
               </select>
@@ -273,41 +260,31 @@ const InvoiceCreatePage = () => {
             <div className="invoice-party-grid">
               <div className="invoice-party-block">
                 <h3 className="invoice-subtitle">From</h3>
-                <input value="bEdge Tech Services" readOnly aria-label="From party" />
-                <p className="invoice-party-text">795 Freedom Ave, Suite 600</p>
-                <p className="invoice-party-text">New York, NY 94107</p>
-                <p className="invoice-party-text">Phone: (123) 123-9876</p>
-                <p className="invoice-party-text">Email: contact@ironadmin.com</p>
+                <input value={fromCompany} onChange={(event) => setFromCompany(event.target.value)} placeholder="Enter company name" />
+                <p className="invoice-party-text">Email: Sharmakishank9@gmail.com</p>
+                <p className="invoice-party-text">Phone: +91 9079018767</p>
               </div>
 
               <div className="invoice-party-block">
                 <h3 className="invoice-subtitle">To</h3>
-                <select value={clientId ?? ''} onChange={(event) => setClientId(Number(event.target.value) || null)} aria-label="Invoice recipient">
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="invoice-party-text">795 Freedom Ave, Suite 600</p>
-                <p className="invoice-party-text">New York, CA 94107</p>
-                <p className="invoice-party-text">Phone: (123) 123-9876</p>
-                <p className="invoice-party-text">Email: billing@{selectedClientName.toLowerCase().replaceAll(' ', '')}.com</p>
+                <input value={toCompany} readOnly />
+                <p className="invoice-party-text">Email: {selectedClient?.email || '-'}</p>
+                <p className="invoice-party-text">Phone: {selectedClient?.mobile || '-'}</p>
               </div>
             </div>
 
             <div className="invoice-dates-grid">
               <label className="invoice-field">
                 <span className="invoice-label">Invoice #</span>
-                <input value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} />
+                <input value={invoiceNumber} readOnly />
               </label>
               <label className="invoice-field">
                 <span className="invoice-label">Invoice Date</span>
-                <input type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(toInputDate(event.target.value))} />
+                <input type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} />
               </label>
               <label className="invoice-field">
                 <span className="invoice-label">Payment Due Date</span>
-                <input type="date" value={paymentDueDate} onChange={(event) => setPaymentDueDate(toInputDate(event.target.value))} />
+                <input type="date" value={paymentDueDate} onChange={(event) => setPaymentDueDate(event.target.value)} />
               </label>
             </div>
           </div>
@@ -333,9 +310,7 @@ const InvoiceCreatePage = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={3} className="invoice-empty-row">
-                    No line items loaded yet.
-                  </td>
+                  <td colSpan={3} className="invoice-empty-row">No completed tasks available for invoicing</td>
                 </tr>
               )}
             </tbody>
@@ -344,42 +319,21 @@ const InvoiceCreatePage = () => {
           <div className="invoice-footer-grid">
             <label className="invoice-field">
               <span className="invoice-label">Additional Notes (Optional)</span>
-              <textarea
-                className="invoice-notes"
-                value={notes}
-                maxLength={500}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Add notes, terms or special instructions for this invoice."
-              />
+              <textarea className="invoice-notes" value={notes} maxLength={500} onChange={(event) => setNotes(event.target.value)} placeholder="Add notes..." />
               <small className="invoice-char-count">{notes.length}/500 characters</small>
             </label>
 
             <div className="invoice-totals-box" aria-live="polite">
-              <div className="invoice-total-row">
-                <span>Subtotal</span>
-                <span>{formatCurrency(subtotal, currency)}</span>
-              </div>
-              <div className="invoice-total-row">
-                <span>TDS (2%)</span>
-                <span>-{formatCurrency(tds, currency)}</span>
-              </div>
-              <div className="invoice-total-row invoice-total-row--strong">
-                <span>Total Amount Due</span>
-                <span>{formatCurrency(total, currency)}</span>
-              </div>
+              <div className="invoice-total-row"><span>Subtotal</span><span>{formatCurrency(subtotal, currency)}</span></div>
+              <div className="invoice-total-row"><span>TDS (2%)</span><span>-{formatCurrency(tds, currency)}</span></div>
+              <div className="invoice-total-row invoice-total-row--strong"><span>Total Amount Due</span><span>{formatCurrency(total, currency)}</span></div>
             </div>
           </div>
 
           <div className="invoice-actions">
-            <button type="button" className="button" onClick={() => window.print()}>
-              Print
-            </button>
-            <button type="button" className="button" disabled={!lineItems.length}>
-              Generate PDF
-            </button>
-            <button type="button" className="button button--primary" disabled={!lineItems.length || isSaving} onClick={() => void onSaveInvoice()}>
-              {isSaving ? 'Saving…' : 'Save Invoice'}
-            </button>
+            <button type="button" className="button" onClick={() => window.print()}>Print</button>
+            <button type="button" className="button" disabled={!lineItems.length}>Generate PDF</button>
+            <button type="button" className="button button--primary" disabled={!lineItems.length || isSaving} onClick={() => void onSaveInvoice()}>{isSaving ? 'Saving…' : 'Save Invoice'}</button>
           </div>
         </section>
       </div>

@@ -401,6 +401,10 @@ elseif ($uri === "/invoices/stats" && $method === "GET") {
     authorize($user,['admin','manager']);
     (new InvoiceController())->stats();
 }
+elseif ($uri === "/invoices/next-number" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->nextInvoiceNumber();
+}
 elseif (preg_match('#^/invoices/(\d+)/update-status$#', $uri, $matches) && $method === "PUT") {
     authorize($user,['admin','manager']);
     (new InvoiceController())->updateStatus((int)$matches[1]);

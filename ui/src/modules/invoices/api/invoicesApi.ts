@@ -1,9 +1,13 @@
 import { apiRequest } from '../../../api/client'
 
 export type CompletedTask = {
+  task_id: number
   id: number
   client_id: number
   client_name: string
+  company_name: string
+  client_phone: string
+  client_email: string
   support_type: string
   amount: number
   due_date: string
@@ -34,9 +38,13 @@ const getList = (value: unknown): unknown[] => {
 }
 
 const normalizeTask = (raw: UnknownMap): CompletedTask => ({
-  id: Number(raw.id ?? 0),
+  task_id: Number(raw.task_id ?? raw.id ?? 0),
+  id: Number(raw.id ?? raw.task_id ?? 0),
   client_id: Number(raw.client_id ?? 0),
   client_name: String(raw.client_name ?? '').trim(),
+  company_name: String(raw.company_name ?? '').trim(),
+  client_phone: String(raw.client_phone ?? raw.phone ?? '').trim(),
+  client_email: String(raw.client_email ?? raw.email ?? '').trim(),
   support_type: String(raw.support_type ?? raw.task_type ?? 'Support').trim(),
   amount: Number(raw.amount ?? raw.total_amount ?? 0),
   due_date: String(raw.due_date ?? '').trim(),
@@ -53,7 +61,12 @@ export const getCompletedTasks = async (query: { client_id: number; from_date: s
 
   return getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
-    .filter((item): item is CompletedTask => Boolean(item?.id))
+    .filter((item): item is CompletedTask => Boolean(item?.task_id))
+}
+
+export const getNextInvoiceNumber = async () => {
+  const response = await apiRequest<{ data?: { invoice_number?: string } }>('/invoices/next-number')
+  return String(response?.data?.invoice_number ?? '').trim()
 }
 
 export type CreateInvoicePayload = {
