@@ -6,8 +6,8 @@
 .invoice-surface {
   background: #ffffff;
   border: 1px solid #d9dee6;
-  border-radius: 14px;
-  padding: 20px 24px;
+  border-radius: 10px;
+  padding: 16px 18px;
 }
 
 .invoice-toolbar-grid {
@@ -27,9 +27,9 @@
 }
 
 .invoice-label {
-  color: #374151;
-  font-size: 14px;
-  font-weight: 500;
+  color: var(--color-secondary);
+  font-size: var(--font-small);
+  font-weight: 600;
   line-height: 1.2;
 }
 
@@ -38,12 +38,14 @@
 .invoice-status-select,
 .invoice-notes {
   width: 100%;
-  height: 48px;
+  height: 40px;
   border: 1px solid #c9d1db;
-  border-radius: 12px;
-  padding: 0 14px;
-  font: 500 20px/1.2 'Inter', system-ui, sans-serif;
-  color: #111827;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: var(--font-body);
+  font-weight: 500;
+  font-family: var(--font-family-base);
+  color: var(--color-text);
   background: #ffffff;
 }
 
@@ -53,8 +55,8 @@
 
 .invoice-date-range {
   border: 1px solid #c9d1db;
-  border-radius: 12px;
-  min-height: 48px;
+  border-radius: 10px;
+  min-height: 40px;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -64,28 +66,28 @@
 
 .invoice-date-range input {
   border: 0;
-  height: 44px;
+  height: 36px;
   padding: 0 8px;
-  font-size: 17px;
+  font-size: var(--font-body);
   min-width: 120px;
 }
 
 .invoice-date-sep {
-  font-size: 15px;
+  font-size: var(--font-small);
   font-weight: 600;
   color: #6b7280;
 }
 
 .invoice-load-btn {
-  height: 48px;
+  height: 40px;
   min-width: 170px;
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .invoice-help-text {
   margin-top: 10px;
   color: #516070;
-  font-size: 13px;
+  font-size: var(--font-small);
 }
 
 .invoice-help-text--error {
@@ -99,26 +101,26 @@
 .invoice-grid-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 18px;
+  font-size: var(--font-table);
 }
 
 .invoice-grid-table th,
 .invoice-grid-table td {
-  padding: 16px 14px;
+  padding: 10px 12px;
   border-bottom: 1px solid #d9dee6;
   text-align: left;
 }
 
 .invoice-grid-table th {
   background: #f5f7fb;
-  color: #0f172a;
-  font-size: 16px;
+  color: var(--color-text);
+  font-size: var(--font-table);
   font-weight: 700;
 }
 
 .invoice-grid-table td {
   color: #1f2937;
-  font-size: 15px;
+  font-size: var(--font-table);
 }
 
 .invoice-grid-table .numeric {
@@ -128,11 +130,11 @@
 .invoice-empty-row {
   text-align: center !important;
   color: #64748b !important;
-  padding: 22px 14px !important;
+  padding: 14px 12px !important;
 }
 
 .invoice-footer-grid {
-  margin-top: 18px;
+  margin-top: 14px;
   display: grid;
   grid-template-columns: 1.5fr 1fr;
   gap: 16px;
@@ -140,22 +142,22 @@
 }
 
 .invoice-notes {
-  min-height: 130px;
+  min-height: 112px;
   height: auto;
   padding: 12px 14px;
   resize: vertical;
-  font-size: 14px;
+  font-size: var(--font-body);
   line-height: 1.45;
 }
 
 .invoice-char-count {
   color: #6b7280;
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 
 .invoice-totals-box {
   border: 1px solid #d9dee6;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
 }
 
@@ -163,9 +165,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid #d9dee6;
-  font-size: 14px;
+  font-size: var(--font-body);
   color: #374151;
 }
 
@@ -175,16 +177,16 @@
 
 .invoice-total-row--strong {
   background: #f2f6ff;
-  color: #0f172a;
-  font-size: 21px;
+  color: var(--color-text);
+  font-size: var(--font-h2);
   font-weight: 700;
 }
 
 .invoice-actions {
-  margin-top: 18px;
+  margin-top: 14px;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -204,8 +206,8 @@
   padding: 4px 14px;
   border-radius: 999px;
   background: #eef2ff;
-  color: #2c37b7;
-  font-size: 15px;
+  color: var(--color-primary);
+  font-size: var(--font-table);
   font-weight: 700;
 }
 
@@ -217,21 +219,21 @@
 }
 
 .invoice-header-title {
-  font-size: 24px;
-  color: #0f172a;
+  font-size: var(--font-h2);
+  color: var(--color-text);
   margin: 0 0 4px;
 }
 
 .invoice-header-meta,
 .invoice-header-stats p {
   margin: 2px 0;
-  color: #475569;
-  font-size: 14px;
+  color: var(--color-secondary);
+  font-size: var(--font-body);
 }
 
 .invoice-status-select {
   height: 40px;
-  font-size: 15px;
+  font-size: var(--font-table);
 }
 
 @media (max-width: 1200px) {
