@@ -418,3 +418,84 @@
 .invoice-modal-header h3 {
   margin: 0;
 }
+
+.modal-a4-shell {
+  width: min(900px, 100%);
+  padding: 14px;
+}
+
+.invoice-modal-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.modal-a4 {
+  width: 794px;
+  min-height: 1123px;
+  background: #fff;
+  overflow-y: auto;
+  padding: 30px;
+  margin: 0 auto;
+  border: 1px solid #e5e7eb;
+}
+
+.invoice-preview-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.invoice-preview-totals {
+  margin-top: 18px;
+  margin-left: auto;
+  width: min(320px, 100%);
+}
+
+.invoice-preview-totals p {
+  margin: 8px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.invoice-preview-total {
+  border-top: 1px solid #d1d5db;
+  padding-top: 10px;
+  font-size: 1.05rem;
+}
+
+@media (max-width: 980px) {
+  .modal-a4 {
+    width: 100%;
+    min-height: auto;
+    padding: 18px;
+  }
+
+  .invoice-preview-header {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .invoice-modal-backdrop {
+    position: static;
+    background: #fff;
+    display: block;
+    padding: 0;
+  }
+
+  .invoice-modal-header,
+  .header,
+  .sidebar {
+    display: none !important;
+  }
+
+  .modal-a4 {
+    width: 100%;
+    min-height: auto;
+    border: 0;
+    margin: 0;
+    padding: 0;
+  }
+}
