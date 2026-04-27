@@ -10,41 +10,79 @@ class InvoiceController {
         return $conn;
     }
 
+    private function hasColumn(PDO $conn, string $table, string $column): bool {
+        $stmt = $conn->prepare("SHOW COLUMNS FROM {$table} LIKE ?");
+        $stmt->execute([$column]);
+        return (bool)$stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
     private function ensureSchema(PDO $conn): void {
         $conn->exec("CREATE TABLE IF NOT EXISTS invoices (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            invoice_number VARCHAR(100) NOT NULL UNIQUE,
-            client_id INT NOT NULL,
-            from_date DATE NOT NULL,
-            to_date DATE NOT NULL,
-            currency VARCHAR(10) NOT NULL DEFAULT 'INR',
-            subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
-            tds_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-            total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-            status VARCHAR(20) NOT NULL DEFAULT 'pending',
-            invoice_date DATE NULL,
-            payment_due_date DATE NULL,
-            notes TEXT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_invoice_client (client_id),
-            INDEX idx_invoice_status (status)
+            id INT(11) NOT NULL AUTO_INCREMENT,
+            invoice_number VARCHAR(50) NULL,
+            client_id INT(11) NOT NULL,
+            from_date DATE NULL,
+            to_date DATE NULL,
+            currency VARCHAR(10) NULL DEFAULT 'INR',
+            subtotal DECIMAL(10,2) NULL,
+            tds_amount DECIMAL(10,2) NULL,
+            total_amount DECIMAL(10,2) NULL,
+            status ENUM('pending','partial','paid') NULL DEFAULT 'pending',
+            created_by INT(11) NULL,
+            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_invoice_number (invoice_number),
+            KEY idx_invoice_client (client_id),
+            KEY idx_invoice_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+        $invoiceColumns = [
+            'invoice_number' => "ALTER TABLE invoices ADD COLUMN invoice_number VARCHAR(50) NULL",
+            'client_id' => "ALTER TABLE invoices ADD COLUMN client_id INT(11) NOT NULL",
+            'from_date' => "ALTER TABLE invoices ADD COLUMN from_date DATE NULL",
+            'to_date' => "ALTER TABLE invoices ADD COLUMN to_date DATE NULL",
+            'currency' => "ALTER TABLE invoices ADD COLUMN currency VARCHAR(10) NULL DEFAULT 'INR'",
+            'subtotal' => "ALTER TABLE invoices ADD COLUMN subtotal DECIMAL(10,2) NULL",
+            'tds_amount' => "ALTER TABLE invoices ADD COLUMN tds_amount DECIMAL(10,2) NULL",
+            'total_amount' => "ALTER TABLE invoices ADD COLUMN total_amount DECIMAL(10,2) NULL",
+            'status' => "ALTER TABLE invoices ADD COLUMN status ENUM('pending','partial','paid') NULL DEFAULT 'pending'",
+            'created_by' => "ALTER TABLE invoices ADD COLUMN created_by INT(11) NULL",
+            'created_at' => "ALTER TABLE invoices ADD COLUMN created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP",
+            'updated_at' => "ALTER TABLE invoices ADD COLUMN updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        ];
+        foreach ($invoiceColumns as $column => $sql) {
+            if (!$this->hasColumn($conn, 'invoices', $column)) {
+                $conn->exec($sql);
+            }
+        }
+
         $conn->exec("CREATE TABLE IF NOT EXISTS invoice_items (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            invoice_id INT NOT NULL,
-            task_id INT NOT NULL,
-            qty INT NOT NULL DEFAULT 1,
-            support_type VARCHAR(255) NOT NULL,
-            amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-            status VARCHAR(20) NOT NULL DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_invoice_task (invoice_id, task_id),
-            INDEX idx_invoice_items_task (task_id),
-            CONSTRAINT fk_invoice_items_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            id INT(11) NOT NULL AUTO_INCREMENT,
+            invoice_id INT(11) NULL,
+            task_id INT(11) NULL,
+            support_type VARCHAR(100) NULL,
+            amount DECIMAL(10,2) NULL,
+            status ENUM('not_paid','paid','settled') NULL DEFAULT 'not_paid',
+            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_invoice_items_invoice (invoice_id),
+            KEY idx_invoice_items_task (task_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $invoiceItemColumns = [
+            'invoice_id' => "ALTER TABLE invoice_items ADD COLUMN invoice_id INT(11) NULL",
+            'task_id' => "ALTER TABLE invoice_items ADD COLUMN task_id INT(11) NULL",
+            'support_type' => "ALTER TABLE invoice_items ADD COLUMN support_type VARCHAR(100) NULL",
+            'amount' => "ALTER TABLE invoice_items ADD COLUMN amount DECIMAL(10,2) NULL",
+            'status' => "ALTER TABLE invoice_items ADD COLUMN status ENUM('not_paid','paid','settled') NULL DEFAULT 'not_paid'",
+            'created_at' => "ALTER TABLE invoice_items ADD COLUMN created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP",
+        ];
+        foreach ($invoiceItemColumns as $column => $sql) {
+            if (!$this->hasColumn($conn, 'invoice_items', $column)) {
+                $conn->exec($sql);
+            }
+        }
 
         $taskInvoiceColumn = $conn->query("SHOW COLUMNS FROM tasks LIKE 'invoice_id'")->fetchAll(PDO::FETCH_ASSOC);
         if (!$taskInvoiceColumn) {
@@ -62,12 +100,6 @@ class InvoiceController {
         return is_array($raw) ? $raw : [];
     }
 
-    private function hasColumn(PDO $conn, string $table, string $column): bool {
-        $stmt = $conn->prepare("SHOW COLUMNS FROM {$table} LIKE ?");
-        $stmt->execute([$column]);
-        return (bool)$stmt->fetch(PDO::FETCH_ASSOC);
-    }
-
     private function paymentStatusId(PDO $conn, string $name): ?int {
         $stmt = $conn->prepare('SELECT id FROM payment_status_master WHERE LOWER(name) = LOWER(?) LIMIT 1');
         $stmt->execute([$name]);
@@ -78,24 +110,14 @@ class InvoiceController {
     public function nextInvoiceNumber(): void {
         try {
             $conn = $this->getConnection();
-            $stmt = $conn->query("SELECT invoice_number FROM invoices ORDER BY id DESC LIMIT 1");
-            $last = (string)$stmt->fetchColumn();
-
+            $last = (string)$conn->query("SELECT invoice_number FROM invoices ORDER BY id DESC LIMIT 1")->fetchColumn();
             $lastNumber = 0;
             if (preg_match('/INV-(\d+)/', $last, $matches)) {
                 $lastNumber = (int)$matches[1];
             }
-
             $next = $lastNumber + 1;
             $invoiceNumber = 'INV-' . str_pad((string)$next, 9, '0', STR_PAD_LEFT);
-
-            echo json_encode([
-                'success' => true,
-                'data' => [
-                    'invoice_number' => $invoiceNumber,
-                    'next_number' => $next,
-                ],
-            ]);
+            echo json_encode(['success' => true, 'data' => ['invoice_number' => $invoiceNumber, 'next_number' => $next]]);
         } catch (Throwable $error) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $error->getMessage()]);
@@ -105,7 +127,6 @@ class InvoiceController {
     public function completedTasks(): void {
         try {
             $conn = $this->getConnection();
-
             $clientId = $_GET['client_id'] ?? null;
             $fromDate = $_GET['from_date'] ?? null;
             $toDate = $_GET['to_date'] ?? null;
@@ -164,14 +185,10 @@ class InvoiceController {
             }
 
             $query .= ' ORDER BY t.due_date ASC, t.id ASC';
-
             $stmt = $conn->prepare($query);
             $stmt->execute($params);
 
-            echo json_encode([
-                'success' => true,
-                'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
-            ]);
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
         } catch (Throwable $error) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $error->getMessage()]);
@@ -193,27 +210,22 @@ class InvoiceController {
 
             $taskIds = array_values(array_unique(array_map(static fn($item) => (int)($item['task_id'] ?? 0), $payload['items'])));
             $taskIds = array_values(array_filter($taskIds, static fn($id) => $id > 0));
-
             if (!$taskIds) {
                 throw new Exception('No valid tasks to invoice.');
             }
 
             $placeholders = implode(',', array_fill(0, count($taskIds), '?'));
-            $dupStmt = $conn->prepare("SELECT id FROM tasks WHERE id IN ($placeholders) AND invoice_id IS NOT NULL");
-            $dupStmt->execute($taskIds);
-            if ($dupStmt->fetch(PDO::FETCH_ASSOC)) {
-                throw new Exception('Some tasks are already invoiced. Please reload completed tasks.');
+            $dupTaskStmt = $conn->prepare("SELECT id FROM tasks WHERE id IN ($placeholders) AND invoice_id IS NOT NULL LIMIT 1");
+            $dupTaskStmt->execute($taskIds);
+            if ($dupTaskStmt->fetch(PDO::FETCH_ASSOC)) {
+                throw new Exception('Some tasks are already invoiced. Please reload tasks.');
             }
 
-            $dupInvoiceItem = $conn->prepare("SELECT task_id FROM invoice_items WHERE task_id IN ($placeholders) LIMIT 1");
-            $dupInvoiceItem->execute($taskIds);
-            if ($dupInvoiceItem->fetch(PDO::FETCH_ASSOC)) {
-                throw new Exception('Some tasks already linked with invoice items. Please reload completed tasks.');
+            $dupItemStmt = $conn->prepare("SELECT task_id FROM invoice_items WHERE task_id IN ($placeholders) LIMIT 1");
+            $dupItemStmt->execute($taskIds);
+            if ($dupItemStmt->fetch(PDO::FETCH_ASSOC)) {
+                throw new Exception('Some tasks are already linked in invoice items. Please reload tasks.');
             }
-
-            $subtotal = (float)($payload['subtotal'] ?? 0);
-            $tdsAmount = (float)($payload['tds_amount'] ?? 0);
-            $totalAmount = (float)($payload['total_amount'] ?? ($subtotal - $tdsAmount));
 
             $invoiceNumber = trim((string)($payload['invoice_number'] ?? ''));
             if ($invoiceNumber === '') {
@@ -225,24 +237,22 @@ class InvoiceController {
                 $invoiceNumber = 'INV-' . str_pad((string)($lastNumber + 1), 9, '0', STR_PAD_LEFT);
             }
 
-            $invoiceStmt = $conn->prepare('INSERT INTO invoices (invoice_number, client_id, from_date, to_date, currency, subtotal, tds_amount, total_amount, status, invoice_date, payment_due_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $invoiceStmt = $conn->prepare('INSERT INTO invoices (invoice_number, client_id, from_date, to_date, currency, subtotal, tds_amount, total_amount, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
             $invoiceStmt->execute([
                 $invoiceNumber,
                 (int)$payload['client_id'],
                 $payload['from_date'],
                 $payload['to_date'],
                 $payload['currency'] ?? 'INR',
-                $subtotal,
-                $tdsAmount,
-                $totalAmount,
+                (float)($payload['subtotal'] ?? 0),
+                (float)($payload['tds_amount'] ?? 0),
+                (float)($payload['total_amount'] ?? 0),
                 'pending',
-                $payload['invoice_date'] ?? null,
-                $payload['payment_due_date'] ?? null,
-                $payload['notes'] ?? null,
+                isset($payload['created_by']) ? (int)$payload['created_by'] : null,
             ]);
 
             $invoiceId = (int)$conn->lastInsertId();
-            $itemStmt = $conn->prepare('INSERT INTO invoice_items (invoice_id, task_id, qty, support_type, amount, status) VALUES (?, ?, ?, ?, ?, ?)');
+            $itemStmt = $conn->prepare("INSERT INTO invoice_items (invoice_id, task_id, support_type, amount, status) VALUES (?, ?, ?, ?, 'not_paid')");
             $taskUpdateStmt = $conn->prepare("UPDATE tasks SET billing_status = 'invoiced', invoice_id = ? WHERE id = ?");
 
             foreach ($payload['items'] as $item) {
@@ -252,25 +262,15 @@ class InvoiceController {
                 $itemStmt->execute([
                     $invoiceId,
                     $taskId,
-                    (int)($item['qty'] ?? 1),
                     $item['support_type'] ?? 'Support',
                     (float)($item['amount'] ?? 0),
-                    strtolower((string)($item['status'] ?? 'pending')),
                 ]);
 
                 $taskUpdateStmt->execute([$invoiceId, $taskId]);
             }
 
             $conn->commit();
-
-            echo json_encode([
-                'success' => true,
-                'message' => 'Invoice created successfully.',
-                'data' => [
-                    'invoice_id' => $invoiceId,
-                    'invoice_number' => $invoiceNumber,
-                ],
-            ]);
+            echo json_encode(['success' => true, 'message' => 'Invoice created successfully.', 'data' => ['invoice_id' => $invoiceId, 'invoice_number' => $invoiceNumber]]);
         } catch (Throwable $error) {
             if (isset($conn) && $conn->inTransaction()) {
                 $conn->rollBack();
@@ -285,38 +285,22 @@ class InvoiceController {
             $conn = $this->getConnection();
             $query = "
                 SELECT i.*, c.name AS client_name, c.company_name,
-                       (SELECT COUNT(*) FROM invoice_items ii WHERE ii.invoice_id = i.id) AS item_count
+                    (SELECT COUNT(*) FROM invoice_items ii WHERE ii.invoice_id = i.id) AS item_count
                 FROM invoices i
                 LEFT JOIN clients c ON c.id = i.client_id
-                WHERE 1 = 1
+                WHERE 1=1
             ";
             $params = [];
 
-            if (!empty($_GET['client_id'])) {
-                $query .= ' AND i.client_id = ?';
-                $params[] = $_GET['client_id'];
-            }
-            if (!empty($_GET['status'])) {
-                $query .= ' AND LOWER(i.status) = LOWER(?)';
-                $params[] = $_GET['status'];
-            }
-            if (!empty($_GET['invoice_number'])) {
-                $query .= ' AND i.invoice_number LIKE ?';
-                $params[] = '%' . $_GET['invoice_number'] . '%';
-            }
-            if (!empty($_GET['from_date'])) {
-                $query .= ' AND i.from_date >= ?';
-                $params[] = $_GET['from_date'];
-            }
-            if (!empty($_GET['to_date'])) {
-                $query .= ' AND i.to_date <= ?';
-                $params[] = $_GET['to_date'];
-            }
+            if (!empty($_GET['client_id'])) { $query .= ' AND i.client_id = ?'; $params[] = $_GET['client_id']; }
+            if (!empty($_GET['status'])) { $query .= ' AND LOWER(i.status) = LOWER(?)'; $params[] = $_GET['status']; }
+            if (!empty($_GET['invoice_number'])) { $query .= ' AND i.invoice_number LIKE ?'; $params[] = '%' . $_GET['invoice_number'] . '%'; }
+            if (!empty($_GET['from_date'])) { $query .= ' AND i.from_date >= ?'; $params[] = $_GET['from_date']; }
+            if (!empty($_GET['to_date'])) { $query .= ' AND i.to_date <= ?'; $params[] = $_GET['to_date']; }
 
             $query .= ' ORDER BY i.id DESC';
             $stmt = $conn->prepare($query);
             $stmt->execute($params);
-
             echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
         } catch (Throwable $error) {
             http_response_code(500);
@@ -364,16 +348,20 @@ class InvoiceController {
             $updateItemStmt = $conn->prepare('UPDATE invoice_items SET status = ? WHERE invoice_id = ? AND task_id = ?');
             $pendingPaymentId = $this->paymentStatusId($conn, 'Pending');
             $paidPaymentId = $this->paymentStatusId($conn, 'Paid');
-            $updateTaskPaymentStmt = $conn->prepare('UPDATE tasks SET payment_status_id = ? WHERE id = ?');
+            $updateTaskStmt = $conn->prepare('UPDATE tasks SET payment_status_id = ? WHERE id = ?');
 
             foreach ($items as $item) {
                 $taskId = (int)($item['task_id'] ?? 0);
-                $status = strtolower((string)($item['status'] ?? 'pending'));
-                if ($taskId <= 0 || !in_array($status, ['pending', 'paid'], true)) continue;
+                $status = strtolower((string)($item['status'] ?? 'not_paid'));
+                if ($taskId <= 0) continue;
 
-                $updateItemStmt->execute([$status, $id, $taskId]);
-                $paymentId = $status === 'paid' ? $paidPaymentId : $pendingPaymentId;
-                if ($paymentId) $updateTaskPaymentStmt->execute([$paymentId, $taskId]);
+                $itemStatus = in_array($status, ['paid', 'settled'], true) ? $status : 'not_paid';
+                $updateItemStmt->execute([$itemStatus, $id, $taskId]);
+
+                $paymentId = ($itemStatus === 'paid' || $itemStatus === 'settled') ? $paidPaymentId : $pendingPaymentId;
+                if ($paymentId) {
+                    $updateTaskStmt->execute([$paymentId, $taskId]);
+                }
             }
 
             $statusStmt = $conn->prepare('SELECT status FROM invoice_items WHERE invoice_id = ?');
@@ -381,9 +369,10 @@ class InvoiceController {
             $statuses = array_map('strtolower', $statusStmt->fetchAll(PDO::FETCH_COLUMN));
 
             $invoiceStatus = 'pending';
-            if ($statuses && count(array_filter($statuses, static fn($status) => $status === 'paid')) === count($statuses)) {
+            $paidOrSettledCount = count(array_filter($statuses, static fn($status) => in_array($status, ['paid', 'settled'], true)));
+            if ($statuses && $paidOrSettledCount === count($statuses)) {
                 $invoiceStatus = 'paid';
-            } elseif (in_array('paid', $statuses, true)) {
+            } elseif ($paidOrSettledCount > 0) {
                 $invoiceStatus = 'partial';
             }
 
@@ -392,7 +381,9 @@ class InvoiceController {
 
             echo json_encode(['success' => true, 'message' => 'Invoice status updated', 'data' => ['status' => $invoiceStatus]]);
         } catch (Throwable $error) {
-            if (isset($conn) && $conn->inTransaction()) $conn->rollBack();
+            if (isset($conn) && $conn->inTransaction()) {
+                $conn->rollBack();
+            }
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $error->getMessage()]);
         }
