@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
-import { getInvoices, type InvoiceRecord } from '../api/invoicesApi'
+import { getInvoiceById, getInvoices, type InvoiceDetailRecord, type InvoiceRecord } from '../api/invoicesApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import PageContainer from '../../../shared/components/PageContainer'
 import '../invoices.css'
@@ -42,6 +42,8 @@ const InvoiceListPage = () => {
   const [clients, setClients] = useState<ClientItem[]>([])
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceDetailRecord | null>(null)
+  const [isViewLoading, setIsViewLoading] = useState(false)
 
   const [clientFilter, setClientFilter] = useState('all')
   const [fromDate, setFromDate] = useState('')
@@ -93,6 +95,19 @@ const InvoiceListPage = () => {
       return map
     }, new Map())
   }, [clients])
+
+  const openViewPopup = async (invoiceId: number) => {
+    setIsViewLoading(true)
+    try {
+      const detail = await getInvoiceById(invoiceId)
+      setSelectedInvoice(detail)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load invoice details.'
+      showToast({ type: 'error', message })
+    } finally {
+      setIsViewLoading(false)
+    }
+  }
 
   return (
     <PageContainer
@@ -185,14 +200,11 @@ const InvoiceListPage = () => {
                     </td>
                     <td>{formatDate(invoice.created_at)}</td>
                     <td>
-                      <NavLink
-                        to={`/invoices/detail?invoiceId=${encodeURIComponent(invoice.invoice_number || String(invoice.id))}`}
-                        className="button invoice-link invoice-link--spaced"
-                      >
+                      <button type="button" className="button invoice-link invoice-link--spaced" onClick={() => void openViewPopup(invoice.id)} disabled={isViewLoading}>
                         View
-                      </NavLink>
+                      </button>
                       <NavLink
-                        to={`/invoices/detail?invoiceId=${encodeURIComponent(invoice.invoice_number || String(invoice.id))}&mode=payment`}
+                        to={`/invoices/detail?invoiceId=${invoice.id}`}
                         className="button invoice-link"
                       >
                         Manage Payment
@@ -211,6 +223,51 @@ const InvoiceListPage = () => {
           </table>
         </section>
       </div>
+
+      {selectedInvoice ? (
+        <div className="invoice-modal-backdrop" role="dialog" aria-modal="true" aria-label="Invoice detail view">
+          <section className="invoice-modal">
+            <div className="invoice-modal-header">
+              <h3>Invoice Details</h3>
+              <button type="button" className="button" onClick={() => setSelectedInvoice(null)}>Close</button>
+            </div>
+            <p className="invoice-header-meta"><strong>Invoice #:</strong> {selectedInvoice.invoice_number || `#${selectedInvoice.id}`}</p>
+            <p className="invoice-header-meta"><strong>Client:</strong> {selectedInvoice.company_name || selectedInvoice.client_name || '-'}</p>
+            <p className="invoice-header-meta"><strong>Date Range:</strong> {formatDate(selectedInvoice.from_date)} - {formatDate(selectedInvoice.to_date)}</p>
+            <p className="invoice-header-meta"><strong>Status:</strong> {getStatusLabel(selectedInvoice.status)}</p>
+            <p className="invoice-header-meta"><strong>Total:</strong> {formatMoney(selectedInvoice.total_amount)}</p>
+
+            <div className="invoice-table-shell">
+              <table className="invoice-grid-table">
+                <thead>
+                  <tr>
+                    <th>Task ID</th>
+                    <th>Support Type</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedInvoice.items.length ? (
+                    selectedInvoice.items.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.task_id}</td>
+                        <td>{item.support_type}</td>
+                        <td>{formatMoney(item.amount)}</td>
+                        <td>{item.status}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="invoice-empty-row">No tasks mapped to this invoice.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </PageContainer>
   )
 }

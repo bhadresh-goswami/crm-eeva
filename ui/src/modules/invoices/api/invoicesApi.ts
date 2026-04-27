@@ -94,7 +94,6 @@ export const createInvoice = async (payload: CreateInvoicePayload) => {
   })
 }
 
-
 export type InvoiceRecord = {
   id: number
   invoice_number: string
@@ -106,6 +105,31 @@ export type InvoiceRecord = {
   total_amount: number
   status: string
   created_at: string
+}
+
+export type InvoiceItemRecord = {
+  id: number
+  invoice_id: number
+  task_id: number
+  support_type: string
+  amount: number
+  status: 'not_paid' | 'paid' | 'settled'
+  title: string
+  due_date: string
+}
+
+export type InvoiceDetailRecord = {
+  id: number
+  invoice_number: string
+  client_id: number
+  client_name: string
+  company_name: string
+  from_date: string
+  to_date: string
+  total_amount: number
+  status: 'pending' | 'partial' | 'paid'
+  created_at: string
+  items: InvoiceItemRecord[]
 }
 
 const normalizeInvoice = (raw: UnknownMap): InvoiceRecord => ({
@@ -120,6 +144,22 @@ const normalizeInvoice = (raw: UnknownMap): InvoiceRecord => ({
   status: String(raw.status ?? 'pending').trim().toLowerCase(),
   created_at: String(raw.created_at ?? '').trim(),
 })
+
+const normalizeInvoiceItem = (raw: UnknownMap): InvoiceItemRecord => {
+  const rawStatus = String(raw.status ?? 'not_paid').trim().toLowerCase()
+  const status: InvoiceItemRecord['status'] = rawStatus === 'paid' || rawStatus === 'settled' ? rawStatus : 'not_paid'
+
+  return {
+    id: Number(raw.id ?? 0),
+    invoice_id: Number(raw.invoice_id ?? 0),
+    task_id: Number(raw.task_id ?? 0),
+    support_type: String(raw.support_type ?? 'Support').trim(),
+    amount: Number(raw.amount ?? 0),
+    status,
+    title: String(raw.title ?? '').trim(),
+    due_date: String(raw.due_date ?? '').trim(),
+  }
+}
 
 export const getInvoices = async (query: {
   client_id?: number
@@ -141,4 +181,32 @@ export const getInvoices = async (query: {
   return getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeInvoice(item as UnknownMap) : null))
     .filter((item): item is InvoiceRecord => Boolean(item?.id))
+}
+
+export const getInvoiceById = async (invoiceId: number): Promise<InvoiceDetailRecord> => {
+  const response = await apiRequest<{ data?: { invoice?: UnknownMap; items?: unknown[] } }>(`/invoices/${invoiceId}`)
+
+  const invoiceRaw = response?.data?.invoice
+  if (!invoiceRaw || typeof invoiceRaw !== 'object') {
+    throw new Error('Invoice details not found')
+  }
+
+  const invoice = normalizeInvoice(invoiceRaw)
+  const itemsRaw = Array.isArray(response?.data?.items) ? response.data?.items : []
+  const items = itemsRaw
+    .map((item) => (item && typeof item === 'object' ? normalizeInvoiceItem(item as UnknownMap) : null))
+    .filter((item): item is InvoiceItemRecord => Boolean(item?.id))
+
+  return {
+    ...invoice,
+    status: invoice.status === 'paid' || invoice.status === 'partial' ? invoice.status : 'pending',
+    items,
+  }
+}
+
+export const updateInvoiceStatus = async (invoiceId: number, items: Array<{ task_id: number; status: InvoiceItemRecord['status'] }>) => {
+  return apiRequest<{ data?: { status?: string } }>(`/invoices/${invoiceId}/update-status`, {
+    method: 'PUT',
+    body: JSON.stringify({ items }),
+  })
 }

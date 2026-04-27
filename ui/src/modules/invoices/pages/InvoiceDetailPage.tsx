@@ -1,44 +1,119 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useAlert } from '../../../shared/alerts/useAlert'
+import { getInvoiceById, updateInvoiceStatus, type InvoiceItemRecord } from '../api/invoicesApi'
 import PageContainer from '../../../shared/components/PageContainer'
 import '../invoices.css'
 
-type TaskStatus = 'Pending' | 'Paid'
+type TaskStatus = InvoiceItemRecord['status']
 
-type InvoiceTask = {
-  taskId: string
+type EditableTask = {
+  taskId: number
   supportType: string
   amount: number
   status: TaskStatus
 }
 
-const taskSeed: InvoiceTask[] = [
-  { taskId: 'TASK-2001', supportType: 'Call of Duty Support', amount: 64.5, status: 'Pending' },
-  { taskId: 'TASK-2003', supportType: 'Racing Game Support', amount: 50, status: 'Pending' },
-  { taskId: 'TASK-2004', supportType: 'DVD Support', amount: 10.7, status: 'Paid' },
-]
+const formatCurrency = (value: number) => `₹${value.toFixed(2)}`
+
+const formatDate = (value: string) => {
+  if (!value) return '-'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return '-'
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+}
+
+const statusLabel = (status: string) => {
+  if (status === 'paid') return 'Paid'
+  if (status === 'partial') return 'Partial'
+  return 'Pending'
+}
+
+const toInvoiceStatus = (tasks: EditableTask[]) => {
+  if (!tasks.length) return 'pending'
+  const paidCount = tasks.filter((task) => task.status === 'paid' || task.status === 'settled').length
+  if (paidCount === 0) return 'pending'
+  if (paidCount === tasks.length) return 'paid'
+  return 'partial'
+}
 
 const InvoiceDetailPage = () => {
+  const { showToast } = useAlert()
   const params = new URLSearchParams(window.location.search)
-  const invoiceId = params.get('invoiceId') || 'INV-0007612'
+  const invoiceId = Number(params.get('invoiceId') ?? 0)
 
-  const [tasks, setTasks] = useState(taskSeed)
+  const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [clientName, setClientName] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [tasks, setTasks] = useState<EditableTask[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [savedMessage, setSavedMessage] = useState('')
+  const [invoiceStatus, setInvoiceStatus] = useState<'pending' | 'partial' | 'paid'>('pending')
 
   const total = useMemo(() => tasks.reduce((sum, task) => sum + task.amount, 0), [tasks])
-  const paidCount = useMemo(() => tasks.filter((task) => task.status === 'Paid').length, [tasks])
+  const paidCount = useMemo(() => tasks.filter((task) => task.status === 'paid' || task.status === 'settled').length, [tasks])
+
+  useEffect(() => {
+    const loadInvoice = async () => {
+      if (!invoiceId) {
+        showToast({ type: 'error', message: 'Invalid invoice id.' })
+        return
+      }
+
+      setIsLoading(true)
+      try {
+        const detail = await getInvoiceById(invoiceId)
+        setInvoiceNumber(detail.invoice_number || `#${detail.id}`)
+        setClientName(detail.company_name || detail.client_name)
+        setFromDate(detail.from_date)
+        setToDate(detail.to_date)
+        setTasks(detail.items.map((item) => ({ taskId: item.task_id, supportType: item.support_type, amount: item.amount, status: item.status })))
+        setInvoiceStatus(detail.status)
+      } catch (error) {
+        showToast({ type: 'error', message: error instanceof Error ? error.message : 'Failed to load invoice details.' })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadInvoice()
+  }, [invoiceId, showToast])
+
+  const persistStatuses = async (nextTasks: EditableTask[], successMessage: string) => {
+    if (!invoiceId) return
+
+    setIsSaving(true)
+    try {
+      const response = await updateInvoiceStatus(
+        invoiceId,
+        nextTasks.map((task) => ({ task_id: task.taskId, status: task.status })),
+      )
+
+      const nextInvoiceStatus = String(response?.data?.status ?? toInvoiceStatus(nextTasks)).toLowerCase()
+      setInvoiceStatus(nextInvoiceStatus === 'paid' || nextInvoiceStatus === 'partial' ? nextInvoiceStatus : 'pending')
+      setSavedMessage(successMessage)
+      showToast({ type: 'success', message: successMessage })
+    } catch (error) {
+      showToast({ type: 'error', message: error instanceof Error ? error.message : 'Failed to update payment status.' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <PageContainer title="Invoice Detail" description="Invoice header and task-level payment management.">
       <div className="invoice-layout">
         <section className="invoice-surface invoice-header-strip">
           <div>
-            <h3 className="invoice-header-title">{invoiceId}</h3>
-            <p className="invoice-header-meta">Client: John Doe</p>
-            <p className="invoice-header-meta">Date Range: Apr 01, 2026 - Apr 24, 2026</p>
+            <h3 className="invoice-header-title">{invoiceNumber || '-'}</h3>
+            <p className="invoice-header-meta">Client: {clientName || '-'}</p>
+            <p className="invoice-header-meta">Date Range: {formatDate(fromDate)} - {formatDate(toDate)}</p>
           </div>
           <div className="invoice-header-stats">
             <p>Tasks Paid: {paidCount}/{tasks.length}</p>
-            <p>Total: ₹{total.toFixed(2)}</p>
+            <p>Total: {formatCurrency(total)}</p>
+            <p>Status: {statusLabel(invoiceStatus)}</p>
           </div>
         </section>
 
@@ -53,26 +128,38 @@ const InvoiceDetailPage = () => {
               </tr>
             </thead>
             <tbody>
-              {tasks.map((task) => (
-                <tr key={task.taskId}>
-                  <td>{task.taskId}</td>
-                  <td>{task.supportType}</td>
-                  <td>₹{task.amount.toFixed(2)}</td>
-                  <td>
-                    <select
-                      className="invoice-status-select"
-                      value={task.status}
-                      onChange={(event) => {
-                        const nextStatus = event.target.value as TaskStatus
-                        setTasks((prev) => prev.map((row) => (row.taskId === task.taskId ? { ...row, status: nextStatus } : row)))
-                      }}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Paid">Paid</option>
-                    </select>
-                  </td>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={4} className="invoice-empty-row">Loading invoice tasks...</td>
                 </tr>
-              ))}
+              ) : tasks.length ? (
+                tasks.map((task) => (
+                  <tr key={task.taskId}>
+                    <td>{task.taskId}</td>
+                    <td>{task.supportType}</td>
+                    <td>{formatCurrency(task.amount)}</td>
+                    <td>
+                      <select
+                        className="invoice-status-select"
+                        value={task.status}
+                        onChange={(event) => {
+                          const nextStatus = event.target.value as TaskStatus
+                          setTasks((prev) => prev.map((row) => (row.taskId === task.taskId ? { ...row, status: nextStatus } : row)))
+                          setSavedMessage('')
+                        }}
+                      >
+                        <option value="not_paid">Not Paid</option>
+                        <option value="paid">Paid</option>
+                        <option value="settled">Settled</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="invoice-empty-row">No invoice tasks found.</td>
+                </tr>
+              )}
             </tbody>
           </table>
 
@@ -80,19 +167,20 @@ const InvoiceDetailPage = () => {
             <button
               type="button"
               className="button button--primary"
-              onClick={() => {
-                setSavedMessage(`Saved ${tasks.length} task status update(s).`)
-              }}
+              onClick={() => void persistStatuses(tasks, `Saved ${tasks.length} task status update(s).`)}
+              disabled={isSaving || !tasks.length || isLoading}
             >
-              Save
+              {isSaving ? 'Saving...' : 'Save'}
             </button>
             <button
               type="button"
               className="button"
               onClick={() => {
-                setTasks((prev) => prev.map((task) => ({ ...task, status: 'Paid' })))
-                setSavedMessage('All tasks marked as paid.')
+                const nextTasks = tasks.map((task) => ({ ...task, status: 'paid' as TaskStatus }))
+                setTasks(nextTasks)
+                void persistStatuses(nextTasks, 'All tasks marked as paid.')
               }}
+              disabled={isSaving || !tasks.length || isLoading}
             >
               Mark All Paid
             </button>
