@@ -1,0 +1,95 @@
+import { apiRequest } from '../../../api/client'
+
+export type CompletedTask = {
+  task_id: number
+  id: number
+  client_id: number
+  client_name: string
+  company_name: string
+  client_phone: string
+  client_email: string
+  support_type: string
+  amount: number
+  due_date: string
+}
+
+type UnknownMap = Record<string, unknown>
+
+const getList = (value: unknown): unknown[] => {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'object') return []
+
+  const payload = value as UnknownMap
+  const keys = ['data', 'items', 'rows', 'list', 'result', 'payload']
+
+  for (const key of keys) {
+    if (Array.isArray(payload[key])) return payload[key] as unknown[]
+  }
+
+  for (const key of keys) {
+    const nested = payload[key]
+    if (nested && typeof nested === 'object') {
+      const found = getList(nested)
+      if (found.length) return found
+    }
+  }
+
+  return []
+}
+
+const normalizeTask = (raw: UnknownMap): CompletedTask => ({
+  task_id: Number(raw.task_id ?? raw.id ?? 0),
+  id: Number(raw.id ?? raw.task_id ?? 0),
+  client_id: Number(raw.client_id ?? 0),
+  client_name: String(raw.client_name ?? '').trim(),
+  company_name: String(raw.company_name ?? '').trim(),
+  client_phone: String(raw.client_phone ?? raw.phone ?? '').trim(),
+  client_email: String(raw.client_email ?? raw.email ?? '').trim(),
+  support_type: String(raw.support_type ?? raw.task_type ?? 'Support').trim(),
+  amount: Number(raw.amount ?? raw.total_amount ?? 0),
+  due_date: String(raw.due_date ?? '').trim(),
+})
+
+export const getCompletedTasks = async (query: { client_id: number; from_date: string; to_date: string }) => {
+  const params = new URLSearchParams({
+    client_id: String(query.client_id),
+    from_date: query.from_date,
+    to_date: query.to_date,
+  })
+
+  const response = await apiRequest<unknown>(`/tasks/completed?${params.toString()}`)
+
+  return getList(response)
+    .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
+    .filter((item): item is CompletedTask => Boolean(item?.task_id))
+}
+
+export const getNextInvoiceNumber = async () => {
+  const response = await apiRequest<{ data?: { invoice_number?: string } }>('/invoices/next-number')
+  return String(response?.data?.invoice_number ?? '').trim()
+}
+
+export type CreateInvoicePayload = {
+  client_id: number
+  from_date: string
+  to_date: string
+  currency: string
+  invoice_number: string
+  invoice_date: string
+  payment_due_date: string
+  notes: string
+  subtotal: number
+  tds_amount: number
+  total_amount: number
+  tds?: number
+  total?: number
+  grouped_items: Array<{ support_type: string; qty: number; amount: number; task_ids: number[] }>
+  items: Array<{ task_id: number; qty: number; support_type: string; amount: number; status: 'pending' | 'paid' }>
+}
+
+export const createInvoice = async (payload: CreateInvoicePayload) => {
+  return apiRequest('/invoices', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
