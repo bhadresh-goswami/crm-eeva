@@ -8,7 +8,11 @@ import DashboardPage from '../modules/dashboard/pages/DashboardPage'
 import RolesPage from '../modules/roles/pages/RolesPage'
 import PocsPage from '../modules/pocs/pages/PocsPage'
 import TasksEntryPage from '../modules/tasks/pages/TasksEntryPage'
+import BulkPriceUpdatePage from '../modules/tasks/pages/BulkPriceUpdatePage'
 import UsersPage from '../modules/users/pages/UsersPage'
+import InvoiceListPage from '../modules/invoices/pages/InvoiceListPage'
+import InvoiceCreatePage from '../modules/invoices/pages/InvoiceCreatePage'
+import InvoiceDetailPage from '../modules/invoices/pages/InvoiceDetailPage'
 import { useAuth } from '../context/AuthContext'
 import AdminDashboard from '../modules/dashboard/pages/AdminDashboard'
 import CoordinatorDashboard from '../modules/dashboard/pages/CoordinatorDashboard'
@@ -54,9 +58,18 @@ const AppRoutes = () => {
           </Route>
 
           <Route path="/tasks" element={<TasksEntryPage />} />
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'manager']} />}>
+            <Route path="/tasks/bulk-price" element={<BulkPriceUpdatePage />} />
+          </Route>
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/pocs" element={<PocsPage />} />
           <Route path="/candidates" element={<CandidatesPage />} />
+
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'manager']} />}>
+            <Route path="/invoices" element={<InvoiceListPage />} />
+            <Route path="/invoices/create" element={<InvoiceCreatePage />} />
+            <Route path="/invoices/detail" element={<InvoiceDetailPage />} />
+          </Route>
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/users" element={<UsersPage />} />
             <Route path="/roles" element={<RolesPage />} />

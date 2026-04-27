@@ -47,6 +47,14 @@ class DashboardController {
             WHERE logout_time IS NULL
         ")->fetchColumn();
 
+        $data['pending_payment_updates'] = $conn->query("
+            SELECT COUNT(*)
+            FROM tasks t
+            JOIN task_status_master ts ON ts.id = t.status_id
+            WHERE LOWER(ts.name) = 'completed'
+              AND COALESCE(t.total_amount, 0) = 0
+        ")->fetchColumn();
+
         echo json_encode($data);
     }
 
