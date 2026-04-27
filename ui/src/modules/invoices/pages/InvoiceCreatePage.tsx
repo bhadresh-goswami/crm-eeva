@@ -183,6 +183,8 @@ const InvoiceCreatePage = () => {
         subtotal,
         tds_amount: tds,
         total_amount: total,
+        tds,
+        total,
         grouped_items: lineItems.map((row) => ({ support_type: row.supportType, qty: row.qty, amount: row.amountInInr * rate, task_ids: row.taskIds })),
         items: loadedTasks.map((task) => ({ task_id: task.task_id, qty: 1, support_type: task.support_type, amount: task.amount * rate, status: 'pending' })),
       })
@@ -322,7 +324,7 @@ const InvoiceCreatePage = () => {
 
             <div className="invoice-totals-box" aria-live="polite">
               <div className="invoice-total-row"><span>Subtotal</span><span>{formatCurrency(subtotal, currency)}</span></div>
-              <div className="invoice-total-row"><span>TDS (2%)</span><span>-{formatCurrency(tds, currency)}</span></div>
+              <div className="invoice-total-row"><span>TDS (2%)</span><span>{formatCurrency(tds, currency)}</span></div>
               <div className="invoice-total-row invoice-total-row--strong"><span>Total Amount Due</span><span>{formatCurrency(total, currency)}</span></div>
             </div>
           </div>

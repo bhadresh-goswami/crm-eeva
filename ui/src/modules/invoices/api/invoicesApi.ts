@@ -81,6 +81,8 @@ export type CreateInvoicePayload = {
   subtotal: number
   tds_amount: number
   total_amount: number
+  tds?: number
+  total?: number
   grouped_items: Array<{ support_type: string; qty: number; amount: number; task_ids: number[] }>
   items: Array<{ task_id: number; qty: number; support_type: string; amount: number; status: 'pending' | 'paid' }>
 }

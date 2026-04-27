@@ -245,8 +245,8 @@ class InvoiceController {
                 $payload['to_date'],
                 $payload['currency'] ?? 'INR',
                 (float)($payload['subtotal'] ?? 0),
-                (float)($payload['tds_amount'] ?? 0),
-                (float)($payload['total_amount'] ?? 0),
+                (float)($payload['tds_amount'] ?? $payload['tds'] ?? 0),
+                (float)($payload['total_amount'] ?? $payload['total'] ?? 0),
                 'pending',
                 isset($payload['created_by']) ? (int)$payload['created_by'] : null,
             ]);
