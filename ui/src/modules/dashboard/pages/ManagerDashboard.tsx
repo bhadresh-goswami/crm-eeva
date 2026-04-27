@@ -198,9 +198,10 @@ const ManagerDashboard = () => {
       { label: 'Assigned Tasks', value: summaryData.assignedTasks, tab: 'assigned' as const, tone: 'default' },
       { label: 'Overdue Tasks', value: kpi.overdue, tone: 'danger' },
       { label: 'Completed Today', value: kpi.completedToday, tab: 'completed' as const, tone: 'success' },
+      { label: 'Pending Payment Updates', value: summaryData.pendingPaymentUpdates ?? 0, tone: 'warning' },
       { label: 'Team Productivity', value: `${kpi.productivity}%`, tone: 'success' },
     ],
-    [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingTasks, summaryData.totalTasks],
+    [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingPaymentUpdates, summaryData.pendingTasks, summaryData.totalTasks],
   )
 
   const getActionConfig = (status: string) => {
@@ -274,7 +275,7 @@ const ManagerDashboard = () => {
 
       <div className="metric-grid dashboard-cards section">
         {loadingSummary
-          ? Array.from({ length: 6 }).map((_, index) => (
+          ? Array.from({ length: cards.length || 6 }).map((_, index) => (
               <article key={index} className="card skeleton-card" aria-hidden="true" />
             ))
           : cards.map((card) => {
