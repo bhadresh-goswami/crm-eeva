@@ -45,6 +45,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         ? [
             { label: 'Dashboard', to: roleDashboardPath.manager, icon: '📊' },
             { label: 'Tasks', to: '/tasks', icon: '📝' },
+            { label: 'Price Update', to: '/tasks/bulk-price', icon: '💰' },
             { label: 'Client', to: '/clients', icon: '🏢' },
             { label: 'POC', to: '/pocs', icon: '📇' },
             { label: 'Candidate', to: '/candidates', icon: '🧑‍💼' },

@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
-import { getInvoiceById, getInvoices, type InvoiceDetailRecord, type InvoiceRecord } from '../api/invoicesApi'
+import { getInvoiceById, getInvoices, recalculateInvoice, type InvoiceDetailRecord, type InvoiceRecord } from '../api/invoicesApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import PageContainer from '../../../shared/components/PageContainer'
 import '../invoices.css'
@@ -51,6 +51,7 @@ const InvoiceListPage = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceDetailRecord | null>(null)
   const [isViewLoading, setIsViewLoading] = useState(false)
+  const [recalculatingInvoiceId, setRecalculatingInvoiceId] = useState<number | null>(null)
 
   const [clientFilter, setClientFilter] = useState('all')
   const [fromDate, setFromDate] = useState('')
@@ -134,6 +135,26 @@ const InvoiceListPage = () => {
       showToast({ type: 'error', message })
     } finally {
       setIsViewLoading(false)
+    }
+  }
+
+  const onRecalculate = async (invoiceId: number) => {
+    setRecalculatingInvoiceId(invoiceId)
+    try {
+      await recalculateInvoice(invoiceId)
+      showToast({ type: 'success', message: 'Invoice recalculated successfully.' })
+      const data = await getInvoices({
+        client_id: clientFilter === 'all' ? undefined : Number(clientFilter),
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        invoice_number: invoiceNumberFilter.trim() || undefined,
+      })
+      setInvoices(data)
+    } catch (error) {
+      showToast({ type: 'error', message: error instanceof Error ? error.message : 'Failed to recalculate invoice.' })
+    } finally {
+      setRecalculatingInvoiceId(null)
     }
   }
 
@@ -268,6 +289,16 @@ const InvoiceListPage = () => {
                       <NavLink to={`/invoices/detail?invoiceId=${invoice.id}`} className="button invoice-link">
                         Manage Payment
                       </NavLink>
+                      {invoice.status !== 'paid' ? (
+                        <button
+                          type="button"
+                          className="button invoice-link invoice-link--spaced"
+                          onClick={() => void onRecalculate(invoice.id)}
+                          disabled={recalculatingInvoiceId === invoice.id}
+                        >
+                          {recalculatingInvoiceId === invoice.id ? 'Recalculating...' : 'Recalculate'}
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))

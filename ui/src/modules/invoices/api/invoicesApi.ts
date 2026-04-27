@@ -210,3 +210,9 @@ export const updateInvoiceStatus = async (invoiceId: number, items: Array<{ task
     body: JSON.stringify({ items }),
   })
 }
+
+export const recalculateInvoice = async (invoiceId: number) => {
+  return apiRequest<{ success?: boolean; message?: string; data?: { total_amount?: number } }>(`/invoices/${invoiceId}/recalculate`, {
+    method: 'POST',
+  })
+}

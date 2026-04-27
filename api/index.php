@@ -364,6 +364,14 @@ elseif ($uri === "/tasks/bulk-assign" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->bulkAssign();
 }
+elseif ($uri === "/tasks/bulk-price" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new TaskController())->bulkPriceList();
+}
+elseif ($uri === "/tasks/update-prices" && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new TaskController())->updatePrices();
+}
 elseif ($uri === "/tasks/cancel" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->cancelTask();
@@ -408,6 +416,10 @@ elseif ($uri === "/invoices/next-number" && $method === "GET") {
 elseif (preg_match('#^/invoices/(\d+)/update-status$#', $uri, $matches) && $method === "PUT") {
     authorize($user,['admin','manager']);
     (new InvoiceController())->updateStatus((int)$matches[1]);
+}
+elseif (preg_match('#^/invoices/(\d+)/recalculate$#', $uri, $matches) && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->recalculate((int)$matches[1]);
 }
 elseif (preg_match('#^/invoices/(\d+)$#', $uri, $matches) && $method === "GET") {
     authorize($user,['admin','manager']);

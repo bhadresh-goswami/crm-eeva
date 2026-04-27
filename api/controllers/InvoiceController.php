@@ -389,6 +389,99 @@ class InvoiceController {
         }
     }
 
+    public function recalculate(int $id): void {
+        try {
+            $conn = $this->getConnection();
+
+            $invoiceStmt = $conn->prepare('SELECT * FROM invoices WHERE id = ? LIMIT 1');
+            $invoiceStmt->execute([$id]);
+            $invoice = $invoiceStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$invoice) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Invoice not found']);
+                return;
+            }
+
+            if (strtolower((string)($invoice['status'] ?? 'pending')) === 'paid') {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Cannot recalculate paid invoice']);
+                return;
+            }
+
+            $conn->beginTransaction();
+
+            $existingStatusStmt = $conn->prepare('SELECT task_id, status FROM invoice_items WHERE invoice_id = ?');
+            $existingStatusStmt->execute([$id]);
+            $existingStatuses = [];
+            foreach ($existingStatusStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $existingStatuses[(int)$row['task_id']] = strtolower((string)($row['status'] ?? 'not_paid'));
+            }
+
+            $tasksStmt = $conn->prepare("
+                SELECT
+                    t.id AS task_id,
+                    COALESCE(tt.name, 'Support') AS support_type,
+                    COALESCE(t.total_amount, 0) AS amount
+                FROM tasks t
+                LEFT JOIN task_types tt ON tt.id = t.task_type_id
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                WHERE t.client_id = ?
+                  AND DATE(t.due_date) BETWEEN ? AND ?
+                  AND LOWER(COALESCE(ts.name, '')) NOT IN ('pending', 'settled')
+                ORDER BY t.id ASC
+            ");
+            $tasksStmt->execute([
+                (int)$invoice['client_id'],
+                $invoice['from_date'],
+                $invoice['to_date'],
+            ]);
+            $tasks = $tasksStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $subtotal = 0.0;
+            foreach ($tasks as $task) {
+                $subtotal += (float)($task['amount'] ?? 0);
+            }
+            $tds = $subtotal * 0.02;
+            $total = $subtotal + $tds;
+
+            $conn->prepare('DELETE FROM invoice_items WHERE invoice_id = ?')->execute([$id]);
+            $insertItemStmt = $conn->prepare('INSERT INTO invoice_items (invoice_id, task_id, support_type, amount, status) VALUES (?, ?, ?, ?, ?)');
+            foreach ($tasks as $task) {
+                $taskId = (int)($task['task_id'] ?? 0);
+                $savedStatus = $existingStatuses[$taskId] ?? 'not_paid';
+                $status = in_array($savedStatus, ['paid', 'settled'], true) ? $savedStatus : 'not_paid';
+                $insertItemStmt->execute([
+                    $id,
+                    $taskId,
+                    $task['support_type'] ?? 'Support',
+                    (float)($task['amount'] ?? 0),
+                    $status,
+                ]);
+            }
+
+            $conn->prepare('UPDATE invoices SET subtotal = ?, tds_amount = ?, total_amount = ? WHERE id = ?')->execute([$subtotal, $tds, $total, $id]);
+            $conn->commit();
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Invoice recalculated successfully.',
+                'data' => [
+                    'subtotal' => $subtotal,
+                    'tds_amount' => $tds,
+                    'total_amount' => $total,
+                    'items_count' => count($tasks),
+                ],
+            ]);
+        } catch (Throwable $error) {
+            if (isset($conn) && $conn->inTransaction()) {
+                $conn->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $error->getMessage()]);
+        }
+    }
+
     public function stats(): void {
         try {
             $conn = $this->getConnection();
