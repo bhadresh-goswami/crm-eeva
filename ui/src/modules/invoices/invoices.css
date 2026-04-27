@@ -370,3 +370,18 @@
     display: none !important;
   }
 }
+
+.invoice-badge--pending {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.invoice-badge--partial {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.invoice-badge--paid {
+  background: #dcfce7;
+  color: #166534;
+}

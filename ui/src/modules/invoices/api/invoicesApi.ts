@@ -93,3 +93,52 @@ export const createInvoice = async (payload: CreateInvoicePayload) => {
     body: JSON.stringify(payload),
   })
 }
+
+
+export type InvoiceRecord = {
+  id: number
+  invoice_number: string
+  client_id: number
+  client_name: string
+  company_name: string
+  from_date: string
+  to_date: string
+  total_amount: number
+  status: string
+  created_at: string
+}
+
+const normalizeInvoice = (raw: UnknownMap): InvoiceRecord => ({
+  id: Number(raw.id ?? 0),
+  invoice_number: String(raw.invoice_number ?? '').trim(),
+  client_id: Number(raw.client_id ?? 0),
+  client_name: String(raw.client_name ?? '').trim(),
+  company_name: String(raw.company_name ?? '').trim(),
+  from_date: String(raw.from_date ?? '').trim(),
+  to_date: String(raw.to_date ?? '').trim(),
+  total_amount: Number(raw.total_amount ?? 0),
+  status: String(raw.status ?? 'pending').trim().toLowerCase(),
+  created_at: String(raw.created_at ?? '').trim(),
+})
+
+export const getInvoices = async (query: {
+  client_id?: number
+  from_date?: string
+  to_date?: string
+  status?: string
+  invoice_number?: string
+} = {}) => {
+  const params = new URLSearchParams()
+  if (query.client_id) params.set('client_id', String(query.client_id))
+  if (query.from_date) params.set('from_date', query.from_date)
+  if (query.to_date) params.set('to_date', query.to_date)
+  if (query.status) params.set('status', query.status)
+  if (query.invoice_number) params.set('invoice_number', query.invoice_number)
+
+  const endpoint = params.toString() ? `/invoices?${params.toString()}` : '/invoices'
+  const response = await apiRequest<unknown>(endpoint)
+
+  return getList(response)
+    .map((item) => (item && typeof item === 'object' ? normalizeInvoice(item as UnknownMap) : null))
+    .filter((item): item is InvoiceRecord => Boolean(item?.id))
+}
