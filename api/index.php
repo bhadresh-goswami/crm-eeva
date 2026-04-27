@@ -74,6 +74,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 // BASE PATH
 $basePath = "/api";
 $uri = str_replace($basePath, "", $uri);
+$uri = str_replace('/index.php', '', $uri);
 
 // 🔥 FIX: normalize URI
 $uri = rtrim($uri, '/');

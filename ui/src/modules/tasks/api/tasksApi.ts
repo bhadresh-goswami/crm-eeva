@@ -1,4 +1,4 @@
-import { apiRequest } from '../../../api/client'
+import { apiFetch, apiRequest } from '../../../api/client'
 const FILE_BASE_URL = 'https://support.bsquareg-developers.com/supporting-document'
 
 export type TaskRecord = {
@@ -416,16 +416,20 @@ export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: s
 
   const endpoint = params.toString() ? `/tasks/bulk-price?${params.toString()}` : '/tasks/bulk-price'
   try {
-    const response = await apiRequest<unknown>(endpoint)
-    return getList(response)
-      .map((item) => (item && typeof item === 'object' ? normalizeBulkPriceTask(item as UnknownMap) : null))
-      .filter((item): item is BulkPriceTaskRecord => Boolean(item?.id))
-  } catch (error) {
-    const message = error instanceof Error ? error.message.toLowerCase() : ''
-    if (!message.includes('route not found') && !message.includes('404')) {
-      throw error
+    const response = await apiFetch(endpoint, { method: 'GET' })
+    if (response.ok) {
+      const payload = (await response.json()) as unknown
+      return getList(payload)
+        .map((item) => (item && typeof item === 'object' ? normalizeBulkPriceTask(item as UnknownMap) : null))
+        .filter((item): item is BulkPriceTaskRecord => Boolean(item?.id))
     }
 
+    if (response.status !== 404) {
+      const message = await response.text()
+      throw new Error(message || `Request failed with status ${response.status}`)
+    }
+
+    // 404 fallback for environments that have not yet deployed /tasks/bulk-price route
     const fallbackTasks = await getTasks()
     const searchTerm = (query.search ?? '').trim().toLowerCase()
     return fallbackTasks
@@ -439,6 +443,28 @@ export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: s
         if (!searchTerm) return true
         return [task.candidate, task.client, task.task_type].some((value) => value.toLowerCase().includes(searchTerm))
       })
+      .map((task) => ({
+        id: task.id,
+        description: task.description || task.title,
+        due_date: task.due_date,
+        candidate_name: task.candidate,
+        company_name: task.client,
+        status: task.status,
+        assigned_to_name: task.assigned_to_name,
+        start_time: task.time_start,
+        end_time: task.time_end,
+        total_amount: task.total_amount,
+        support_type: task.task_type,
+        invoice_status: '',
+      }))
+  } catch (error) {
+    if (error instanceof Error && !error.message.toLowerCase().includes('route not found')) {
+      throw error
+    }
+    const fallbackTasks = await getTasks()
+    return fallbackTasks
+      .filter((task) => ['completed', 'cancelled'].includes(task.status))
+      .filter((task) => task.total_amount === 0)
       .map((task) => ({
         id: task.id,
         description: task.description || task.title,
