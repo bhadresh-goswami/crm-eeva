@@ -3,6 +3,7 @@ import PageContainer from '../../../shared/components/PageContainer'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { getBulkPriceTasks, updateTaskPrices, type BulkPriceTaskRecord } from '../api/tasksApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
+import './bulkPrice.css'
 
 const formatDate = (value: string) => {
   if (!value) return '-'
@@ -35,12 +36,15 @@ const BulkPriceUpdatePage = () => {
         client_id: clientId ? Number(clientId) : undefined,
         search: search.trim() || undefined,
       })
+
       setTasks(data)
       setCheckedTaskIds([])
-      setAmountByTask(data.reduce<Record<number, string>>((map, item) => {
-        map[item.id] = String(item.total_amount || 0)
-        return map
-      }, {}))
+      setAmountByTask(
+        data.reduce<Record<number, string>>((map, item) => {
+          map[item.id] = String(item.total_amount || 0)
+          return map
+        }, {}),
+      )
     } catch (error) {
       showToast({ type: 'error', message: error instanceof Error ? error.message : 'Failed to load bulk price tasks.' })
     } finally {
@@ -56,20 +60,21 @@ const BulkPriceUpdatePage = () => {
         setClients([])
       }
     }
-    void loadClients()
-  }, [])
 
-  useEffect(() => {
+    void loadClients()
     void loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const selectableTasks = useMemo(
-    () => tasks.filter((task) => task.status !== 'cancelled' && task.invoice_status !== 'paid'),
-    [tasks],
-  )
-
+  const selectableTasks = useMemo(() => tasks.filter((task) => task.status !== 'cancelled' && task.invoice_status !== 'paid'), [tasks])
   const allSelected = selectableTasks.length > 0 && selectableTasks.every((task) => checkedTaskIds.includes(task.id))
+
+  const onReset = () => {
+    setFromDate('')
+    setToDate('')
+    setClientId('')
+    setSearch('')
+  }
 
   const onUpdatePrices = async () => {
     const updates = checkedTaskIds
@@ -77,7 +82,7 @@ const BulkPriceUpdatePage = () => {
       .filter((item) => Number.isFinite(item.amount) && item.amount >= 0)
 
     if (!updates.length) {
-      showToast({ type: 'warning', message: 'Select at least one task with valid amount.' })
+      showToast({ type: 'warning', message: 'Select at least one editable task and enter valid amount.' })
       return
     }
 
@@ -95,28 +100,31 @@ const BulkPriceUpdatePage = () => {
 
   return (
     <PageContainer title="Bulk Price Update" description="Update completed task pricing in bulk for dynamic invoice recalculation.">
-      <section className="card section">
-        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(4, minmax(180px, 1fr))' }}>
-          <label>
+      <section className="filter-card">
+        <div className="filter-grid">
+          <label className="filter-field">
             <span>From Date</span>
-            <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+            <input className="filter-input" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
           </label>
-          <label>
+          <label className="filter-field">
             <span>To Date</span>
-            <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+            <input className="filter-input" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
           </label>
-          <label>
+          <label className="filter-field">
             <span>Client</span>
-            <select value={clientId} onChange={(event) => setClientId(event.target.value)}>
+            <select className="filter-input" value={clientId} onChange={(event) => setClientId(event.target.value)}>
               <option value="">All Clients</option>
               {clients.map((client) => (
-                <option key={client.id} value={client.id}>{client.company_name || client.name}</option>
+                <option key={client.id} value={client.id}>
+                  {client.company_name || client.name}
+                </option>
               ))}
             </select>
           </label>
-          <label>
+          <label className="filter-field">
             <span>Search</span>
             <input
+              className="filter-input"
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -124,74 +132,99 @@ const BulkPriceUpdatePage = () => {
             />
           </label>
         </div>
-        <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-          <button type="button" className="button" onClick={() => void loadData()} disabled={loading}>{loading ? 'Loading...' : 'Apply Filters'}</button>
-          <button type="button" className="button button--primary" onClick={() => void onUpdatePrices()} disabled={updating || !checkedTaskIds.length}>
-            {updating ? 'Updating...' : 'Update Price'}
+
+        <div className="filter-actions">
+          <button type="button" className="button" onClick={() => void loadData()} disabled={loading}>
+            {loading ? 'Loading tasks...' : 'Apply Filters'}
+          </button>
+          <button type="button" className="button" onClick={onReset} disabled={loading || updating}>
+            Reset
+          </button>
+          <button type="button" className="button primary-btn" onClick={() => void onUpdatePrices()} disabled={updating || !checkedTaskIds.length}>
+            {updating ? 'Updating...' : 'Update Prices'}
           </button>
         </div>
       </section>
 
-      <section className="card section roles-table__wrapper">
-        <table className="roles-table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" checked={allSelected} onChange={(event) => {
-                setCheckedTaskIds(event.target.checked ? selectableTasks.map((task) => task.id) : [])
-              }} /></th>
-              <th>Action</th>
-              <th>Description</th>
-              <th>SR No</th>
-              <th>Date</th>
-              <th>Candidate</th>
-              <th>Company</th>
-              <th>Status</th>
-              <th>Assign To</th>
-              <th>Time Start</th>
-              <th>Time End</th>
-              <th>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tasks.length === 0 ? (
-              <tr><td colSpan={12} className="dashboard-empty">No tasks found.</td></tr>
-            ) : tasks.map((task, index) => {
-              const disabled = task.status === 'cancelled' || task.invoice_status === 'paid'
-              return (
-                <tr key={task.id}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={checkedTaskIds.includes(task.id)}
-                      disabled={disabled}
-                      onChange={(event) => {
-                        setCheckedTaskIds((prev) => event.target.checked ? [...prev, task.id] : prev.filter((id) => id !== task.id))
-                      }}
-                    />
-                  </td>
-                  <td><button type="button" className="button" disabled>View</button></td>
-                  <td>{task.description || '-'}</td>
-                  <td>{index + 1}</td>
-                  <td>{formatDate(task.due_date)}</td>
-                  <td>{task.candidate_name || '-'}</td>
-                  <td>{task.company_name || '-'}</td>
-                  <td>{task.status}</td>
-                  <td>{task.assigned_to_name || '-'}</td>
-                  <td>{task.start_time || '-'}</td>
-                  <td>{task.end_time || '-'}</td>
-                  <td>
-                    <input
-                      type="number"
-                      value={amountByTask[task.id] ?? '0'}
-                      disabled={disabled || task.total_amount > 0}
-                      onChange={(event) => setAmountByTask((prev) => ({ ...prev, [task.id]: event.target.value }))}
-                    />
+      <section className="table-card">
+        <div className="bulk-table-wrapper">
+          <table className="table bulk-table">
+            <thead>
+              <tr>
+                <th>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={(event) => setCheckedTaskIds(event.target.checked ? selectableTasks.map((task) => task.id) : [])}
+                  />
+                </th>
+                <th>Action</th>
+                <th>Description</th>
+                <th>SR No</th>
+                <th>Date</th>
+                <th>Candidate</th>
+                <th>Company</th>
+                <th>Status</th>
+                <th>Assign To</th>
+                <th>Time Start</th>
+                <th>Time End</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={12} className="bulk-empty-state">Loading tasks...</td>
+                </tr>
+              ) : tasks.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="bulk-empty-state">
+                    <strong>No tasks found for selected filters.</strong>
+                    <span>Try changing date or client.</span>
                   </td>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
+              ) : (
+                tasks.map((task, index) => {
+                  const isDisabled = task.status === 'cancelled' || task.invoice_status === 'paid'
+                  const isEditable = !isDisabled && task.total_amount === 0
+                  return (
+                    <tr key={task.id} className={isDisabled ? 'row-disabled' : isEditable ? 'row-editable' : ''}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={checkedTaskIds.includes(task.id)}
+                          disabled={isDisabled}
+                          onChange={(event) =>
+                            setCheckedTaskIds((prev) => (event.target.checked ? [...prev, task.id] : prev.filter((id) => id !== task.id)))
+                          }
+                        />
+                      </td>
+                      <td>View</td>
+                      <td>{task.description || '-'}</td>
+                      <td>{index + 1}</td>
+                      <td>{formatDate(task.due_date)}</td>
+                      <td>{task.candidate_name || '-'}</td>
+                      <td>{task.company_name || '-'}</td>
+                      <td>{task.status}</td>
+                      <td>{task.assigned_to_name || '-'}</td>
+                      <td>{task.start_time || '-'}</td>
+                      <td>{task.end_time || '-'}</td>
+                      <td>
+                        <input
+                          className="amount-input"
+                          type="number"
+                          value={amountByTask[task.id] ?? '0'}
+                          disabled={!isEditable}
+                          onChange={(event) => setAmountByTask((prev) => ({ ...prev, [task.id]: event.target.value }))}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
     </PageContainer>
   )

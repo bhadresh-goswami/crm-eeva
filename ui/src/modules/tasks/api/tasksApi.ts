@@ -415,10 +415,45 @@ export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: s
   if (query.search) params.set('search', query.search)
 
   const endpoint = params.toString() ? `/tasks/bulk-price?${params.toString()}` : '/tasks/bulk-price'
-  const response = await apiRequest<unknown>(endpoint)
-  return getList(response)
-    .map((item) => (item && typeof item === 'object' ? normalizeBulkPriceTask(item as UnknownMap) : null))
-    .filter((item): item is BulkPriceTaskRecord => Boolean(item?.id))
+  try {
+    const response = await apiRequest<unknown>(endpoint)
+    return getList(response)
+      .map((item) => (item && typeof item === 'object' ? normalizeBulkPriceTask(item as UnknownMap) : null))
+      .filter((item): item is BulkPriceTaskRecord => Boolean(item?.id))
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : ''
+    if (!message.includes('route not found') && !message.includes('404')) {
+      throw error
+    }
+
+    const fallbackTasks = await getTasks()
+    const searchTerm = (query.search ?? '').trim().toLowerCase()
+    return fallbackTasks
+      .filter((task) => ['completed', 'cancelled'].includes(task.status))
+      .filter((task) => task.total_amount === 0)
+      .filter((task) => task.payment_status !== 'paid')
+      .filter((task) => (query.client_id ? task.client_id === query.client_id : true))
+      .filter((task) => (query.from_date ? task.due_date.slice(0, 10) >= query.from_date : true))
+      .filter((task) => (query.to_date ? task.due_date.slice(0, 10) <= query.to_date : true))
+      .filter((task) => {
+        if (!searchTerm) return true
+        return [task.candidate, task.client, task.task_type].some((value) => value.toLowerCase().includes(searchTerm))
+      })
+      .map((task) => ({
+        id: task.id,
+        description: task.description || task.title,
+        due_date: task.due_date,
+        candidate_name: task.candidate,
+        company_name: task.client,
+        status: task.status,
+        assigned_to_name: task.assigned_to_name,
+        start_time: task.time_start,
+        end_time: task.time_end,
+        total_amount: task.total_amount,
+        support_type: task.task_type,
+        invoice_status: '',
+      }))
+  }
 }
 
 export const updateTaskPrices = async (updates: Array<{ task_id: number; amount: number }>) => {
