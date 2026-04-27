@@ -74,6 +74,21 @@ export type TaskUpdateCheck = {
   upcomingTasks: TaskRecord[]
 }
 
+export type BulkPriceTaskRecord = {
+  id: number
+  description: string
+  due_date: string
+  candidate_name: string
+  company_name: string
+  status: string
+  assigned_to_name: string
+  start_time: string
+  end_time: string
+  total_amount: number
+  support_type: string
+  invoice_status: string
+}
+
 type UnknownMap = Record<string, unknown>
 
 const getList = (value: unknown): unknown[] => {
@@ -375,4 +390,40 @@ export const getTaskTypes = async () => {
   return getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeTaskType(item as UnknownMap) : null))
     .filter((item): item is TaskTypeOption => Boolean(item))
+}
+
+const normalizeBulkPriceTask = (raw: UnknownMap): BulkPriceTaskRecord => ({
+  id: asNumber(raw.id ?? raw.task_id),
+  description: String(raw.description ?? raw.title ?? '').trim(),
+  due_date: String(raw.due_date ?? '').trim(),
+  candidate_name: String(raw.candidate_name ?? '').trim(),
+  company_name: String(raw.company_name ?? raw.client_name ?? '').trim(),
+  status: String(raw.status ?? '').trim().toLowerCase(),
+  assigned_to_name: String(raw.assigned_to_name ?? '').trim(),
+  start_time: String(raw.start_time ?? '').trim(),
+  end_time: String(raw.end_time ?? '').trim(),
+  total_amount: asNumber(raw.total_amount ?? 0),
+  support_type: String(raw.support_type ?? '').trim(),
+  invoice_status: String(raw.invoice_status ?? '').trim().toLowerCase(),
+})
+
+export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: string; client_id?: number; search?: string } = {}) => {
+  const params = new URLSearchParams()
+  if (query.from_date) params.set('from_date', query.from_date)
+  if (query.to_date) params.set('to_date', query.to_date)
+  if (query.client_id) params.set('client_id', String(query.client_id))
+  if (query.search) params.set('search', query.search)
+
+  const endpoint = params.toString() ? `/tasks/bulk-price?${params.toString()}` : '/tasks/bulk-price'
+  const response = await apiRequest<unknown>(endpoint)
+  return getList(response)
+    .map((item) => (item && typeof item === 'object' ? normalizeBulkPriceTask(item as UnknownMap) : null))
+    .filter((item): item is BulkPriceTaskRecord => Boolean(item?.id))
+}
+
+export const updateTaskPrices = async (updates: Array<{ task_id: number; amount: number }>) => {
+  return apiRequest<{ updated_count?: number; success?: boolean; message?: string }>('/tasks/update-prices', {
+    method: 'POST',
+    body: JSON.stringify(updates),
+  })
 }

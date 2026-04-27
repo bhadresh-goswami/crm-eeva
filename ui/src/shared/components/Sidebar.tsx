@@ -24,11 +24,15 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         { label: 'Roles', to: '/roles', icon: '🛡️' },
         { label: 'Clients', to: '/clients', icon: '🏢' },
         { label: 'POC', to: '/pocs', icon: '📇' },
+        { label: 'Invoices', to: '/invoices', icon: '🧾' },
       )
     }
 
     if (user.role === 'manager' || user.role === 'coordinator') {
       management.push({ label: 'Clients', to: '/clients', icon: '🏢' }, { label: 'POC', to: '/pocs', icon: '📇' })
+      if (user.role === 'manager') {
+        management.push({ label: 'Invoices', to: '/invoices', icon: '🧾' })
+      }
     }
 
     const tasks: MenuLink[] = []
@@ -41,9 +45,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         ? [
             { label: 'Dashboard', to: roleDashboardPath.manager, icon: '📊' },
             { label: 'Tasks', to: '/tasks', icon: '📝' },
+            { label: 'Price Update', to: '/tasks/bulk-price', icon: '💰' },
             { label: 'Client', to: '/clients', icon: '🏢' },
             { label: 'POC', to: '/pocs', icon: '📇' },
             { label: 'Candidate', to: '/candidates', icon: '🧑‍💼' },
+            { label: 'Invoices', to: '/invoices', icon: '🧾' },
           ]
         : []
 
