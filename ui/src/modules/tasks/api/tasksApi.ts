@@ -155,7 +155,7 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   task_type: String(raw.task_type ?? raw.task_type_name ?? '').trim(),
   title: String(raw.title ?? raw.task_title ?? '').trim(),
   description: String(raw.description ?? raw.task_description ?? raw.desc ?? '').trim(),
-  due_date: String(raw.due_date ?? raw.date ?? '').trim(),
+  due_date: String(raw.due_date ?? raw.date ?? raw.created_at ?? '').trim(),
   time_start: String(raw.time_start ?? raw.start_time ?? raw.startTime ?? raw.from_time ?? raw.time_from ?? '').trim(),
   time_end: String(raw.time_end ?? raw.end_time ?? raw.endTime ?? raw.to_time ?? raw.time_to ?? '').trim(),
   duration: asNumber(raw.duration),
@@ -562,4 +562,38 @@ export const getTaskReport = async (query: {
   return getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
     .filter((item): item is TaskRecord => Boolean(item?.id))
+}
+
+export type TaskAssignmentReportRow = {
+  task_id: number
+  assigned_to_name: string
+  created_at: string
+  status: string
+}
+
+export const getTaskAssignmentReport = async (query: {
+  status?: string
+  from_date?: string
+  to_date?: string
+} = {}) => {
+  const params = new URLSearchParams()
+  if (query.status) params.set('status', query.status)
+  if (query.from_date) params.set('from_date', query.from_date)
+  if (query.to_date) params.set('to_date', query.to_date)
+
+  const endpoint = params.toString() ? `/reports/task-assignments?${params.toString()}` : '/reports/task-assignments'
+  const response = await apiRequest<unknown>(endpoint)
+
+  return getList(response)
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null
+      const row = item as UnknownMap
+      return {
+        task_id: asNumber(row.task_id ?? row.id),
+        assigned_to_name: String(row.assigned_to_name ?? '').trim(),
+        created_at: String(row.created_at ?? row.date ?? '').trim(),
+        status: String(row.status ?? '').trim().toLowerCase(),
+      } as TaskAssignmentReportRow
+    })
+    .filter((item): item is TaskAssignmentReportRow => Boolean(item?.task_id))
 }

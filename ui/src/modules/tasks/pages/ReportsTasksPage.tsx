@@ -1,19 +1,36 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
-import { getTaskReport, type TaskRecord } from '../api/tasksApi'
+import { getTaskAssignmentReport, getTaskReport, type TaskRecord } from '../api/tasksApi'
 
 const ReportsTasksPage = () => {
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
 
   const load = async () => {
     setLoading(true)
+    setError(null)
     try {
-      const data = await getTaskReport({ status: status || undefined, from_date: fromDate || undefined, to_date: toDate || undefined })
-      setTasks(data)
+      const [taskRows, assignmentRows] = await Promise.all([
+        getTaskReport({ status: status || undefined, from_date: fromDate || undefined, to_date: toDate || undefined }),
+        getTaskAssignmentReport({ status: status || undefined, from_date: fromDate || undefined, to_date: toDate || undefined }),
+      ])
+
+      const assignmentMap = new Map<number, string>()
+      assignmentRows.forEach((row) => assignmentMap.set(row.task_id, row.assigned_to_name))
+
+      const merged = taskRows.map((row) => ({
+        ...row,
+        assigned_to_name: assignmentMap.get(row.id) ?? row.assigned_to_name,
+      }))
+
+      setTasks(merged)
+    } catch (loadError) {
+      setTasks([])
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load task reports.')
     } finally {
       setLoading(false)
     }
@@ -52,11 +69,13 @@ const ReportsTasksPage = () => {
           <thead><tr><th>ID</th><th>Status</th><th>Date</th><th>Candidate</th><th>Company</th><th>Assign To</th></tr></thead>
           <tbody>
             {loading ? <tr><td colSpan={6}>Loading...</td></tr> : tasks.length === 0 ? <tr><td colSpan={6}>No tasks found.</td></tr> : tasks.map((task) => (
-              <tr key={task.id}><td>{task.id}</td><td>{task.status}</td><td>{task.due_date}</td><td>{task.candidate}</td><td>{task.client}</td><td>{task.assigned_to_name || '-'}</td></tr>
+              <tr key={task.id}><td>{task.id}</td><td>{task.status}</td><td>{task.due_date || '-'}</td><td>{task.candidate}</td><td>{task.client}</td><td>{task.assigned_to_name || '-'}</td></tr>
             ))}
           </tbody>
         </table>
       </section>
+
+      {error ? <p className="auth-card__error">{error}</p> : null}
     </PageContainer>
   )
 }

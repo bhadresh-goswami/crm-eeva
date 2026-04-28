@@ -379,6 +379,10 @@ elseif ($uri === "/reports/tasks" && $method === "GET") {
     authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
     (new TaskController())->reportTasks($user);
 }
+elseif ($uri === "/reports/task-assignments" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
+    (new TaskController())->reportTaskAssignments();
+}
 elseif ($uri === "/tasks/update-prices" && $method === "POST") {
     authorize($user,['admin','manager']);
     (new TaskController())->updatePrices();
