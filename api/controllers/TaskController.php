@@ -441,6 +441,7 @@ public function downloadFile() {
                     t.id,
                     t.title,
                     t.description,
+                    t.created_at,
                     t.due_date,
                     t.start_time,
                     t.end_time,
@@ -450,9 +451,11 @@ public function downloadFile() {
                     COALESCE(c.company_name, c.name, '') AS company_name,
                     COALESCE(c.name, '') AS client_name,
                     COALESCE(tt.name, 'Support') AS support_type,
-                    COALESCE(u.name, '') AS assigned_to_name,
+                    COALESCE(MAX(u.name), '') AS assigned_to_name,
                     LOWER(COALESCE(ps.name, 'pending')) AS payment_status,
-                    LOWER(COALESCE(i.status, '')) AS invoice_status
+                    LOWER(COALESCE(inv.status, '')) AS invoice_status,
+                    COALESCE(pay.total_paid, 0) AS paid_amount,
+                    GREATEST(t.total_amount - COALESCE(pay.total_paid, 0), 0) AS pending_amount
                 FROM tasks t
                 LEFT JOIN task_status_master ts ON ts.id = t.status_id
                 LEFT JOIN payment_status_master ps ON ps.id = t.payment_status_id
@@ -461,22 +464,27 @@ public function downloadFile() {
                 LEFT JOIN task_types tt ON tt.id = t.task_type_id
                 LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
                 LEFT JOIN users u ON u.id = ta.user_id
-                LEFT JOIN invoices i ON i.id = t.invoice_id
+                LEFT JOIN (
+                    SELECT task_id, MAX(invoice_id) AS invoice_id
+                    FROM invoice_items
+                    GROUP BY task_id
+                ) task_invoice_map ON task_invoice_map.task_id = t.id
+                LEFT JOIN invoices inv ON inv.id = COALESCE(t.invoice_id, task_invoice_map.invoice_id)
+                LEFT JOIN (
+                    SELECT invoice_id, COALESCE(SUM(amount_paid), 0) AS total_paid
+                    FROM invoice_payments
+                    GROUP BY invoice_id
+                ) pay ON pay.invoice_id = inv.id
                 WHERE LOWER(COALESCE(ts.name, '')) = 'completed'
-                  AND LOWER(COALESCE(ps.name, 'unpaid')) IN ('unpaid', 'pending', 'not_paid')
-                  AND t.invoice_id IS NULL
-                  AND NOT EXISTS (
-                    SELECT 1 FROM invoice_items ii WHERE ii.task_id = t.id
-                  )
             ";
 
             $params = [];
             if (!empty($fromDate)) {
-                $query .= " AND DATE(t.due_date) >= ?";
+                $query .= " AND DATE(t.created_at) >= ?";
                 $params[] = $fromDate;
             }
             if (!empty($toDate)) {
-                $query .= " AND DATE(t.due_date) <= ?";
+                $query .= " AND DATE(t.created_at) <= ?";
                 $params[] = $toDate;
             }
             if (!empty($clientId)) {
@@ -495,13 +503,24 @@ public function downloadFile() {
                 $params[] = $searchTerm;
             }
 
-            $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
+            $query .= "
+                GROUP BY t.id
+                HAVING pending_amount > 0
+                ORDER BY t.created_at DESC, t.id DESC
+            ";
 
             $stmt = $conn->prepare($query);
             $stmt->execute($params);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            echo json_encode(["success" => true, "data" => $rows]);
+            $summary = [
+                'total_pending_tasks' => count($rows),
+                'total_pending_amount' => array_reduce($rows, static function ($carry, $row) {
+                    return $carry + (float)($row['pending_amount'] ?? 0);
+                }, 0.0),
+            ];
+
+            echo json_encode(["success" => true, "data" => $rows, 'summary' => $summary]);
         } catch (Throwable $error) {
             http_response_code(500);
             echo json_encode(["success" => false, "message" => $error->getMessage()]);

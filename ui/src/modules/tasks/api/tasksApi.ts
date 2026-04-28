@@ -77,6 +77,7 @@ export type TaskUpdateCheck = {
 export type BulkPriceTaskRecord = {
   id: number
   description: string
+  created_at: string
   due_date: string
   candidate_name: string
   company_name: string
@@ -87,6 +88,16 @@ export type BulkPriceTaskRecord = {
   total_amount: number
   support_type: string
   invoice_status: string
+  paid_amount: number
+  pending_amount: number
+}
+
+export type BulkPriceListResponse = {
+  tasks: BulkPriceTaskRecord[]
+  summary: {
+    total_pending_tasks: number
+    total_pending_amount: number
+  }
 }
 
 type UnknownMap = Record<string, unknown>
@@ -395,6 +406,7 @@ export const getTaskTypes = async () => {
 const normalizeBulkPriceTask = (raw: UnknownMap): BulkPriceTaskRecord => ({
   id: asNumber(raw.id ?? raw.task_id),
   description: String(raw.description ?? raw.title ?? '').trim(),
+  created_at: String(raw.created_at ?? raw.date ?? '').trim(),
   due_date: String(raw.due_date ?? '').trim(),
   candidate_name: String(raw.candidate_name ?? '').trim(),
   company_name: String(raw.company_name ?? raw.client_name ?? '').trim(),
@@ -405,9 +417,11 @@ const normalizeBulkPriceTask = (raw: UnknownMap): BulkPriceTaskRecord => ({
   total_amount: asNumber(raw.total_amount ?? 0),
   support_type: String(raw.support_type ?? '').trim(),
   invoice_status: String(raw.invoice_status ?? '').trim().toLowerCase(),
+  paid_amount: asNumber(raw.paid_amount ?? 0),
+  pending_amount: asNumber(raw.pending_amount ?? raw.total_amount ?? 0),
 })
 
-export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: string; client_id?: number; search?: string } = {}) => {
+export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: string; client_id?: number; search?: string } = {}): Promise<BulkPriceListResponse> => {
   const params = new URLSearchParams()
   if (query.from_date) params.set('from_date', query.from_date)
   if (query.to_date) params.set('to_date', query.to_date)
@@ -419,9 +433,22 @@ export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: s
     const response = await apiFetch(endpoint, { method: 'GET' })
     if (response.ok) {
       const payload = (await response.json()) as unknown
-      return getList(payload)
+      const tasks = getList(payload)
         .map((item) => (item && typeof item === 'object' ? normalizeBulkPriceTask(item as UnknownMap) : null))
         .filter((item): item is BulkPriceTaskRecord => Boolean(item?.id))
+
+      const typedPayload = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
+      const rawSummary = typedPayload.summary && typeof typedPayload.summary === 'object'
+        ? (typedPayload.summary as Record<string, unknown>)
+        : {}
+
+      return {
+        tasks,
+        summary: {
+          total_pending_tasks: asNumber(rawSummary.total_pending_tasks ?? tasks.length),
+          total_pending_amount: asNumber(rawSummary.total_pending_amount ?? tasks.reduce((sum, row) => sum + row.pending_amount, 0)),
+        },
+      }
     }
 
     if (response.status !== 404) {
@@ -432,7 +459,7 @@ export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: s
     // 404 fallback for environments that have not yet deployed /tasks/bulk-price route
     const fallbackTasks = await getTasks()
     const searchTerm = (query.search ?? '').trim().toLowerCase()
-    return fallbackTasks
+    const tasks = fallbackTasks
       .filter((task) => ['completed', 'cancelled'].includes(task.status))
       .filter((task) => task.total_amount === 0)
       .filter((task) => task.payment_status !== 'paid')
@@ -446,6 +473,7 @@ export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: s
       .map((task) => ({
         id: task.id,
         description: task.description || task.title,
+        created_at: task.due_date,
         due_date: task.due_date,
         candidate_name: task.candidate,
         company_name: task.client,
@@ -456,18 +484,28 @@ export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: s
         total_amount: task.total_amount,
         support_type: task.task_type,
         invoice_status: '',
+        paid_amount: 0,
+        pending_amount: task.total_amount,
       }))
+    return {
+      tasks,
+      summary: {
+        total_pending_tasks: tasks.length,
+        total_pending_amount: tasks.reduce((sum, row) => sum + row.pending_amount, 0),
+      },
+    }
   } catch (error) {
     if (error instanceof Error && !error.message.toLowerCase().includes('route not found')) {
       throw error
     }
     const fallbackTasks = await getTasks()
-    return fallbackTasks
+    const tasks = fallbackTasks
       .filter((task) => ['completed', 'cancelled'].includes(task.status))
       .filter((task) => task.total_amount === 0)
       .map((task) => ({
         id: task.id,
         description: task.description || task.title,
+        created_at: task.due_date,
         due_date: task.due_date,
         candidate_name: task.candidate,
         company_name: task.client,
@@ -478,7 +516,16 @@ export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: s
         total_amount: task.total_amount,
         support_type: task.task_type,
         invoice_status: '',
+        paid_amount: 0,
+        pending_amount: task.total_amount,
       }))
+    return {
+      tasks,
+      summary: {
+        total_pending_tasks: tasks.length,
+        total_pending_amount: tasks.reduce((sum, row) => sum + row.pending_amount, 0),
+      },
+    }
   }
 }
 

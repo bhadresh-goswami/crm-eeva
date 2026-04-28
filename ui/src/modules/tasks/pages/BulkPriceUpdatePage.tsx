@@ -26,6 +26,7 @@ const BulkPriceUpdatePage = () => {
   const [tasks, setTasks] = useState<EditableTask[]>([])
   const [loading, setLoading] = useState(false)
   const [updating, setUpdating] = useState(false)
+  const [summary, setSummary] = useState({ total_pending_tasks: 0, total_pending_amount: 0 })
 
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -35,16 +36,22 @@ const BulkPriceUpdatePage = () => {
   const [viewTask, setViewTask] = useState<EditableTask | null>(null)
   const [editTask, setEditTask] = useState<EditableTask | null>(null)
 
-  const loadData = async () => {
+  const loadData = async (filters?: { fromDate?: string; toDate?: string; clientId?: string; search?: string }) => {
+    const from = filters?.fromDate ?? fromDate
+    const to = filters?.toDate ?? toDate
+    const client = filters?.clientId ?? clientId
+    const searchTerm = filters?.search ?? search
+
     setLoading(true)
     try {
-      const data = await getBulkPriceTasks({
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
-        client_id: clientId ? Number(clientId) : undefined,
-        search: search.trim() || undefined,
+      const response = await getBulkPriceTasks({
+        from_date: from || undefined,
+        to_date: to || undefined,
+        client_id: client ? Number(client) : undefined,
+        search: searchTerm.trim() || undefined,
       })
-      setTasks(data.map((task) => ({ ...task, modified: false })))
+      setTasks(response.tasks.map((task) => ({ ...task, modified: false })))
+      setSummary(response.summary)
     } catch (error) {
       showToast({ type: 'error', message: error instanceof Error ? error.message : 'Failed to load bulk price tasks.' })
     } finally {
@@ -69,10 +76,12 @@ const BulkPriceUpdatePage = () => {
   const modifiedTasks = useMemo(() => tasks.filter((task) => task.modified), [tasks])
 
   const onReset = () => {
+    const clearedFilters = { fromDate: '', toDate: '', clientId: '', search: '' }
     setFromDate('')
     setToDate('')
     setClientId('')
     setSearch('')
+    void loadData(clearedFilters)
   }
 
   const onUpdatePrices = async () => {
@@ -123,6 +132,10 @@ const BulkPriceUpdatePage = () => {
   return (
     <PageContainer title="Payment Correction Dashboard" description="Correct pending task payments before final invoice settlement.">
       <section className="filter-card">
+        <div className="filter-summary-row">
+          <div className="filter-summary-pill"><strong>Total Pending Tasks:</strong> {summary.total_pending_tasks}</div>
+          <div className="filter-summary-pill"><strong>Total Pending Amount:</strong> ₹{summary.total_pending_amount.toFixed(2)}</div>
+        </div>
         <div className="filter-grid">
           <label className="filter-field"><span>From Date</span><input className="filter-input" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label>
           <label className="filter-field"><span>To Date</span><input className="filter-input" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
@@ -149,7 +162,7 @@ const BulkPriceUpdatePage = () => {
                   </td>
                   <td><input className="amount-input" type="number" min={0} value={task.total_amount} disabled={!canEditAmount} onChange={(event) => applyInlineAmount(task.id, event.target.value)} /></td>
                   <td>{task.status}</td>
-                  <td>{formatDate(task.due_date)}</td>
+                  <td>{formatDate(task.created_at || task.due_date)}</td>
                   <td>{task.candidate_name || '-'}</td>
                   <td>{task.company_name || '-'}</td>
                   <td>{task.start_time || '-'} / {task.end_time || '-'}</td>

@@ -14,6 +14,21 @@
   grid-template-columns: repeat(4, minmax(200px, 1fr));
 }
 
+.filter-summary-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-summary-pill {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #0f172a;
+  font-size: 0.88rem;
+}
+
 .filter-field {
   display: grid;
   gap: 6px;
