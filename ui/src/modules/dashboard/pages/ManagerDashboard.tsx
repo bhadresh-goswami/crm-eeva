@@ -303,15 +303,15 @@ const ManagerDashboard = () => {
   return (
     <PageContainer title="Manager Dashboard" description="Live dashboard summary and task assignment workflow.">
 
-      <div className="metric-grid dashboard-cards section">
+      <div className="row g-3 section">
         {loadingSummary
           ? Array.from({ length: cards.length || 6 }).map((_, index) => (
-              <article key={index} className="card skeleton-card" aria-hidden="true" />
+              <article key={index} className="col-12 col-md-6 col-xl-3 card skeleton-card" aria-hidden="true" />
             ))
           : cards.map((card) => {
               if (!card.tab) {
                 return (
-                  <div key={card.label} className={`card metric-card metric-card--${card.tone}`}>
+                  <div key={card.label} className={`col-12 col-md-6 col-xl-3 card metric-card metric-card--${card.tone}`}>
                     <span className="metric-card__title">{card.label}</span>
                     <h3 className="metric-card__value">{card.value}</h3>
                   </div>
@@ -319,7 +319,7 @@ const ManagerDashboard = () => {
               }
 
               return (
-                <button key={card.label} type="button" className={`card metric-card metric-card--button metric-card--${card.tone}`} onClick={() => setActiveTab(card.tab)}>
+                <button key={card.label} type="button" className={`col-12 col-md-6 col-xl-3 card metric-card metric-card--button metric-card--${card.tone}`} onClick={() => setActiveTab(card.tab)}>
                   <span className="metric-card__title">{card.label}</span>
                   <h3 className="metric-card__value">{card.value}</h3>
                 </button>

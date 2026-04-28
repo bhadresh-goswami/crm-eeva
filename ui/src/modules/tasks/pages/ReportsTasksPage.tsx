@@ -61,10 +61,10 @@ const ReportsTasksPage = () => {
 
   return (
     <PageContainer title="Task Reports" description="Role-based reporting across task status, schedule and assignments.">
-      <section className="card section p-3">
+      <section className="card section p-4">
         <div className="row g-3 align-items-end">
           <div className="col-12 col-md-6 col-lg-3">
-            <label className="form-label fw-semibold">Status</label>
+            <label className="form-label fw-semibold d-block mb-2">Status</label>
             <select className="form-select" value={status} onChange={(event) => setStatus(event.target.value)}>
               <option value="">All</option>
               <option value="completed">completed</option>
@@ -74,14 +74,14 @@ const ReportsTasksPage = () => {
             </select>
           </div>
           <div className="col-12 col-md-6 col-lg-3">
-            <label className="form-label fw-semibold">From Date</label>
+            <label className="form-label fw-semibold d-block mb-2">From Date</label>
             <input className="form-control" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
           </div>
           <div className="col-12 col-md-6 col-lg-3">
-            <label className="form-label fw-semibold">To Date</label>
+            <label className="form-label fw-semibold d-block mb-2">To Date</label>
             <input className="form-control" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
           </div>
-          <div className="col-12 col-md-6 col-lg-3 d-grid">
+          <div className="col-12 col-md-6 col-lg-2 d-grid">
             <button className="btn btn-primary" onClick={() => void load()} disabled={loading}>
               {loading ? 'Loading...' : 'Apply'}
             </button>
