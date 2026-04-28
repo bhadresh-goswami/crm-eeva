@@ -16,6 +16,7 @@ import {
   getPocsByClient,
   getTaskTypes,
   getTasks,
+  getTasksLastUpdate,
   moveTaskToPending,
   updateTask,
   type CandidateOption,
@@ -241,9 +242,12 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
 
 const TasksPage = () => {
   const { user } = useAuth()
+  const normalizedRole = (user?.role ?? '').toLowerCase()
+  const isTechExpert = normalizedRole === 'expert' || normalizedRole === 'technical expert'
   const { showToast, showAlert } = useAlert()
   const editorRef = useRef<HTMLDivElement | null>(null)
   const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
+  const canEditPrice = user?.role === 'admin' || user?.role === 'manager'
 
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [cancelledTasks, setCancelledTasks] = useState<TaskRecord[]>([])
@@ -302,6 +306,7 @@ const TasksPage = () => {
   const [selectedExpertId, setSelectedExpertId] = useState<number | null>(null)
   const [isBulkAssign, setIsBulkAssign] = useState(false)
   const [lastSeenTaskId, setLastSeenTaskId] = useState(0)
+  const [lastKnownTaskUpdate, setLastKnownTaskUpdate] = useState<string | null>(null)
   const [announcedNewTaskIds, setAnnouncedNewTaskIds] = useState<number[]>([])
   const [announcedUpcomingTaskIds, setAnnouncedUpcomingTaskIds] = useState<number[]>([])
 
@@ -421,19 +426,21 @@ const TasksPage = () => {
   const isUserBusy = isFormOpen || Boolean(descriptionPreview) || Boolean(assignTarget) || Boolean(deleteTarget) || isCancelledModalOpen
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      if (!isUserBusy) {
-        void loadPage()
-      }
-    }, 10_000)
+    if (!isTechExpert) {
+      return
+    }
 
-    return () => window.clearInterval(interval)
-  }, [isUserBusy, loadPage])
-
-  useEffect(() => {
     const interval = window.setInterval(async () => {
       if (isUserBusy) return
       try {
+        const latestStamp = await getTasksLastUpdate()
+        if (!latestStamp || latestStamp === lastKnownTaskUpdate) {
+          return
+        }
+
+        setLastKnownTaskUpdate(latestStamp)
+        await loadPage()
+
         const updates = await checkTaskUpdates(lastSeenTaskId, 30)
         if (updates.newTasks.length > 0) {
           const unseen = updates.newTasks.filter((task) => !announcedNewTaskIds.includes(task.id))
@@ -454,10 +461,10 @@ const TasksPage = () => {
       } catch {
         // silent polling failure
       }
-    }, 10_000)
+    }, 20_000)
 
     return () => window.clearInterval(interval)
-  }, [announcedNewTaskIds, announcedUpcomingTaskIds, isUserBusy, lastSeenTaskId, showAlert, showToast])
+  }, [announcedNewTaskIds, announcedUpcomingTaskIds, getTasksLastUpdate, isTechExpert, isUserBusy, lastKnownTaskUpdate, lastSeenTaskId, loadPage, showAlert, showToast])
 
   const clientOptions = useMemo(
     () => clients.map((client) => ({ id: client.id, label: client.company_name || client.name })).sort((a, b) => a.label.localeCompare(b.label)),
@@ -547,9 +554,11 @@ const TasksPage = () => {
     if (!state.start_time) nextErrors.start_time = 'Start time is required.'
     if (state.duration < 1 || state.duration > 500) nextErrors.duration = 'Duration must be between 1 and 500.'
 
-    const amount = Number(state.total_amount)
-    if (!state.total_amount.trim()) nextErrors.total_amount = 'Amount is required.'
-    if (Number.isNaN(amount) || amount < 0) nextErrors.total_amount = 'Amount must be positive.'
+    const amount = Number(state.total_amount || '0')
+    if (canEditPrice) {
+      if (!state.total_amount.trim()) nextErrors.total_amount = 'Amount is required.'
+      if (Number.isNaN(amount) || amount < 0) nextErrors.total_amount = 'Amount must be positive.'
+    }
 
     if (!state.description.trim()) nextErrors.description = 'Description is required.'
 
@@ -859,8 +868,8 @@ const TasksPage = () => {
                       </td>
                       <td>
                         <div className="roles-table__actions users-actions">
-                          <button className="button users-icon-btn action-btn" title="View" onClick={() => void openEdit(task)}>👁</button>
-                          <button className="button users-icon-btn action-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
+                          <button className="btn btn-sm btn-light users-icon-btn action-btn" title="View" onClick={() => void openEdit(task)}>👁️</button>
+                          <button className="btn btn-sm btn-light users-icon-btn action-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
                           <button className="button users-icon-btn action-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
                           <button
                             className="button users-icon-btn action-btn"
@@ -932,7 +941,7 @@ const TasksPage = () => {
 
       {isFormOpen ? (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ width: 'min(980px, 100%)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-card modal-card--xl" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <h3 className="modal-title" style={{ marginBottom: 0 }}>{formMode === 'create' ? 'Create New Task' : 'Edit Task'}</h3>
               <button className="button" type="button" onClick={() => setIsFormOpen(false)} aria-label="Close task modal">
@@ -1037,11 +1046,13 @@ const TasksPage = () => {
                 {formErrors.description ? <small className="auth-card__error">{formErrors.description}</small> : null}
               </div>
 
-              <label className="auth-card__field">
-                Decided Amt INR <span className="auth-card__error">*</span>
-                <input type="number" min={0} className={formErrors.total_amount ? 'field-error' : ''} value={formState.total_amount} onChange={(event) => setFormState((prev) => ({ ...prev, total_amount: event.target.value }))} placeholder="Enter amount" />
-                {formErrors.total_amount ? <small className="auth-card__error">{formErrors.total_amount}</small> : null}
-              </label>
+              {canEditPrice ? (
+                <label className="auth-card__field">
+                  Decided Amt INR <span className="auth-card__error">*</span>
+                  <input type="number" min={0} className={formErrors.total_amount ? 'field-error' : ''} value={formState.total_amount} onChange={(event) => setFormState((prev) => ({ ...prev, total_amount: event.target.value }))} placeholder="Enter amount" />
+                  {formErrors.total_amount ? <small className="auth-card__error">{formErrors.total_amount}</small> : null}
+                </label>
+              ) : null}
               <label className="auth-card__field">
                 Payment Status
                 <input value="Pending" readOnly />
