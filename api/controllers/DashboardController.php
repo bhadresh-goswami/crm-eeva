@@ -48,11 +48,29 @@ class DashboardController {
         ")->fetchColumn();
 
         $data['pending_payment_updates'] = $conn->query("
-            SELECT COUNT(*)
+            SELECT COUNT(DISTINCT t.id)
             FROM tasks t
-            JOIN task_status_master ts ON ts.id = t.status_id
-            WHERE LOWER(ts.name) = 'completed'
-              AND COALESCE(t.total_amount, 0) = 0
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN invoice_items ii ON ii.task_id = t.id
+            WHERE LOWER(COALESCE(ts.name, '')) = 'completed'
+              AND (
+                COALESCE(t.total_amount, 0) = 0
+                OR ii.status = 'not_paid'
+                OR ii.id IS NULL
+              )
+        ")->fetchColumn();
+
+        $data['blocked_invoices'] = $conn->query("
+            SELECT COUNT(DISTINCT t.client_id)
+            FROM tasks t
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN invoice_items ii ON ii.task_id = t.id
+            WHERE LOWER(COALESCE(ts.name, '')) = 'completed'
+              AND (
+                COALESCE(t.total_amount, 0) = 0
+                OR ii.status = 'not_paid'
+                OR ii.id IS NULL
+              )
         ")->fetchColumn();
 
         echo json_encode($data);

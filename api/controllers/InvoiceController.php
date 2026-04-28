@@ -214,6 +214,25 @@ class InvoiceController {
                 throw new Exception('No valid tasks to invoice.');
             }
 
+            $pendingPaymentStmt = $conn->prepare("
+                SELECT t.id
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                LEFT JOIN invoice_items ii ON ii.task_id = t.id
+                WHERE t.client_id = ?
+                  AND LOWER(COALESCE(ts.name, '')) = 'completed'
+                  AND (
+                    COALESCE(t.total_amount, 0) = 0
+                    OR ii.status = 'not_paid'
+                    OR ii.id IS NULL
+                  )
+                LIMIT 1
+            ");
+            $pendingPaymentStmt->execute([(int)$payload['client_id']]);
+            if ($pendingPaymentStmt->fetch(PDO::FETCH_ASSOC)) {
+                throw new Exception('Invoice cannot be generated. Pending task payments exist.');
+            }
+
             $placeholders = implode(',', array_fill(0, count($taskIds), '?'));
             $dupTaskStmt = $conn->prepare("SELECT id FROM tasks WHERE id IN ($placeholders) AND invoice_id IS NOT NULL LIMIT 1");
             $dupTaskStmt->execute($taskIds);
