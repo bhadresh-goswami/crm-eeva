@@ -218,20 +218,26 @@ const ManagerDashboard = () => {
     const completedToday = liveTasks.filter((task) => task.status === 'completed' && task.dueDate?.slice(0, 10) === today).length
     const productiveBase = summaryData.pendingTasks + summaryData.assignedTasks + summaryData.completedTasks
     const productivity = productiveBase > 0 ? Math.round((summaryData.completedTasks / productiveBase) * 100) : 0
-    return { overdue, completedToday, productivity }
+    const durations = liveTasks.map((task) => Number((task as { duration?: number }).duration ?? 0)).filter((value) => Number.isFinite(value) && value > 0)
+    const avgDuration = durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : 0
+    const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const totalLast30Days = liveTasks.filter((task) => {
+      if (!task.dueDate) return false
+      const source = task.dueDate || ''
+      const date = new Date(String(source).slice(0, 10))
+      return !Number.isNaN(date.getTime()) && date >= last30Days
+    }).length
+    return { overdue, completedToday, productivity, avgDuration, totalLast30Days }
   }, [liveTasks, summaryData.assignedTasks, summaryData.completedTasks, summaryData.pendingTasks])
 
   const cards = useMemo(
     () => [
-      { label: 'Total Tasks', value: summaryData.totalTasks, tone: 'default' },
+      { label: 'Total Tasks (Last 30 Days)', value: kpi.totalLast30Days, tone: 'default' },
+      { label: 'Completed Tasks', value: summaryData.completedTasks, tab: 'completed' as const, tone: 'success' },
       { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const, tone: 'warning' },
-      { label: 'Assigned Tasks', value: summaryData.assignedTasks, tab: 'assigned' as const, tone: 'default' },
-      { label: 'Overdue Tasks', value: kpi.overdue, tone: 'danger' },
-      { label: 'Completed Today', value: kpi.completedToday, tab: 'completed' as const, tone: 'success' },
-      { label: 'Pending Payment Updates', value: summaryData.pendingPaymentUpdates ?? 0, tone: 'warning' },
-      { label: 'Team Productivity', value: `${kpi.productivity}%`, tone: 'success' },
+      { label: 'Avg Duration (mins)', value: kpi.avgDuration, tone: 'default' },
     ],
-    [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingPaymentUpdates, summaryData.pendingTasks, summaryData.totalTasks],
+    [kpi.avgDuration, kpi.totalLast30Days, summaryData.completedTasks, summaryData.pendingTasks],
   )
 
   const liveActivityTasks = useMemo(

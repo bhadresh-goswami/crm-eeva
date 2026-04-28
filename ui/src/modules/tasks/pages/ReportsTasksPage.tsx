@@ -51,6 +51,14 @@ const ReportsTasksPage = () => {
     cancelled: tasks.filter((task) => task.status === 'cancelled').length,
   }), [tasks])
 
+  const formatTimeValue = (value: string) => {
+    if (!value) return '-'
+    const normalized = value.includes(' ') ? value.replace(' ', 'T') : `1970-01-01T${value}`
+    const date = new Date(normalized)
+    if (Number.isNaN(date.getTime())) return '-'
+    return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+  }
+
   return (
     <PageContainer title="Task Reports" description="Role-based reporting across task status, schedule and assignments.">
       <section className="card section p-3">
@@ -103,11 +111,12 @@ const ReportsTasksPage = () => {
                 {!isExpert ? <th>Company</th> : null}
                 <th>Start Time</th>
                 <th>End Time</th>
+                <th>Actual Start/End (IST)</th>
                 <th>Duration</th>
               </tr>
             </thead>
           <tbody>
-            {loading ? <tr><td colSpan={9}>Loading...</td></tr> : tasks.length === 0 ? <tr><td colSpan={9}>No tasks found.</td></tr> : tasks.map((task) => (
+            {loading ? <tr><td colSpan={10}>Loading...</td></tr> : tasks.length === 0 ? <tr><td colSpan={10}>No tasks found.</td></tr> : tasks.map((task) => (
               <tr key={task.id}>
                 <td>{task.id}</td>
                 <td className="text-capitalize">{task.status}</td>
@@ -115,8 +124,9 @@ const ReportsTasksPage = () => {
                 <td>{task.candidate || '-'}</td>
                 <td>{task.assigned_to_name || '-'}</td>
                 {!isExpert ? <td>{task.client || '-'}</td> : null}
-                <td>{task.time_start ? new Date(`1970-01-01T${task.time_start}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
-                <td>{task.time_end ? new Date(`1970-01-01T${task.time_end}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                <td>{formatTimeValue(task.time_start)}</td>
+                <td>{formatTimeValue(task.time_end)}</td>
+                <td>{`${formatTimeValue(task.time_start)} / ${formatTimeValue(task.time_end)}`}</td>
                 <td>{Number.isFinite(task.duration) && task.duration > 0 ? `${task.duration} mins` : '-'}</td>
               </tr>
             ))}
