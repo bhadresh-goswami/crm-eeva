@@ -38,6 +38,7 @@ require_once "controllers/RoleController.php";
 require_once "controllers/TaskTypeController.php";
 require_once "controllers/TaskStatusController.php";
 require_once "controllers/PaymentStatusController.php";
+require_once "controllers/InvoiceController.php";
 require_once "services/EmailService.php";
 require_once "services/LoggerService.php";
 
@@ -73,6 +74,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 // BASE PATH
 $basePath = "/api";
 $uri = str_replace($basePath, "", $uri);
+$uri = str_replace('/index.php', '', $uri);
 
 // 🔥 FIX: normalize URI
 $uri = rtrim($uri, '/');
@@ -334,8 +336,10 @@ elseif ($uri === "/expert/send-daily-report" && $method === "POST") {
     (new TaskController())->sendDailyReport($expertUserId);
 }
 elseif ($uri === "/tasks/create" && $method === "POST") {
-    authorize($user,['admin','manager','coordinator']);
-    (new TaskController())->create();
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    $actorRole = is_array($user) ? (string)($user['role'] ?? '') : (string)($user->role ?? '');
+    (new TaskController())->create($actorUserId, $actorRole);
 }
 elseif ($uri === "/tasks/update" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
@@ -363,6 +367,22 @@ elseif ($uri === "/tasks/bulk-assign" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->bulkAssign();
 }
+elseif ($uri === "/tasks/bulk-price" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new TaskController())->bulkPriceList();
+}
+elseif ($uri === "/reports/tasks" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
+    (new TaskController())->reportTasks($user);
+}
+elseif ($uri === "/tasks/update-prices" && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new TaskController())->updatePrices();
+}
+elseif ($uri === "/tasks/bulk-price/update" && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new TaskController())->updatePrices();
+}
 elseif ($uri === "/tasks/cancel" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->cancelTask();
@@ -383,6 +403,39 @@ elseif ($uri === "/test-email" && $method === "POST") {
 // ❌ DEFAULT
 // ===================================================
 
+
+elseif ($uri === "/tasks/completed" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->completedTasks();
+}
+elseif ($uri === "/invoices" && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->createInvoice();
+}
+elseif ($uri === "/invoices" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->listInvoices();
+}
+elseif ($uri === "/invoices/stats" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->stats();
+}
+elseif ($uri === "/invoices/next-number" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->nextInvoiceNumber();
+}
+elseif (preg_match('#^/invoices/(\d+)/update-status$#', $uri, $matches) && $method === "PUT") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->updateStatus((int)$matches[1]);
+}
+elseif (preg_match('#^/invoices/(\d+)/recalculate$#', $uri, $matches) && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->recalculate((int)$matches[1]);
+}
+elseif (preg_match('#^/invoices/(\d+)$#', $uri, $matches) && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->getInvoiceById((int)$matches[1]);
+}
 else {
     http_response_code(404);
     echo json_encode([
