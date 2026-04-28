@@ -1,4 +1,4 @@
-import { apiRequest } from '../../../api/client'
+import { apiFetch, apiRequest } from '../../../api/client'
 const FILE_BASE_URL = 'https://support.bsquareg-developers.com/supporting-document'
 
 export type TaskRecord = {
@@ -72,6 +72,21 @@ type TaskQuery = {
 export type TaskUpdateCheck = {
   newTasks: TaskRecord[]
   upcomingTasks: TaskRecord[]
+}
+
+export type BulkPriceTaskRecord = {
+  id: number
+  description: string
+  due_date: string
+  candidate_name: string
+  company_name: string
+  status: string
+  assigned_to_name: string
+  start_time: string
+  end_time: string
+  total_amount: number
+  support_type: string
+  invoice_status: string
 }
 
 type UnknownMap = Record<string, unknown>
@@ -375,4 +390,123 @@ export const getTaskTypes = async () => {
   return getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeTaskType(item as UnknownMap) : null))
     .filter((item): item is TaskTypeOption => Boolean(item))
+}
+
+const normalizeBulkPriceTask = (raw: UnknownMap): BulkPriceTaskRecord => ({
+  id: asNumber(raw.id ?? raw.task_id),
+  description: String(raw.description ?? raw.title ?? '').trim(),
+  due_date: String(raw.due_date ?? '').trim(),
+  candidate_name: String(raw.candidate_name ?? '').trim(),
+  company_name: String(raw.company_name ?? raw.client_name ?? '').trim(),
+  status: String(raw.status ?? '').trim().toLowerCase(),
+  assigned_to_name: String(raw.assigned_to_name ?? '').trim(),
+  start_time: String(raw.start_time ?? '').trim(),
+  end_time: String(raw.end_time ?? '').trim(),
+  total_amount: asNumber(raw.total_amount ?? 0),
+  support_type: String(raw.support_type ?? '').trim(),
+  invoice_status: String(raw.invoice_status ?? '').trim().toLowerCase(),
+})
+
+export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: string; client_id?: number; search?: string } = {}) => {
+  const params = new URLSearchParams()
+  if (query.from_date) params.set('from_date', query.from_date)
+  if (query.to_date) params.set('to_date', query.to_date)
+  if (query.client_id) params.set('client_id', String(query.client_id))
+  if (query.search) params.set('search', query.search)
+
+  const endpoint = params.toString() ? `/tasks/bulk-price?${params.toString()}` : '/tasks/bulk-price'
+  try {
+    const response = await apiFetch(endpoint, { method: 'GET' })
+    if (response.ok) {
+      const payload = (await response.json()) as unknown
+      return getList(payload)
+        .map((item) => (item && typeof item === 'object' ? normalizeBulkPriceTask(item as UnknownMap) : null))
+        .filter((item): item is BulkPriceTaskRecord => Boolean(item?.id))
+    }
+
+    if (response.status !== 404) {
+      const message = await response.text()
+      throw new Error(message || `Request failed with status ${response.status}`)
+    }
+
+    // 404 fallback for environments that have not yet deployed /tasks/bulk-price route
+    const fallbackTasks = await getTasks()
+    const searchTerm = (query.search ?? '').trim().toLowerCase()
+    return fallbackTasks
+      .filter((task) => ['completed', 'cancelled'].includes(task.status))
+      .filter((task) => task.total_amount === 0)
+      .filter((task) => task.payment_status !== 'paid')
+      .filter((task) => (query.client_id ? task.client_id === query.client_id : true))
+      .filter((task) => (query.from_date ? task.due_date.slice(0, 10) >= query.from_date : true))
+      .filter((task) => (query.to_date ? task.due_date.slice(0, 10) <= query.to_date : true))
+      .filter((task) => {
+        if (!searchTerm) return true
+        return [task.candidate, task.client, task.task_type].some((value) => value.toLowerCase().includes(searchTerm))
+      })
+      .map((task) => ({
+        id: task.id,
+        description: task.description || task.title,
+        due_date: task.due_date,
+        candidate_name: task.candidate,
+        company_name: task.client,
+        status: task.status,
+        assigned_to_name: task.assigned_to_name,
+        start_time: task.time_start,
+        end_time: task.time_end,
+        total_amount: task.total_amount,
+        support_type: task.task_type,
+        invoice_status: '',
+      }))
+  } catch (error) {
+    if (error instanceof Error && !error.message.toLowerCase().includes('route not found')) {
+      throw error
+    }
+    const fallbackTasks = await getTasks()
+    return fallbackTasks
+      .filter((task) => ['completed', 'cancelled'].includes(task.status))
+      .filter((task) => task.total_amount === 0)
+      .map((task) => ({
+        id: task.id,
+        description: task.description || task.title,
+        due_date: task.due_date,
+        candidate_name: task.candidate,
+        company_name: task.client,
+        status: task.status,
+        assigned_to_name: task.assigned_to_name,
+        start_time: task.time_start,
+        end_time: task.time_end,
+        total_amount: task.total_amount,
+        support_type: task.task_type,
+        invoice_status: '',
+      }))
+  }
+}
+
+export const updateTaskPrices = async (updates: Array<{ task_id: number; amount: number }>) => {
+  return apiRequest<{ updated_count?: number; success?: boolean; message?: string }>('/tasks/bulk-price/update', {
+    method: 'POST',
+    body: JSON.stringify(updates),
+  })
+}
+
+export const getTaskReport = async (query: {
+  status?: string
+  from_date?: string
+  to_date?: string
+  client_id?: number
+  candidate_id?: number
+  assigned_user_id?: number
+} = {}) => {
+  const params = new URLSearchParams()
+  if (query.status) params.set('status', query.status)
+  if (query.from_date) params.set('from_date', query.from_date)
+  if (query.to_date) params.set('to_date', query.to_date)
+  if (query.client_id) params.set('client_id', String(query.client_id))
+  if (query.candidate_id) params.set('candidate_id', String(query.candidate_id))
+  if (query.assigned_user_id) params.set('assigned_user_id', String(query.assigned_user_id))
+  const endpoint = params.toString() ? `/reports/tasks?${params.toString()}` : '/reports/tasks'
+  const response = await apiRequest<unknown>(endpoint)
+  return getList(response)
+    .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
+    .filter((item): item is TaskRecord => Boolean(item?.id))
 }
