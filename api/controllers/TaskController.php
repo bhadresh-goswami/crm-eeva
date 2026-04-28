@@ -435,6 +435,9 @@ public function downloadFile() {
             $toDate = $_GET['to_date'] ?? null;
             $clientId = $_GET['client_id'] ?? null;
             $search = trim((string)($_GET['search'] ?? ''));
+            $assignmentOrderColumn = in_array('created_at', $this->getTableColumns($conn, 'task_assignments'), true)
+                ? 'created_at'
+                : 'id';
 
             $query = "
                 SELECT
@@ -466,7 +469,7 @@ public function downloadFile() {
                     SELECT ta2.id
                     FROM task_assignments ta2
                     WHERE ta2.task_id = t.id
-                    ORDER BY ta2.created_at DESC
+                    ORDER BY ta2.{$assignmentOrderColumn} DESC
                     LIMIT 1
                 )
                 LEFT JOIN users u ON u.id = ta.user_id
@@ -632,6 +635,9 @@ public function downloadFile() {
         $conn = $db->connect();
 
         try {
+            $assignmentOrderColumn = in_array('created_at', $this->getTableColumns($conn, 'task_assignments'), true)
+                ? 'created_at'
+                : 'id';
             $query = "
                 SELECT
                     t.id,
@@ -652,7 +658,7 @@ public function downloadFile() {
                     SELECT ta2.id
                     FROM task_assignments ta2
                     WHERE ta2.task_id = t.id
-                    ORDER BY ta2.created_at DESC
+                    ORDER BY ta2.{$assignmentOrderColumn} DESC
                     LIMIT 1
                 )
                 LEFT JOIN users u ON u.id = ta.user_id
@@ -703,6 +709,9 @@ public function downloadFile() {
         $conn = $db->connect();
 
         try {
+            $assignmentOrderColumn = in_array('created_at', $this->getTableColumns($conn, 'task_assignments'), true)
+                ? 'created_at'
+                : 'id';
             $query = "
                 SELECT
                     t.id AS task_id,
@@ -715,7 +724,7 @@ public function downloadFile() {
                     SELECT ta2.id
                     FROM task_assignments ta2
                     WHERE ta2.task_id = t.id
-                    ORDER BY ta2.created_at DESC
+                    ORDER BY ta2.{$assignmentOrderColumn} DESC
                     LIMIT 1
                 )
                 LEFT JOIN users u ON u.id = ta.user_id
