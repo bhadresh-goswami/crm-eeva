@@ -117,6 +117,9 @@ class DashboardController {
     public function tasksByStatus() {
         $db = new Database();
         $conn = $db->connect();
+        $assignmentOrderColumn = in_array('created_at', $this->getTableColumns($conn, 'task_assignments'), true)
+            ? 'created_at'
+            : 'id';
 
         $status = $_GET['status'] ?? 'Pending';
         $date = $_GET['date'] ?? null;
@@ -150,7 +153,7 @@ class DashboardController {
                 SELECT ta2.id
                 FROM task_assignments ta2
                 WHERE ta2.task_id = t.id
-                ORDER BY ta2.created_at DESC
+                ORDER BY ta2.{$assignmentOrderColumn} DESC
                 LIMIT 1
             )
             LEFT JOIN users u ON ta.user_id = u.id
@@ -225,7 +228,7 @@ class DashboardController {
               )
         ) overlap ON overlap.user_id = u.id
         WHERE r.name = 'technical expert'
-        AND u.status = 1
+        AND LOWER(COALESCE(u.status, 'inactive')) = 'active'
         ORDER BY u.name ASC
     ");
 
