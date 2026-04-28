@@ -213,12 +213,6 @@ const ManagerDashboard = () => {
     [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingPaymentUpdates, summaryData.pendingTasks, summaryData.totalTasks],
   )
 
-  const getActionConfig = (status: string) => {
-    if (status === 'pending') return { label: 'Assign', disabled: false }
-    if (status === 'assigned') return { label: 'Reassign', disabled: false }
-    return { label: 'Assign', disabled: true }
-  }
-
   const liveActivityTasks = useMemo(
     () => liveTasks.filter((task) => ['pending', 'assigned'].includes(task.status)).slice(0, 6),
     [liveTasks],
@@ -373,55 +367,39 @@ const ManagerDashboard = () => {
         </aside>
 
         <div className="roles-table__wrapper dashboard-table-wrap">
-          <table className="roles-table dashboard-table">
+          <h3 className="tasks-activity__title">Tasks Overview</h3>
+          <table className="roles-table dashboard-table dashboard-table-modern">
           <thead>
             <tr>
               <th>SR No</th>
-              <th>Title</th>
+              <th>Status</th>
+              <th>Date</th>
               <th>Candidate</th>
               <th>Company</th>
               <th>Time</th>
-              <th>Status</th>
               <th>Assign To</th>
-              <th>Description</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loadingTasks ? (
               <tr>
-                <td colSpan={9} className="dashboard-empty">Loading tasks...</td>
+                <td colSpan={7} className="dashboard-empty">Loading tasks...</td>
               </tr>
             ) : tasksData.length === 0 ? (
               <tr>
-                <td colSpan={9} className="dashboard-empty">No tasks found</td>
+                <td colSpan={7} className="dashboard-empty">No tasks found</td>
               </tr>
             ) : (
               tasksData.map((task, index) => {
-                const action = getActionConfig(task.status)
                 return (
                   <tr key={task.id}>
                     <td>{index + 1}</td>
-                    <td>{task.title}</td>
+                    <td><span className={`status-pill status-pill--${task.status}`}>{task.status}</span></td>
+                    <td>{task.dueDate?.slice(0, 10) || '—'}</td>
                     <td>{task.candidate || '—'}</td>
                     <td>{task.client || '—'}</td>
                     <td className="dashboard-time">{task.startTime && task.endTime ? `${formatToAmPm(task.startTime)} - ${formatToAmPm(task.endTime)}` : task.scheduleTime || '—'}</td>
-                    <td><span className="status-pill">{task.status}</span></td>
                     <td>{task.assignedToName || '—'}</td>
-                    <td>
-                      <IconButton title="View task details" onClick={() => setDetailTask(task)}>
-                        <EyeIcon />
-                      </IconButton>
-                    </td>
-                    <td>
-                      <IconButton
-                        title={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
-                        disabled={action.disabled}
-                        onClick={() => setAssigningTask(task)}
-                      >
-                        <UserPlusIcon />
-                      </IconButton>
-                    </td>
                   </tr>
                 )
               })

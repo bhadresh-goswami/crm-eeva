@@ -220,6 +220,35 @@ table tbody tr:hover { background: #f3f4f6; }
 .manager-dashboard-layout { display: grid; grid-template-columns: minmax(280px, 320px) 1fr; gap: 0.45rem; align-items: start; }
 .manager-dashboard-layout .activity-panel { margin-bottom: 0; }
 .dashboard-time { font-size: 0.95rem; font-weight: 600; letter-spacing: .01em; }
+.dashboard-table-modern {
+  border-collapse: separate;
+  border-spacing: 0 8px;
+}
+.dashboard-table-modern thead th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.05em;
+}
+.dashboard-table-modern tbody td {
+  padding: 12px 16px;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+.dashboard-table-modern tbody td:first-child {
+  border-left: 1px solid #e5e7eb;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+.dashboard-table-modern tbody td:last-child {
+  border-right: 1px solid #e5e7eb;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+.dashboard-table-modern tbody tr:hover td {
+  background: #f8fafc;
+}
 
 .page-container { display: grid; gap: 1rem; }
 .page-container__header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
