@@ -129,18 +129,6 @@ const ManagerDashboard = () => {
   }, [])
 
   useEffect(() => {
-    const isUserBusy = Boolean(assigningTask) || Boolean(detailTask)
-    const interval = window.setInterval(() => {
-      if (isUserBusy) return
-      void loadTasksByStatus(activeTab)
-      void loadSummary()
-      void loadLiveTasks()
-    }, 10_000)
-
-    return () => window.clearInterval(interval)
-  }, [activeTab, assigningTask, detailTask])
-
-  useEffect(() => {
     let mounted = true
 
     const loadExperts = async () => {
@@ -198,16 +186,11 @@ const ManagerDashboard = () => {
       { label: 'Assigned Tasks', value: summaryData.assignedTasks, tab: 'assigned' as const, tone: 'default' },
       { label: 'Overdue Tasks', value: kpi.overdue, tone: 'danger' },
       { label: 'Completed Today', value: kpi.completedToday, tab: 'completed' as const, tone: 'success' },
+      { label: 'Pending Payment Updates', value: summaryData.pendingPaymentUpdates ?? 0, tone: 'warning' },
       { label: 'Team Productivity', value: `${kpi.productivity}%`, tone: 'success' },
     ],
-    [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingTasks, summaryData.totalTasks],
+    [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingPaymentUpdates, summaryData.pendingTasks, summaryData.totalTasks],
   )
-
-  const getActionConfig = (status: string) => {
-    if (status === 'pending') return { label: 'Assign', disabled: false }
-    if (status === 'assigned') return { label: 'Reassign', disabled: false }
-    return { label: 'Assign', disabled: true }
-  }
 
   const liveActivityTasks = useMemo(
     () => liveTasks.filter((task) => ['pending', 'assigned'].includes(task.status)).slice(0, 6),
@@ -274,7 +257,7 @@ const ManagerDashboard = () => {
 
       <div className="metric-grid dashboard-cards section">
         {loadingSummary
-          ? Array.from({ length: 6 }).map((_, index) => (
+          ? Array.from({ length: cards.length || 6 }).map((_, index) => (
               <article key={index} className="card skeleton-card" aria-hidden="true" />
             ))
           : cards.map((card) => {
@@ -349,77 +332,53 @@ const ManagerDashboard = () => {
         <aside className="activity-panel section">
           <h3 className="tasks-activity__title">Live Activity</h3>
           {liveActivityTasks.length === 0 ? <p className="card-text">No live tasks running.</p> : null}
-          {liveActivityTasks.map((task) => (
-            <div className="activity-item" key={`activity-${task.id}`}>
-              <span className="dot" />
-              <div>
-                <p className="name">{task.title}</p>
-                <p className="email">{task.dueDate || '—'} • {task.startTime ? formatToAmPm(task.startTime) : '—'}</p>
-                <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
-              </div>
-            </div>
-          ))}
+          <div className="activity-timeline">
+            {liveActivityTasks.map((task) => (
+              <article className="activity-timeline__item" key={`activity-${task.id}`}>
+                <span className="activity-timeline__dot" />
+                <div className="activity-timeline__card">
+                  <p className="activity-timeline__title">{task.candidate || 'Candidate'} → {task.client || 'Company'} assigned to {task.assignedToName || 'Unassigned'}</p>
+                  <p className="activity-timeline__meta">{task.startTime ? formatToAmPm(task.startTime) : '—'} • {task.status}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         </aside>
 
         <div className="roles-table__wrapper dashboard-table-wrap">
-          <table className="roles-table dashboard-table">
+          <h3 className="tasks-activity__title">Tasks Overview</h3>
+          <table className="roles-table dashboard-table dashboard-table-modern">
           <thead>
             <tr>
               <th>SR No</th>
-              <th>Title</th>
+              <th>Status</th>
+              <th>Date</th>
               <th>Candidate</th>
               <th>Company</th>
               <th>Time</th>
-              <th>Status</th>
               <th>Assign To</th>
-              <th>Description</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loadingTasks ? (
               <tr>
-                <td colSpan={9} className="dashboard-empty">Loading tasks...</td>
+                <td colSpan={7} className="dashboard-empty">Loading tasks...</td>
               </tr>
             ) : tasksData.length === 0 ? (
               <tr>
-                <td colSpan={9} className="dashboard-empty">No tasks found</td>
+                <td colSpan={7} className="dashboard-empty">No tasks found</td>
               </tr>
             ) : (
               tasksData.map((task, index) => {
-                const action = getActionConfig(task.status)
                 return (
                   <tr key={task.id}>
                     <td>{index + 1}</td>
-                    <td>{task.title}</td>
+                    <td><span className={`status-pill status-pill--${task.status}`}>{task.status}</span></td>
+                    <td>{task.dueDate?.slice(0, 10) || '—'}</td>
                     <td>{task.candidate || '—'}</td>
                     <td>{task.client || '—'}</td>
                     <td className="dashboard-time">{task.startTime && task.endTime ? `${formatToAmPm(task.startTime)} - ${formatToAmPm(task.endTime)}` : task.scheduleTime || '—'}</td>
-                    <td><span className="status-pill">{task.status}</span></td>
                     <td>{task.assignedToName || '—'}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="button users-icon-btn action-btn"
-                        title="View task details"
-                        aria-label="View task details"
-                        onClick={() => setDetailTask(task)}
-                      >
-                        👁
-                      </button>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="button users-icon-btn action-btn"
-                        disabled={action.disabled}
-                        title={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
-                        aria-label={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
-                        onClick={() => setAssigningTask(task)}
-                      >
-                        👤
-                      </button>
-                    </td>
                   </tr>
                 )
               })
