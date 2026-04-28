@@ -13,6 +13,7 @@ import {
   type DashboardTask,
   type ManagerTaskStatus,
 } from '../api/dashboardApi'
+import { getTasksLastUpdate } from '../../tasks/api/tasksApi'
 
 const defaultSummary: DashboardSummary = {
   totalTasks: 0,
@@ -90,6 +91,7 @@ const ManagerDashboard = () => {
   const isAssignModalOpen = Boolean(assigningTask)
 
   const [detailTask, setDetailTask] = useState<DashboardTask | null>(null)
+  const [lastKnownTaskUpdate, setLastKnownTaskUpdate] = useState<string | null>(null)
 
   const loadSummary = async () => {
     try {
@@ -148,6 +150,25 @@ const ManagerDashboard = () => {
   useEffect(() => {
     void loadLiveTasks()
   }, [])
+
+  useEffect(() => {
+    const isUserBusy = Boolean(assigningTask) || Boolean(detailTask)
+    const interval = window.setInterval(async () => {
+      if (isUserBusy) return
+      try {
+        const latestStamp = await getTasksLastUpdate()
+        if (!latestStamp || latestStamp === lastKnownTaskUpdate) {
+          return
+        }
+        setLastKnownTaskUpdate(latestStamp)
+        await Promise.all([loadTasksByStatus(activeTab), loadSummary(), loadLiveTasks()])
+      } catch {
+        // ignore polling errors
+      }
+    }, 20_000)
+
+    return () => window.clearInterval(interval)
+  }, [activeTab, assigningTask, detailTask, lastKnownTaskUpdate])
 
   useEffect(() => {
     let mounted = true
@@ -351,15 +372,18 @@ const ManagerDashboard = () => {
 
       <div className="manager-dashboard-layout">
         <aside className="activity-panel section">
-          <h3 className="tasks-activity__title">Live Activity</h3>
+          <div className="activity-panel__header">
+            <h3 className="tasks-activity__title">Live Activity Feed</h3>
+            <span className="activity-live"><span className="activity-live__dot" /> Live</span>
+          </div>
           {liveActivityTasks.length === 0 ? <p className="card-text">No live tasks running.</p> : null}
           <div className="activity-timeline">
             {liveActivityTasks.map((task) => (
               <article className="activity-timeline__item" key={`activity-${task.id}`}>
                 <span className="activity-timeline__dot" />
                 <div className="activity-timeline__card">
-                  <p className="activity-timeline__title">{task.candidate || 'Candidate'} → {task.client || 'Company'} assigned to {task.assignedToName || 'Unassigned'}</p>
-                  <p className="activity-timeline__meta">{task.startTime ? formatToAmPm(task.startTime) : '—'} • {task.status}</p>
+                  <p className="activity-timeline__title">{task.candidate || 'Candidate'} → {task.client || 'Company'} → Assigned to {task.assignedToName || 'Unassigned'} at {task.startTime ? formatToAmPm(task.startTime) : '—'}</p>
+                  <p className="activity-timeline__meta">{task.dueDate?.slice(0, 10) || '—'}</p>
                 </div>
               </article>
             ))}

@@ -217,6 +217,25 @@ table tbody tr:hover { background: #f3f4f6; }
 .activity-timeline__title { margin: 0 0 4px; font-size: 0.92rem; color: #0f172a; }
 .activity-timeline__meta { margin: 0; font-size: 0.8rem; color: #64748b; }
 .icon-button { display: inline-grid; place-items: center; padding: 0; }
+.activity-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.activity-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+.activity-live__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #06b6d4;
+}
 .manager-dashboard-layout { display: grid; grid-template-columns: minmax(280px, 320px) 1fr; gap: 0.45rem; align-items: start; }
 .manager-dashboard-layout .activity-panel { margin-bottom: 0; }
 .dashboard-time { font-size: 0.95rem; font-weight: 600; letter-spacing: .01em; }
