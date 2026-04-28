@@ -24,16 +24,24 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         { label: 'Roles', to: '/roles', icon: '🛡️' },
         { label: 'Clients', to: '/clients', icon: '🏢' },
         { label: 'POC', to: '/pocs', icon: '📇' },
+        { label: 'Invoices', to: '/invoices', icon: '🧾' },
       )
     }
 
     if (user.role === 'manager' || user.role === 'coordinator') {
       management.push({ label: 'Clients', to: '/clients', icon: '🏢' }, { label: 'POC', to: '/pocs', icon: '📇' })
+      if (user.role === 'manager') {
+        management.push({ label: 'Invoices', to: '/invoices', icon: '🧾' })
+      }
     }
 
     const tasks: MenuLink[] = []
     if (['admin', 'manager', 'coordinator', 'expert', 'expertlead'].includes(user.role)) {
-      tasks.push({ label: 'All Tasks', to: '/tasks', icon: '📝' }, { label: 'Assigned Tasks', to: '/tasks?view=assigned', icon: '📌' })
+      tasks.push(
+        { label: 'All Tasks', to: '/tasks', icon: '📝' },
+        { label: 'Assigned Tasks', to: '/tasks?view=assigned', icon: '📌' },
+        { label: 'Task Reports', to: '/reports/tasks', icon: '📈' },
+      )
     }
 
     const managerMenu: MenuLink[] =
@@ -41,9 +49,12 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         ? [
             { label: 'Dashboard', to: roleDashboardPath.manager, icon: '📊' },
             { label: 'Tasks', to: '/tasks', icon: '📝' },
+            { label: 'Payment Correction', to: '/tasks/payment-correction', icon: '💰' },
+            { label: 'Task Reports', to: '/reports/tasks', icon: '📈' },
             { label: 'Client', to: '/clients', icon: '🏢' },
             { label: 'POC', to: '/pocs', icon: '📇' },
             { label: 'Candidate', to: '/candidates', icon: '🧑‍💼' },
+            { label: 'Invoices', to: '/invoices', icon: '🧾' },
           ]
         : []
 

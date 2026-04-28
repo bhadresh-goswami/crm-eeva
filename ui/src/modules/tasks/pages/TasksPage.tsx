@@ -244,6 +244,7 @@ const TasksPage = () => {
   const { showToast, showAlert } = useAlert()
   const editorRef = useRef<HTMLDivElement | null>(null)
   const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
+  const canEditPrice = user?.role === 'admin' || user?.role === 'manager'
 
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [cancelledTasks, setCancelledTasks] = useState<TaskRecord[]>([])
@@ -547,9 +548,11 @@ const TasksPage = () => {
     if (!state.start_time) nextErrors.start_time = 'Start time is required.'
     if (state.duration < 1 || state.duration > 500) nextErrors.duration = 'Duration must be between 1 and 500.'
 
-    const amount = Number(state.total_amount)
-    if (!state.total_amount.trim()) nextErrors.total_amount = 'Amount is required.'
-    if (Number.isNaN(amount) || amount < 0) nextErrors.total_amount = 'Amount must be positive.'
+    const amount = Number(state.total_amount || '0')
+    if (canEditPrice) {
+      if (!state.total_amount.trim()) nextErrors.total_amount = 'Amount is required.'
+      if (Number.isNaN(amount) || amount < 0) nextErrors.total_amount = 'Amount must be positive.'
+    }
 
     if (!state.description.trim()) nextErrors.description = 'Description is required.'
 
@@ -1037,11 +1040,13 @@ const TasksPage = () => {
                 {formErrors.description ? <small className="auth-card__error">{formErrors.description}</small> : null}
               </div>
 
-              <label className="auth-card__field">
-                Decided Amt INR <span className="auth-card__error">*</span>
-                <input type="number" min={0} className={formErrors.total_amount ? 'field-error' : ''} value={formState.total_amount} onChange={(event) => setFormState((prev) => ({ ...prev, total_amount: event.target.value }))} placeholder="Enter amount" />
-                {formErrors.total_amount ? <small className="auth-card__error">{formErrors.total_amount}</small> : null}
-              </label>
+              {canEditPrice ? (
+                <label className="auth-card__field">
+                  Decided Amt INR <span className="auth-card__error">*</span>
+                  <input type="number" min={0} className={formErrors.total_amount ? 'field-error' : ''} value={formState.total_amount} onChange={(event) => setFormState((prev) => ({ ...prev, total_amount: event.target.value }))} placeholder="Enter amount" />
+                  {formErrors.total_amount ? <small className="auth-card__error">{formErrors.total_amount}</small> : null}
+                </label>
+              ) : null}
               <label className="auth-card__field">
                 Payment Status
                 <input value="Pending" readOnly />
