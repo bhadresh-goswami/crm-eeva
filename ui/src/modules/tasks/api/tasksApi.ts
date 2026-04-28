@@ -146,7 +146,7 @@ const asNullableNumber = (value: unknown): number | null => {
 const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   id: asNumber(raw.id ?? raw.task_id),
   client_id: asNullableNumber(raw.client_id),
-  client: String(raw.client ?? raw.client_name ?? raw.company ?? '').trim(),
+  client: String(raw.client ?? raw.company_name ?? raw.client_name ?? raw.company ?? '').trim(),
   candidate: String(raw.candidate ?? raw.candidate_name ?? '').trim(),
   candidate_id: asNullableNumber(raw.candidate_id),
   poc: String(raw.poc ?? raw.point_of_contact ?? raw.poc_name ?? '').trim(),
