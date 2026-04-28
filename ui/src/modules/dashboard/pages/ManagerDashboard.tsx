@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import { useAlert } from '../../../shared/alerts/useAlert'
@@ -39,6 +39,27 @@ const formatToAmPm = (value?: string) => {
   if (Number.isNaN(date.getTime())) return normalized
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
 }
+
+const IconButton = ({ title, onClick, children, disabled }: { title: string; onClick: () => void; children: ReactNode; disabled?: boolean }) => (
+  <button type="button" className="button users-icon-btn action-btn icon-button" title={title} aria-label={title} disabled={disabled} onClick={onClick}>
+    {children}
+  </button>
+)
+
+const EyeIcon = () => (
+  <svg className="menu-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+)
+
+const UserPlusIcon = () => (
+  <svg className="menu-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H4a4 4 0 0 0-4 4v2" />
+    <circle cx="8" cy="7" r="4" />
+    <path d="M20 8v6M23 11h-6" />
+  </svg>
+)
 
 const isOverdueTask = (task: DashboardTask) => {
   if (!task.dueDate) return false
