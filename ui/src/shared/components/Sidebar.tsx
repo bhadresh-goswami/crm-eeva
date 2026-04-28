@@ -106,7 +106,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       ]
     }
 
-    return [
+    const sections: MenuSection[] = [
       {
         title: 'Main',
         items: [
@@ -114,19 +114,25 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           { label: 'Tasks', to: '/tasks', icon: 'tasks' },
         ],
       },
-      {
+    ]
+
+    if (user.role !== 'expert') {
+      sections.push({
         title: 'CRM',
         items: [
           { label: 'Clients', to: '/clients', icon: 'clients' },
           { label: 'POC', to: '/pocs', icon: 'poc' },
           { label: 'Candidates', to: '/candidates', icon: 'candidates' },
         ],
-      },
-      {
-        title: 'Reports',
-        items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }],
-      },
-    ]
+      })
+    }
+
+    sections.push({
+      title: 'Reports',
+      items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }],
+    })
+
+    return sections
   }, [user])
 
   if (!user) return null
