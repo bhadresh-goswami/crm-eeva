@@ -34,6 +34,7 @@ export type DashboardSummary = {
   totalClients: number
   expertsPresent: number
   expertsTotal: number
+  pendingPaymentUpdates?: number
 }
 
 type TaskStatus = 'pending' | 'assigned' | 'cancelled' | 'completed'
@@ -117,6 +118,7 @@ const normalizeSummary = (response: Record<string, unknown>) => ({
   totalClients: asNumber(response.totalClients ?? response.total_clients ?? response.clients),
   expertsPresent: asNumber(response.expertsPresent ?? response.experts_present),
   expertsTotal: asNumber(response.expertsTotal ?? response.experts_total ?? response.experts),
+  pendingPaymentUpdates: asNumber(response.pendingPaymentUpdates ?? response.pending_payment_updates),
 })
 
 const managerStatusMap: Record<ManagerTaskStatus, string> = {

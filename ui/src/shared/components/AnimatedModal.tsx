@@ -6,9 +6,16 @@ type AnimatedModalProps = {
   onClose: () => void
   children: ReactNode
   cardClassName?: string
+  size?: 'md' | 'lg' | 'xl'
 }
 
-const AnimatedModal = ({ isOpen, title, onClose, children, cardClassName }: AnimatedModalProps) => {
+const sizeClassMap = {
+  md: 'modal-card--md',
+  lg: 'modal-card--lg',
+  xl: 'modal-card--xl',
+} as const
+
+const AnimatedModal = ({ isOpen, title, onClose, children, cardClassName, size = 'lg' }: AnimatedModalProps) => {
   if (!isOpen) {
     return null
   }
@@ -16,7 +23,7 @@ const AnimatedModal = ({ isOpen, title, onClose, children, cardClassName }: Anim
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
       <div
-        className={cardClassName ? `modal-card ${cardClassName}` : 'modal-card'}
+        className={cardClassName ? `modal-card ${sizeClassMap[size]} ${cardClassName}` : `modal-card ${sizeClassMap[size]}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
