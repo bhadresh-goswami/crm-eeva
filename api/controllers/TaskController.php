@@ -247,7 +247,7 @@ public function downloadFile() {
     exit;
 }
     // ================= CREATE =================
-    public function create($user_id = 1) {
+    public function create($user_id = 1, $user_role = '') {
 
         $db = new Database();
         $conn = $db->connect();
@@ -295,6 +295,10 @@ public function downloadFile() {
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
 
+            $normalizedRole = strtolower(trim((string)$user_role));
+            $canSetPrice = in_array($normalizedRole, ['admin', 'manager'], true);
+            $amount = $canSetPrice ? (float)($_POST['total_amount'] ?? 0) : 0;
+
             $stmt->execute([
                 $_POST['client_id'],
                 $_POST['candidate_id'] ?? null,
@@ -307,7 +311,7 @@ public function downloadFile() {
                 $start_time,
                 $end_time,
                 $duration,
-                0,
+                $amount,
                 $payment_status_id,
                 $_POST['payment_mode'] ?? null
             ]);
@@ -593,6 +597,84 @@ public function downloadFile() {
             echo json_encode(["success" => true, "message" => "Task prices updated.", "updated_count" => $updated]);
         } catch (Throwable $error) {
             if ($conn->inTransaction()) $conn->rollBack();
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => $error->getMessage()]);
+        }
+    }
+
+    public function reportTasks($user): void {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $actorId = is_array($user) ? (int)($user['id'] ?? 0) : (int)($user->id ?? 0);
+            $actorRole = strtolower(trim((string)(is_array($user) ? ($user['role'] ?? '') : ($user->role ?? ''))));
+
+            $query = "
+                SELECT
+                    t.id,
+                    t.title,
+                    t.due_date,
+                    t.start_time,
+                    t.end_time,
+                    t.total_amount,
+                    LOWER(COALESCE(ts.name, 'pending')) AS status,
+                    COALESCE(c.company_name, c.name, '') AS company_name,
+                    COALESCE(cand.name, '') AS candidate_name,
+                    COALESCE(u.name, '') AS assigned_to_name
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                LEFT JOIN clients c ON c.id = t.client_id
+                LEFT JOIN candidates cand ON cand.id = t.candidate_id
+                LEFT JOIN task_assignments ta ON ta.task_id = t.id
+                LEFT JOIN users u ON u.id = ta.user_id
+                WHERE 1=1
+            ";
+            $params = [];
+
+            if (!empty($_GET['status'])) {
+                $query .= " AND LOWER(COALESCE(ts.name, '')) = LOWER(?)";
+                $params[] = (string)$_GET['status'];
+            }
+            if (!empty($_GET['from_date'])) {
+                $query .= " AND DATE(t.due_date) >= ?";
+                $params[] = (string)$_GET['from_date'];
+            }
+            if (!empty($_GET['to_date'])) {
+                $query .= " AND DATE(t.due_date) <= ?";
+                $params[] = (string)$_GET['to_date'];
+            }
+            if (!empty($_GET['client_id'])) {
+                $query .= " AND t.client_id = ?";
+                $params[] = (int)$_GET['client_id'];
+            }
+            if (!empty($_GET['candidate_id'])) {
+                $query .= " AND t.candidate_id = ?";
+                $params[] = (int)$_GET['candidate_id'];
+            }
+            if (!empty($_GET['assigned_user_id'])) {
+                $query .= " AND ta.user_id = ?";
+                $params[] = (int)$_GET['assigned_user_id'];
+            }
+
+            if (in_array($actorRole, ['expert', 'technical expert', 'expertlead'], true) && $actorId > 0) {
+                $query .= " AND (ta.user_id = ? OR ta.user_id IN (SELECT id FROM users WHERE team_lead_id = ?))";
+                $params[] = $actorId;
+                $params[] = $actorId;
+            } elseif ($actorRole === 'coordinator' && $actorId > 0) {
+                $query .= " AND ta.user_id IN (SELECT id FROM users WHERE team_lead_id = ? OR id = ?)";
+                $params[] = $actorId;
+                $params[] = $actorId;
+            }
+
+            $query .= " GROUP BY t.id ORDER BY t.due_date DESC, t.id DESC";
+
+            $stmt = $conn->prepare($query);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(["success" => true, "data" => $rows]);
+        } catch (Throwable $error) {
             http_response_code(500);
             echo json_encode(["success" => false, "message" => $error->getMessage()]);
         }

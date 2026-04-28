@@ -336,8 +336,10 @@ elseif ($uri === "/expert/send-daily-report" && $method === "POST") {
     (new TaskController())->sendDailyReport($expertUserId);
 }
 elseif ($uri === "/tasks/create" && $method === "POST") {
-    authorize($user,['admin','manager','coordinator']);
-    (new TaskController())->create();
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    $actorRole = is_array($user) ? (string)($user['role'] ?? '') : (string)($user->role ?? '');
+    (new TaskController())->create($actorUserId, $actorRole);
 }
 elseif ($uri === "/tasks/update" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
@@ -368,6 +370,10 @@ elseif ($uri === "/tasks/bulk-assign" && $method === "POST") {
 elseif ($uri === "/tasks/bulk-price" && $method === "GET") {
     authorize($user,['admin','manager']);
     (new TaskController())->bulkPriceList();
+}
+elseif ($uri === "/reports/tasks" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
+    (new TaskController())->reportTasks($user);
 }
 elseif ($uri === "/tasks/update-prices" && $method === "POST") {
     authorize($user,['admin','manager']);

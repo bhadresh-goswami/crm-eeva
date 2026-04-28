@@ -3,6 +3,7 @@ import PageContainer from '../../../shared/components/PageContainer'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { getBulkPriceTasks, updateTaskPrices, type BulkPriceTaskRecord } from '../api/tasksApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
+import { useAuth } from '../../../context/AuthContext'
 import './bulkPrice.css'
 
 type EditableTask = BulkPriceTaskRecord & {
@@ -18,6 +19,8 @@ const formatDate = (value: string) => {
 
 const BulkPriceUpdatePage = () => {
   const { showToast } = useAlert()
+  const { user } = useAuth()
+  const canEditAmount = user?.role === 'admin' || user?.role === 'manager'
 
   const [clients, setClients] = useState<ClientItem[]>([])
   const [tasks, setTasks] = useState<EditableTask[]>([])
@@ -73,6 +76,10 @@ const BulkPriceUpdatePage = () => {
   }
 
   const onUpdatePrices = async () => {
+    if (!canEditAmount) {
+      showToast({ type: 'warning', message: 'Only admin/manager can update prices.' })
+      return
+    }
     if (!modifiedTasks.length) {
       showToast({ type: 'warning', message: 'No modified rows found.' })
       return
@@ -114,7 +121,7 @@ const BulkPriceUpdatePage = () => {
   }
 
   return (
-    <PageContainer title="Bulk Price Update" description="Update completed task pricing in bulk for dynamic invoice recalculation.">
+    <PageContainer title="Payment Correction Dashboard" description="Correct pending task payments before final invoice settlement.">
       <section className="filter-card">
         <div className="filter-grid">
           <label className="filter-field"><span>From Date</span><input className="filter-input" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label>
@@ -125,7 +132,7 @@ const BulkPriceUpdatePage = () => {
         <div className="filter-actions">
           <button type="button" className="button" onClick={() => void loadData()} disabled={loading}>{loading ? 'Loading tasks...' : 'Apply Filters'}</button>
           <button type="button" className="button" onClick={onReset} disabled={loading || updating}>Reset</button>
-          <button type="button" className="button primary-btn" onClick={() => void onUpdatePrices()} disabled={updating || modifiedTasks.length === 0}>{updating ? 'Updating...' : 'Update Prices'}</button>
+          <button type="button" className="button primary-btn" onClick={() => void onUpdatePrices()} disabled={!canEditAmount || updating || modifiedTasks.length === 0}>{updating ? 'Updating...' : 'Update Prices'}</button>
         </div>
       </section>
 
@@ -140,7 +147,7 @@ const BulkPriceUpdatePage = () => {
                     <button type="button" className="button" onClick={() => setViewTask(task)}>View</button>
                     <button type="button" className="button" onClick={() => setEditTask(task)}>Edit</button>
                   </td>
-                  <td><input className="amount-input" type="number" min={0} value={task.total_amount} onChange={(event) => applyInlineAmount(task.id, event.target.value)} /></td>
+                  <td><input className="amount-input" type="number" min={0} value={task.total_amount} disabled={!canEditAmount} onChange={(event) => applyInlineAmount(task.id, event.target.value)} /></td>
                   <td>{task.status}</td>
                   <td>{formatDate(task.due_date)}</td>
                   <td>{task.candidate_name || '-'}</td>
@@ -160,7 +167,7 @@ const BulkPriceUpdatePage = () => {
 
       {editTask ? (
         <div className="modal-overlay"><div className="modal-card"><h3>Edit Task</h3>
-          <label className="filter-field"><span>Amount</span><input className="filter-input" type="number" min={0} value={editTask.total_amount} onChange={(event) => setEditTask((prev) => (prev ? { ...prev, total_amount: Number(event.target.value) || 0 } : null))} /></label>
+          <label className="filter-field"><span>Amount</span><input className="filter-input" type="number" min={0} value={editTask.total_amount} disabled={!canEditAmount} onChange={(event) => setEditTask((prev) => (prev ? { ...prev, total_amount: Number(event.target.value) || 0 } : null))} /></label>
           <label className="filter-field"><span>Status</span><select className="filter-input" value={editTask.status} onChange={(event) => setEditTask((prev) => (prev ? { ...prev, status: event.target.value } : null))}><option value="completed">completed</option><option value="assigned">assigned</option><option value="pending">pending</option></select></label>
           <label className="filter-field"><span>Date</span><input className="filter-input" type="date" value={editTask.due_date.slice(0, 10)} onChange={(event) => setEditTask((prev) => (prev ? { ...prev, due_date: event.target.value } : null))} /></label>
           <label className="filter-field"><span>Candidate Name</span><input className="filter-input" value={editTask.candidate_name} onChange={(event) => setEditTask((prev) => (prev ? { ...prev, candidate_name: event.target.value } : null))} /></label>

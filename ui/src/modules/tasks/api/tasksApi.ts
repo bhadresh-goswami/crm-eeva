@@ -488,3 +488,25 @@ export const updateTaskPrices = async (updates: Array<{ task_id: number; amount:
     body: JSON.stringify(updates),
   })
 }
+
+export const getTaskReport = async (query: {
+  status?: string
+  from_date?: string
+  to_date?: string
+  client_id?: number
+  candidate_id?: number
+  assigned_user_id?: number
+} = {}) => {
+  const params = new URLSearchParams()
+  if (query.status) params.set('status', query.status)
+  if (query.from_date) params.set('from_date', query.from_date)
+  if (query.to_date) params.set('to_date', query.to_date)
+  if (query.client_id) params.set('client_id', String(query.client_id))
+  if (query.candidate_id) params.set('candidate_id', String(query.candidate_id))
+  if (query.assigned_user_id) params.set('assigned_user_id', String(query.assigned_user_id))
+  const endpoint = params.toString() ? `/reports/tasks?${params.toString()}` : '/reports/tasks'
+  const response = await apiRequest<unknown>(endpoint)
+  return getList(response)
+    .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
+    .filter((item): item is TaskRecord => Boolean(item?.id))
+}
