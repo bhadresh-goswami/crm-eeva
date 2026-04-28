@@ -448,10 +448,10 @@ public function downloadFile() {
                     t.total_amount,
                     LOWER(COALESCE(ts.name, 'pending')) AS status,
                     COALESCE(cand.name, '') AS candidate_name,
-                    COALESCE(c.company_name, c.name, '') AS company_name,
-                    COALESCE(c.name, '') AS client_name,
+                    COALESCE(cl.company_name, cl.name, '') AS company_name,
+                    COALESCE(cl.name, '') AS client_name,
                     COALESCE(tt.name, 'Support') AS support_type,
-                    COALESCE(MAX(u.name), '') AS assigned_to_name,
+                    COALESCE(u.name, '') AS assigned_to_name,
                     LOWER(COALESCE(ps.name, 'pending')) AS payment_status,
                     LOWER(COALESCE(inv.status, '')) AS invoice_status,
                     COALESCE(pay.total_paid, 0) AS paid_amount,
@@ -459,10 +459,16 @@ public function downloadFile() {
                 FROM tasks t
                 LEFT JOIN task_status_master ts ON ts.id = t.status_id
                 LEFT JOIN payment_status_master ps ON ps.id = t.payment_status_id
-                LEFT JOIN clients c ON c.id = t.client_id
+                LEFT JOIN clients cl ON cl.id = t.client_id
                 LEFT JOIN candidates cand ON cand.id = t.candidate_id
                 LEFT JOIN task_types tt ON tt.id = t.task_type_id
-                LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
+                LEFT JOIN task_assignments ta ON ta.id = (
+                    SELECT ta2.id
+                    FROM task_assignments ta2
+                    WHERE ta2.task_id = t.id
+                    ORDER BY ta2.created_at DESC
+                    LIMIT 1
+                )
                 LEFT JOIN users u ON u.id = ta.user_id
                 LEFT JOIN (
                     SELECT task_id, MAX(invoice_id) AS invoice_id
@@ -494,7 +500,7 @@ public function downloadFile() {
             if ($search !== '') {
                 $query .= " AND (
                     LOWER(COALESCE(cand.name, '')) LIKE ?
-                    OR LOWER(COALESCE(c.company_name, c.name, '')) LIKE ?
+                    OR LOWER(COALESCE(cl.company_name, cl.name, '')) LIKE ?
                     OR LOWER(COALESCE(tt.name, '')) LIKE ?
                 )";
                 $searchTerm = '%' . strtolower($search) . '%';
@@ -635,20 +641,21 @@ public function downloadFile() {
                     t.end_time,
                     t.total_amount,
                     LOWER(COALESCE(ts.name, 'pending')) AS status,
-                    COALESCE(c.company_name, c.name, '') AS company_name,
+                    COALESCE(cl.company_name, cl.name, '') AS company_name,
                     COALESCE(cand.name, '') AS candidate_name,
-                    COALESCE(assign.active_assignee, '') AS assigned_to_name
+                    COALESCE(u.name, '') AS assigned_to_name
                 FROM tasks t
                 LEFT JOIN task_status_master ts ON ts.id = t.status_id
-                LEFT JOIN clients c ON c.id = t.client_id
+                LEFT JOIN clients cl ON cl.id = t.client_id
                 LEFT JOIN candidates cand ON cand.id = t.candidate_id
-                LEFT JOIN (
-                    SELECT ta.task_id, MAX(u.name) AS active_assignee
-                    FROM task_assignments ta
-                    LEFT JOIN users u ON u.id = ta.user_id
-                    WHERE ta.is_active = 1
-                    GROUP BY ta.task_id
-                ) assign ON assign.task_id = t.id
+                LEFT JOIN task_assignments ta ON ta.id = (
+                    SELECT ta2.id
+                    FROM task_assignments ta2
+                    WHERE ta2.task_id = t.id
+                    ORDER BY ta2.created_at DESC
+                    LIMIT 1
+                )
+                LEFT JOIN users u ON u.id = ta.user_id
                 WHERE 1=1
             ";
             $params = [];
@@ -704,7 +711,13 @@ public function downloadFile() {
                     LOWER(COALESCE(ts.name, 'pending')) AS status
                 FROM tasks t
                 LEFT JOIN task_status_master ts ON ts.id = t.status_id
-                LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
+                LEFT JOIN task_assignments ta ON ta.id = (
+                    SELECT ta2.id
+                    FROM task_assignments ta2
+                    WHERE ta2.task_id = t.id
+                    ORDER BY ta2.created_at DESC
+                    LIMIT 1
+                )
                 LEFT JOIN users u ON u.id = ta.user_id
                 WHERE 1=1
             ";
