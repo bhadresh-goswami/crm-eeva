@@ -241,9 +241,12 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
 
 const TasksPage = () => {
   const { user } = useAuth()
+  const normalizedRole = (user?.role ?? '').toLowerCase()
+  const isTechExpert = normalizedRole === 'expert' || normalizedRole === 'technical expert'
   const { showToast, showAlert } = useAlert()
   const editorRef = useRef<HTMLDivElement | null>(null)
   const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
+  const canEditPrice = user?.role === 'admin' || user?.role === 'manager'
 
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [cancelledTasks, setCancelledTasks] = useState<TaskRecord[]>([])
@@ -421,16 +424,24 @@ const TasksPage = () => {
   const isUserBusy = isFormOpen || Boolean(descriptionPreview) || Boolean(assignTarget) || Boolean(deleteTarget) || isCancelledModalOpen
 
   useEffect(() => {
+    if (!isTechExpert) {
+      return
+    }
+
     const interval = window.setInterval(() => {
       if (!isUserBusy) {
         void loadPage()
       }
-    }, 10_000)
+    }, 20_000)
 
     return () => window.clearInterval(interval)
-  }, [isUserBusy, loadPage])
+  }, [isTechExpert, isUserBusy, loadPage])
 
   useEffect(() => {
+    if (!isTechExpert) {
+      return
+    }
+
     const interval = window.setInterval(async () => {
       if (isUserBusy) return
       try {
@@ -454,10 +465,10 @@ const TasksPage = () => {
       } catch {
         // silent polling failure
       }
-    }, 10_000)
+    }, 20_000)
 
     return () => window.clearInterval(interval)
-  }, [announcedNewTaskIds, announcedUpcomingTaskIds, isUserBusy, lastSeenTaskId, showAlert, showToast])
+  }, [announcedNewTaskIds, announcedUpcomingTaskIds, isTechExpert, isUserBusy, lastSeenTaskId, showAlert, showToast])
 
   const clientOptions = useMemo(
     () => clients.map((client) => ({ id: client.id, label: client.company_name || client.name })).sort((a, b) => a.label.localeCompare(b.label)),
@@ -547,9 +558,11 @@ const TasksPage = () => {
     if (!state.start_time) nextErrors.start_time = 'Start time is required.'
     if (state.duration < 1 || state.duration > 500) nextErrors.duration = 'Duration must be between 1 and 500.'
 
-    const amount = Number(state.total_amount)
-    if (!state.total_amount.trim()) nextErrors.total_amount = 'Amount is required.'
-    if (Number.isNaN(amount) || amount < 0) nextErrors.total_amount = 'Amount must be positive.'
+    const amount = Number(state.total_amount || '0')
+    if (canEditPrice) {
+      if (!state.total_amount.trim()) nextErrors.total_amount = 'Amount is required.'
+      if (Number.isNaN(amount) || amount < 0) nextErrors.total_amount = 'Amount must be positive.'
+    }
 
     if (!state.description.trim()) nextErrors.description = 'Description is required.'
 
@@ -1037,11 +1050,13 @@ const TasksPage = () => {
                 {formErrors.description ? <small className="auth-card__error">{formErrors.description}</small> : null}
               </div>
 
-              <label className="auth-card__field">
-                Decided Amt INR <span className="auth-card__error">*</span>
-                <input type="number" min={0} className={formErrors.total_amount ? 'field-error' : ''} value={formState.total_amount} onChange={(event) => setFormState((prev) => ({ ...prev, total_amount: event.target.value }))} placeholder="Enter amount" />
-                {formErrors.total_amount ? <small className="auth-card__error">{formErrors.total_amount}</small> : null}
-              </label>
+              {canEditPrice ? (
+                <label className="auth-card__field">
+                  Decided Amt INR <span className="auth-card__error">*</span>
+                  <input type="number" min={0} className={formErrors.total_amount ? 'field-error' : ''} value={formState.total_amount} onChange={(event) => setFormState((prev) => ({ ...prev, total_amount: event.target.value }))} placeholder="Enter amount" />
+                  {formErrors.total_amount ? <small className="auth-card__error">{formErrors.total_amount}</small> : null}
+                </label>
+              ) : null}
               <label className="auth-card__field">
                 Payment Status
                 <input value="Pending" readOnly />
