@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
 import { getTaskAssignmentReport, getTaskReport, type TaskRecord } from '../api/tasksApi'
+import { useAuth } from '../../../context/AuthContext'
 
 const ReportsTasksPage = () => {
   const [tasks, setTasks] = useState<TaskRecord[]>([])
@@ -9,6 +10,8 @@ const ReportsTasksPage = () => {
   const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const { user } = useAuth()
+  const isExpert = user?.role === 'expert'
 
   const load = async () => {
     setLoading(true)
@@ -96,19 +99,25 @@ const ReportsTasksPage = () => {
                 <th>Status</th>
                 <th>Date</th>
                 <th>Candidate</th>
-                <th>Company</th>
                 <th>Assign To</th>
+                {!isExpert ? <th>Company</th> : null}
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Duration</th>
               </tr>
             </thead>
           <tbody>
-            {loading ? <tr><td colSpan={6}>Loading...</td></tr> : tasks.length === 0 ? <tr><td colSpan={6}>No tasks found.</td></tr> : tasks.map((task) => (
+            {loading ? <tr><td colSpan={9}>Loading...</td></tr> : tasks.length === 0 ? <tr><td colSpan={9}>No tasks found.</td></tr> : tasks.map((task) => (
               <tr key={task.id}>
                 <td>{task.id}</td>
                 <td className="text-capitalize">{task.status}</td>
                 <td>{task.due_date || '-'}</td>
                 <td>{task.candidate || '-'}</td>
-                <td>{task.client || '-'}</td>
                 <td>{task.assigned_to_name || '-'}</td>
+                {!isExpert ? <td>{task.client || '-'}</td> : null}
+                <td>{task.time_start ? new Date(`1970-01-01T${task.time_start}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                <td>{task.time_end ? new Date(`1970-01-01T${task.time_end}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                <td>{Number.isFinite(task.duration) && task.duration > 0 ? `${task.duration} mins` : '-'}</td>
               </tr>
             ))}
           </tbody>

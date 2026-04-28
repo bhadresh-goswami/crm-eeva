@@ -5,6 +5,15 @@ require_once dirname(__DIR__) . "/services/EmailService.php";
 require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class TaskController {
+    private function ensureTaskTimingColumns(PDO $conn): void {
+        $columns = $this->getTableColumns($conn, 'tasks');
+        if (!in_array('task_start_time', $columns, true)) {
+            $conn->exec("ALTER TABLE tasks ADD COLUMN task_start_time DATETIME NULL");
+        }
+        if (!in_array('task_end_time', $columns, true)) {
+            $conn->exec("ALTER TABLE tasks ADD COLUMN task_end_time DATETIME NULL");
+        }
+    }
     public function expertTasks($user_id) {
         $db = new Database();
         $conn = $db->connect();
@@ -635,6 +644,7 @@ public function downloadFile() {
         $conn = $db->connect();
 
         try {
+            $this->ensureTaskTimingColumns($conn);
             $assignmentOrderColumn = in_array('created_at', $this->getTableColumns($conn, 'task_assignments'), true)
                 ? 'created_at'
                 : 'id';
@@ -643,8 +653,9 @@ public function downloadFile() {
                     t.id,
                     t.title,
                     DATE(t.created_at) AS created_at,
-                    t.start_time,
-                    t.end_time,
+                    t.task_start_time,
+                    t.task_end_time,
+                    t.duration,
                     t.total_amount,
                     LOWER(COALESCE(ts.name, 'pending')) AS status,
                     COALESCE(cl.company_name, cl.name, '') AS company_name,
@@ -1113,6 +1124,7 @@ public function downloadFile() {
 
         $db = new Database();
         $conn = $db->connect();
+        $this->ensureTaskTimingColumns($conn);
 
         $inProgressStatusId = $this->getStatusIdByName($conn, 'In Progress');
         if (!$inProgressStatusId) {
@@ -1162,7 +1174,23 @@ public function downloadFile() {
                 return;
             }
 
-            $conn->prepare("UPDATE tasks SET status_id = ? WHERE id = ?")
+            $taskStateStmt = $conn->prepare("SELECT task_start_time FROM tasks WHERE id = ? LIMIT 1");
+            $taskStateStmt->execute([(int)$data->task_id]);
+            $taskState = $taskStateStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            if (!$taskState) {
+                $conn->rollBack();
+                http_response_code(404);
+                echo json_encode(["error" => "Task not found"]);
+                return;
+            }
+            if (!empty($taskState['task_start_time'])) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode(["error" => "Task already started"]);
+                return;
+            }
+
+            $conn->prepare("UPDATE tasks SET status_id = ?, task_start_time = NOW() WHERE id = ?")
                 ->execute([(int)$inProgressStatusId, (int)$data->task_id]);
 
             $conn->prepare("UPDATE task_assignments SET is_active = 1 WHERE id = ?")
@@ -1208,6 +1236,7 @@ public function downloadFile() {
 
         $db = new Database();
         $conn = $db->connect();
+        $this->ensureTaskTimingColumns($conn);
 
         $statusId = $this->getStatusIdByName($conn, (string)$data->status);
         if (!$statusId) {
@@ -1235,8 +1264,29 @@ public function downloadFile() {
                 return;
             }
 
-            $conn->prepare("UPDATE tasks SET status_id = ? WHERE id = ?")
-                ->execute([(int)$statusId, (int)$data->task_id]);
+            $taskStateStmt = $conn->prepare("SELECT task_start_time FROM tasks WHERE id = ? LIMIT 1");
+            $taskStateStmt->execute([(int)$data->task_id]);
+            $taskState = $taskStateStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            if (!$taskState) {
+                $conn->rollBack();
+                http_response_code(404);
+                echo json_encode(["error" => "Task not found"]);
+                return;
+            }
+            if (empty($taskState['task_start_time'])) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode(["error" => "Task must be started before ending"]);
+                return;
+            }
+
+            $conn->prepare("
+                UPDATE tasks
+                SET status_id = ?,
+                    task_end_time = NOW(),
+                    duration = TIMESTAMPDIFF(MINUTE, task_start_time, NOW())
+                WHERE id = ?
+            ")->execute([(int)$statusId, (int)$data->task_id]);
 
             $conn->prepare("UPDATE task_assignments SET is_active = 0 WHERE id = ?")
                 ->execute([$assignmentId]);
