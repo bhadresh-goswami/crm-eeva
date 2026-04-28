@@ -505,7 +505,7 @@ public function downloadFile() {
 
             $query .= "
                 GROUP BY t.id
-                HAVING pending_amount > 0
+                HAVING pending_amount > 0 OR t.total_amount = 0
                 ORDER BY t.created_at DESC, t.id DESC
             ";
 

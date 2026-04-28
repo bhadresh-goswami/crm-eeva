@@ -241,6 +241,8 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
 
 const TasksPage = () => {
   const { user } = useAuth()
+  const normalizedRole = (user?.role ?? '').toLowerCase()
+  const isTechExpert = normalizedRole === 'expert' || normalizedRole === 'technical expert'
   const { showToast, showAlert } = useAlert()
   const editorRef = useRef<HTMLDivElement | null>(null)
   const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
@@ -422,16 +424,24 @@ const TasksPage = () => {
   const isUserBusy = isFormOpen || Boolean(descriptionPreview) || Boolean(assignTarget) || Boolean(deleteTarget) || isCancelledModalOpen
 
   useEffect(() => {
+    if (!isTechExpert) {
+      return
+    }
+
     const interval = window.setInterval(() => {
       if (!isUserBusy) {
         void loadPage()
       }
-    }, 10_000)
+    }, 20_000)
 
     return () => window.clearInterval(interval)
-  }, [isUserBusy, loadPage])
+  }, [isTechExpert, isUserBusy, loadPage])
 
   useEffect(() => {
+    if (!isTechExpert) {
+      return
+    }
+
     const interval = window.setInterval(async () => {
       if (isUserBusy) return
       try {
@@ -455,10 +465,10 @@ const TasksPage = () => {
       } catch {
         // silent polling failure
       }
-    }, 10_000)
+    }, 20_000)
 
     return () => window.clearInterval(interval)
-  }, [announcedNewTaskIds, announcedUpcomingTaskIds, isUserBusy, lastSeenTaskId, showAlert, showToast])
+  }, [announcedNewTaskIds, announcedUpcomingTaskIds, isTechExpert, isUserBusy, lastSeenTaskId, showAlert, showToast])
 
   const clientOptions = useMemo(
     () => clients.map((client) => ({ id: client.id, label: client.company_name || client.name })).sort((a, b) => a.label.localeCompare(b.label)),
