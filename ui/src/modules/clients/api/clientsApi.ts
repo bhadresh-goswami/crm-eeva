@@ -17,6 +17,7 @@ export type ClientItem = {
   name: string
   company_name: string
   mobile: string
+  email?: string
   address: string
   gst: string
   billing_type: BillingType
@@ -35,6 +36,7 @@ export type ClientPayload = {
   name: string
   company_name: string
   mobile: string
+  email?: string
   address: string
   gst: string
   billing_type: BillingType
@@ -56,6 +58,7 @@ const normalizeClient = (raw: Record<string, unknown>): ClientItem => ({
   name: String(raw.name ?? raw.client_name ?? raw.customer_name ?? '').trim(),
   company_name: String(raw.company_name ?? raw.company ?? raw.organization_name ?? '').trim(),
   mobile: String(raw.mobile ?? raw.phone ?? raw.contact_no ?? '').trim(),
+  email: String(raw.email ?? raw.client_email ?? '').trim(),
   address: String(raw.address ?? raw.billing_address ?? '').trim(),
   gst: String(raw.gst ?? raw.gst_no ?? raw.gstin ?? '').trim(),
   billing_type: normalizeBillingType(raw.billing_type),
