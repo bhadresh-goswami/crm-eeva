@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import { useAlert } from '../../../shared/alerts/useAlert'
@@ -39,6 +39,27 @@ const formatToAmPm = (value?: string) => {
   if (Number.isNaN(date.getTime())) return normalized
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
 }
+
+const IconButton = ({ title, onClick, children, disabled }: { title: string; onClick: () => void; children: ReactNode; disabled?: boolean }) => (
+  <button type="button" className="button users-icon-btn action-btn icon-button" title={title} aria-label={title} disabled={disabled} onClick={onClick}>
+    {children}
+  </button>
+)
+
+const EyeIcon = () => (
+  <svg className="menu-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+)
+
+const UserPlusIcon = () => (
+  <svg className="menu-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H4a4 4 0 0 0-4 4v2" />
+    <circle cx="8" cy="7" r="4" />
+    <path d="M20 8v6M23 11h-6" />
+  </svg>
+)
 
 const isOverdueTask = (task: DashboardTask) => {
   if (!task.dueDate) return false
@@ -129,18 +150,6 @@ const ManagerDashboard = () => {
   }, [])
 
   useEffect(() => {
-    const isUserBusy = Boolean(assigningTask) || Boolean(detailTask)
-    const interval = window.setInterval(() => {
-      if (isUserBusy) return
-      void loadTasksByStatus(activeTab)
-      void loadSummary()
-      void loadLiveTasks()
-    }, 10_000)
-
-    return () => window.clearInterval(interval)
-  }, [activeTab, assigningTask, detailTask])
-
-  useEffect(() => {
     let mounted = true
 
     const loadExperts = async () => {
@@ -198,9 +207,10 @@ const ManagerDashboard = () => {
       { label: 'Assigned Tasks', value: summaryData.assignedTasks, tab: 'assigned' as const, tone: 'default' },
       { label: 'Overdue Tasks', value: kpi.overdue, tone: 'danger' },
       { label: 'Completed Today', value: kpi.completedToday, tab: 'completed' as const, tone: 'success' },
+      { label: 'Pending Payment Updates', value: summaryData.pendingPaymentUpdates ?? 0, tone: 'warning' },
       { label: 'Team Productivity', value: `${kpi.productivity}%`, tone: 'success' },
     ],
-    [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingTasks, summaryData.totalTasks],
+    [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingPaymentUpdates, summaryData.pendingTasks, summaryData.totalTasks],
   )
 
   const getActionConfig = (status: string) => {
@@ -274,7 +284,7 @@ const ManagerDashboard = () => {
 
       <div className="metric-grid dashboard-cards section">
         {loadingSummary
-          ? Array.from({ length: 6 }).map((_, index) => (
+          ? Array.from({ length: cards.length || 6 }).map((_, index) => (
               <article key={index} className="card skeleton-card" aria-hidden="true" />
             ))
           : cards.map((card) => {
@@ -349,16 +359,17 @@ const ManagerDashboard = () => {
         <aside className="activity-panel section">
           <h3 className="tasks-activity__title">Live Activity</h3>
           {liveActivityTasks.length === 0 ? <p className="card-text">No live tasks running.</p> : null}
-          {liveActivityTasks.map((task) => (
-            <div className="activity-item" key={`activity-${task.id}`}>
-              <span className="dot" />
-              <div>
-                <p className="name">{task.title}</p>
-                <p className="email">{task.dueDate || '—'} • {task.startTime ? formatToAmPm(task.startTime) : '—'}</p>
-                <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
-              </div>
-            </div>
-          ))}
+          <div className="activity-timeline">
+            {liveActivityTasks.map((task) => (
+              <article className="activity-timeline__item" key={`activity-${task.id}`}>
+                <span className="activity-timeline__dot" />
+                <div className="activity-timeline__card">
+                  <p className="activity-timeline__title">{task.candidate || 'Candidate'} → {task.client || 'Company'} assigned to {task.assignedToName || 'Unassigned'}</p>
+                  <p className="activity-timeline__meta">{task.startTime ? formatToAmPm(task.startTime) : '—'} • {task.status}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         </aside>
 
         <div className="roles-table__wrapper dashboard-table-wrap">
@@ -398,27 +409,18 @@ const ManagerDashboard = () => {
                     <td><span className="status-pill">{task.status}</span></td>
                     <td>{task.assignedToName || '—'}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="button users-icon-btn action-btn"
-                        title="View task details"
-                        aria-label="View task details"
-                        onClick={() => setDetailTask(task)}
-                      >
-                        👁
-                      </button>
+                      <IconButton title="View task details" onClick={() => setDetailTask(task)}>
+                        <EyeIcon />
+                      </IconButton>
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="button users-icon-btn action-btn"
-                        disabled={action.disabled}
+                      <IconButton
                         title={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
-                        aria-label={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
+                        disabled={action.disabled}
                         onClick={() => setAssigningTask(task)}
                       >
-                        👤
-                      </button>
+                        <UserPlusIcon />
+                      </IconButton>
                     </td>
                   </tr>
                 )
