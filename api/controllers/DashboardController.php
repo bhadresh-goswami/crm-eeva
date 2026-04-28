@@ -47,6 +47,14 @@ class DashboardController {
             WHERE logout_time IS NULL
         ")->fetchColumn();
 
+        $data['pending_payment_updates'] = $conn->query("
+            SELECT COUNT(*)
+            FROM tasks t
+            JOIN task_status_master ts ON ts.id = t.status_id
+            WHERE LOWER(ts.name) = 'completed'
+              AND COALESCE(t.total_amount, 0) = 0
+        ")->fetchColumn();
+
         echo json_encode($data);
     }
 
@@ -109,6 +117,9 @@ class DashboardController {
     public function tasksByStatus() {
         $db = new Database();
         $conn = $db->connect();
+        $assignmentOrderColumn = in_array('created_at', $this->getTableColumns($conn, 'task_assignments'), true)
+            ? 'created_at'
+            : 'id';
 
         $status = $_GET['status'] ?? 'Pending';
         $date = $_GET['date'] ?? null;
@@ -123,8 +134,8 @@ class DashboardController {
                 t.end_time,
                 COALESCE(tt.name, '') as support_type,
 
-                c.company_name as company_name,
-                c.company_name as client_name,
+                COALESCE(cl.company_name, cl.name, '') as company_name,
+                COALESCE(cl.company_name, cl.name, '') as client_name,
                 cand.name as candidate_name,
 
                 ts.name as status,
@@ -133,12 +144,18 @@ class DashboardController {
 
             FROM tasks t
 
-            LEFT JOIN clients c ON t.client_id = c.id
+            LEFT JOIN clients cl ON t.client_id = cl.id
             LEFT JOIN candidates cand ON t.candidate_id = cand.id
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN task_status_master ts ON t.status_id = ts.id
 
-            LEFT JOIN task_assignments ta ON t.id = ta.task_id AND ta.is_active = 1
+            LEFT JOIN task_assignments ta ON ta.id = (
+                SELECT ta2.id
+                FROM task_assignments ta2
+                WHERE ta2.task_id = t.id
+                ORDER BY ta2.{$assignmentOrderColumn} DESC
+                LIMIT 1
+            )
             LEFT JOIN users u ON ta.user_id = u.id
 
             WHERE LOWER(ts.name) = LOWER(?)
@@ -211,7 +228,7 @@ class DashboardController {
               )
         ) overlap ON overlap.user_id = u.id
         WHERE r.name = 'technical expert'
-        AND u.status = 1
+        AND LOWER(COALESCE(u.status, 'inactive')) = 'active'
         ORDER BY u.name ASC
     ");
 
