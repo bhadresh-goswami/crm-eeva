@@ -307,7 +307,7 @@ public function downloadFile() {
                 $start_time,
                 $end_time,
                 $duration,
-                $_POST['total_amount'] ?? 0,
+                0,
                 $payment_status_id,
                 $_POST['payment_mode'] ?? null
             ]);
@@ -420,6 +420,182 @@ public function downloadFile() {
             "success" => true,
             "data" => $rows
         ]);
+    }
+
+    public function bulkPriceList(): void {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $fromDate = $_GET['from_date'] ?? null;
+            $toDate = $_GET['to_date'] ?? null;
+            $clientId = $_GET['client_id'] ?? null;
+            $search = trim((string)($_GET['search'] ?? ''));
+
+            $query = "
+                SELECT
+                    t.id,
+                    t.title,
+                    t.description,
+                    t.due_date,
+                    t.start_time,
+                    t.end_time,
+                    t.total_amount,
+                    LOWER(COALESCE(ts.name, 'pending')) AS status,
+                    COALESCE(cand.name, '') AS candidate_name,
+                    COALESCE(c.company_name, c.name, '') AS company_name,
+                    COALESCE(c.name, '') AS client_name,
+                    COALESCE(tt.name, 'Support') AS support_type,
+                    COALESCE(u.name, '') AS assigned_to_name,
+                    LOWER(COALESCE(ps.name, 'pending')) AS payment_status,
+                    LOWER(COALESCE(i.status, '')) AS invoice_status
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                LEFT JOIN payment_status_master ps ON ps.id = t.payment_status_id
+                LEFT JOIN clients c ON c.id = t.client_id
+                LEFT JOIN candidates cand ON cand.id = t.candidate_id
+                LEFT JOIN task_types tt ON tt.id = t.task_type_id
+                LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
+                LEFT JOIN users u ON u.id = ta.user_id
+                LEFT JOIN invoices i ON i.id = t.invoice_id
+                WHERE LOWER(COALESCE(ts.name, '')) = 'completed'
+                  AND LOWER(COALESCE(ps.name, 'unpaid')) IN ('unpaid', 'pending', 'not_paid')
+                  AND t.invoice_id IS NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM invoice_items ii WHERE ii.task_id = t.id
+                  )
+            ";
+
+            $params = [];
+            if (!empty($fromDate)) {
+                $query .= " AND DATE(t.due_date) >= ?";
+                $params[] = $fromDate;
+            }
+            if (!empty($toDate)) {
+                $query .= " AND DATE(t.due_date) <= ?";
+                $params[] = $toDate;
+            }
+            if (!empty($clientId)) {
+                $query .= " AND t.client_id = ?";
+                $params[] = $clientId;
+            }
+            if ($search !== '') {
+                $query .= " AND (
+                    LOWER(COALESCE(cand.name, '')) LIKE ?
+                    OR LOWER(COALESCE(c.company_name, c.name, '')) LIKE ?
+                    OR LOWER(COALESCE(tt.name, '')) LIKE ?
+                )";
+                $searchTerm = '%' . strtolower($search) . '%';
+                $params[] = $searchTerm;
+                $params[] = $searchTerm;
+                $params[] = $searchTerm;
+            }
+
+            $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
+
+            $stmt = $conn->prepare($query);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(["success" => true, "data" => $rows]);
+        } catch (Throwable $error) {
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => $error->getMessage()]);
+        }
+    }
+
+    public function updatePrices(): void {
+        $payload = json_decode(file_get_contents("php://input"), true);
+        $items = is_array($payload) ? $payload : [];
+
+        if (!$items) {
+            http_response_code(422);
+            echo json_encode(["success" => false, "message" => "Price updates payload is required."]);
+            return;
+        }
+
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $conn->beginTransaction();
+
+            $selectTask = $conn->prepare("
+                SELECT t.id, LOWER(COALESCE(i.status, 'pending')) AS invoice_status
+                FROM tasks t
+                LEFT JOIN invoices i ON i.id = t.invoice_id
+                WHERE t.id = ?
+                LIMIT 1
+            ");
+            $updateStmt = $conn->prepare("UPDATE tasks SET total_amount = ? WHERE id = ?");
+            $statusIdStmt = $conn->prepare("SELECT id FROM task_status_master WHERE LOWER(name) = LOWER(?) LIMIT 1");
+            $updateTaskMetaStmt = $conn->prepare("UPDATE tasks SET status_id = COALESCE(?, status_id), due_date = COALESCE(?, due_date), start_time = COALESCE(?, start_time), end_time = COALESCE(?, end_time) WHERE id = ?");
+            $assigneeStmt = $conn->prepare("SELECT id FROM users WHERE LOWER(name) = LOWER(?) LIMIT 1");
+            $deactivateAssignmentsStmt = $conn->prepare("UPDATE task_assignments SET is_active = 0 WHERE task_id = ? AND is_active = 1");
+            $insertAssignmentStmt = $conn->prepare("INSERT INTO task_assignments (task_id, user_id, is_active) VALUES (?, ?, 1)");
+
+            $updated = 0;
+            foreach ($items as $item) {
+                $taskId = (int)($item['task_id'] ?? 0);
+                $amount = (float)($item['amount'] ?? 0);
+                if ($taskId <= 0 || $amount < 0) {
+                    continue;
+                }
+
+                $selectTask->execute([$taskId]);
+                $task = $selectTask->fetch(PDO::FETCH_ASSOC);
+                if (!$task) {
+                    continue;
+                }
+
+                if (strtolower((string)($task['invoice_status'] ?? 'pending')) === 'paid') {
+                    continue;
+                }
+
+                $updateStmt->execute([$amount, $taskId]);
+                $updated += $updateStmt->rowCount();
+
+                $updatedFields = is_array($item['updated_fields'] ?? null) ? $item['updated_fields'] : [];
+                if ($updatedFields) {
+                    $statusId = null;
+                    if (!empty($updatedFields['status'])) {
+                        $statusIdStmt->execute([trim((string)$updatedFields['status'])]);
+                        $resolvedStatusId = $statusIdStmt->fetchColumn();
+                        $statusId = $resolvedStatusId ? (int)$resolvedStatusId : null;
+                    }
+
+                    $date = !empty($updatedFields['date']) ? (string)$updatedFields['date'] : null;
+                    $timeRaw = trim((string)($updatedFields['time_in_out'] ?? ''));
+                    $startTime = null;
+                    $endTime = null;
+                    if ($timeRaw !== '') {
+                        $parts = array_map('trim', preg_split('/[\\/\\-]/', $timeRaw));
+                        if (count($parts) >= 2) {
+                            $startTime = $parts[0];
+                            $endTime = $parts[1];
+                        }
+                    }
+
+                    $updateTaskMetaStmt->execute([$statusId, $date, $startTime, $endTime, $taskId]);
+
+                    if (!empty($updatedFields['assign_to'])) {
+                        $assigneeStmt->execute([trim((string)$updatedFields['assign_to'])]);
+                        $assigneeId = $assigneeStmt->fetchColumn();
+                        if ($assigneeId) {
+                            $deactivateAssignmentsStmt->execute([$taskId]);
+                            $insertAssignmentStmt->execute([$taskId, (int)$assigneeId]);
+                        }
+                    }
+                }
+            }
+
+            $conn->commit();
+            echo json_encode(["success" => true, "message" => "Task prices updated.", "updated_count" => $updated]);
+        } catch (Throwable $error) {
+            if ($conn->inTransaction()) $conn->rollBack();
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => $error->getMessage()]);
+        }
     }
 
     public function checkUpdates($user_id = null) {
