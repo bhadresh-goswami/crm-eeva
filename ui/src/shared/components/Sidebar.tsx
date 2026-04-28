@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { roleDashboardPath } from '../../routes/roleDashboard'
@@ -8,51 +8,125 @@ type SidebarProps = {
   onClose: () => void
 }
 
-type MenuLink = { label: string; to: string; icon?: string }
+type IconName = 'dashboard' | 'tasks' | 'payment' | 'invoices' | 'reports' | 'clients' | 'poc' | 'candidates' | 'users' | 'settings'
+type MenuItem = { label: string; to: string; icon: IconName }
+type MenuSection = { title: string; items: MenuItem[] }
+
+const iconPaths: Record<IconName, string> = {
+  dashboard: 'M3 12l9-8 9 8M5 10v10h14V10',
+  tasks: 'M4 6h16M4 12h16M4 18h16',
+  payment: 'M3 7h18v10H3zM3 11h18M7 15h4',
+  invoices: 'M7 3h10l4 4v14H7zM17 3v4h4M9 12h8M9 16h8',
+  reports: 'M5 17V7M10 17V11M15 17V9M20 17V5',
+  clients: 'M4 20v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
+  poc: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87',
+  candidates: 'M16 21v-2a4 4 0 0 0-4-4H4a4 4 0 0 0-4 4v2M8 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8M20 8v6M23 11h-6',
+  users: 'M16 21v-2a4 4 0 0 0-4-4H4a4 4 0 0 0-4 4v2M8 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8M20 8v6M23 11h-6',
+  settings: 'M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5zM19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1v.2a2 2 0 0 1-4 0V21a1.7 1.7 0 0 0-1.4-1.6 1.7 1.7 0 0 0-1.6.3l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1-.4H2.8a2 2 0 0 1 0-4H3a1.7 1.7 0 0 0 1.6-1.4 1.7 1.7 0 0 0-.3-1.6l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1V2.8a2 2 0 0 1 4 0V3a1.7 1.7 0 0 0 1.4 1.6 1.7 1.7 0 0 0 1.6-.3l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1 .4h.2a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1.4z',
+}
+
+const Icon = ({ name }: { name: IconName }) => (
+  <svg className="menu-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={iconPaths[name]} />
+  </svg>
+)
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { user } = useAuth()
-  const [openGroup, setOpenGroup] = useState<'management' | 'tasks'>('management')
 
-  const links = useMemo(() => {
-    if (!user) return { dashboard: '/dashboard', management: [] as MenuLink[], tasks: [] as MenuLink[], managerMenu: [] as MenuLink[] }
+  const sections = useMemo<MenuSection[]>(() => {
+    if (!user) return []
 
-    const management: MenuLink[] = []
+    if (user.role === 'manager') {
+      return [
+        {
+          title: 'Main',
+          items: [
+            { label: 'Dashboard', to: roleDashboardPath.manager, icon: 'dashboard' },
+            { label: 'Tasks', to: '/tasks', icon: 'tasks' },
+          ],
+        },
+        {
+          title: 'Finance',
+          items: [
+            { label: 'Payment Correction', to: '/tasks/payment-correction', icon: 'payment' },
+            { label: 'Invoices', to: '/invoices', icon: 'invoices' },
+          ],
+        },
+        {
+          title: 'Reports',
+          items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }],
+        },
+        {
+          title: 'CRM',
+          items: [
+            { label: 'Clients', to: '/clients', icon: 'clients' },
+            { label: 'POC', to: '/pocs', icon: 'poc' },
+            { label: 'Candidates', to: '/candidates', icon: 'candidates' },
+          ],
+        },
+      ]
+    }
+
     if (user.role === 'admin') {
-      management.push(
-        { label: 'Users', to: '/users', icon: '👥' },
-        { label: 'Roles', to: '/roles', icon: '🛡️' },
-        { label: 'Clients', to: '/clients', icon: '🏢' },
-        { label: 'POC', to: '/pocs', icon: '📇' },
-      )
+      return [
+        {
+          title: 'Main',
+          items: [
+            { label: 'Dashboard', to: roleDashboardPath.admin, icon: 'dashboard' },
+            { label: 'Tasks', to: '/tasks', icon: 'tasks' },
+          ],
+        },
+        {
+          title: 'Finance',
+          items: [
+            { label: 'Payment Correction', to: '/tasks/payment-correction', icon: 'payment' },
+            { label: 'Invoices', to: '/invoices', icon: 'invoices' },
+          ],
+        },
+        {
+          title: 'Reports',
+          items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }],
+        },
+        {
+          title: 'CRM',
+          items: [
+            { label: 'Clients', to: '/clients', icon: 'clients' },
+            { label: 'POC', to: '/pocs', icon: 'poc' },
+            { label: 'Candidates', to: '/candidates', icon: 'candidates' },
+          ],
+        },
+        {
+          title: 'System',
+          items: [
+            { label: 'Users', to: '/users', icon: 'users' },
+            { label: 'Settings', to: '/roles', icon: 'settings' },
+          ],
+        },
+      ]
     }
 
-    if (user.role === 'manager' || user.role === 'coordinator') {
-      management.push({ label: 'Clients', to: '/clients', icon: '🏢' }, { label: 'POC', to: '/pocs', icon: '📇' })
-    }
-
-    const tasks: MenuLink[] = []
-    if (['admin', 'manager', 'coordinator', 'expert', 'expertlead'].includes(user.role)) {
-      tasks.push({ label: 'All Tasks', to: '/tasks', icon: '📝' }, { label: 'Assigned Tasks', to: '/tasks?view=assigned', icon: '📌' })
-    }
-
-    const managerMenu: MenuLink[] =
-      user.role === 'manager'
-        ? [
-            { label: 'Dashboard', to: roleDashboardPath.manager, icon: '📊' },
-            { label: 'Tasks', to: '/tasks', icon: '📝' },
-            { label: 'Client', to: '/clients', icon: '🏢' },
-            { label: 'POC', to: '/pocs', icon: '📇' },
-            { label: 'Candidate', to: '/candidates', icon: '🧑‍💼' },
-          ]
-        : []
-
-    return {
-      dashboard: roleDashboardPath[user.role],
-      management,
-      tasks,
-      managerMenu,
-    }
+    return [
+      {
+        title: 'Main',
+        items: [
+          { label: 'Dashboard', to: roleDashboardPath[user.role], icon: 'dashboard' },
+          { label: 'Tasks', to: '/tasks', icon: 'tasks' },
+        ],
+      },
+      {
+        title: 'CRM',
+        items: [
+          { label: 'Clients', to: '/clients', icon: 'clients' },
+          { label: 'POC', to: '/pocs', icon: 'poc' },
+          { label: 'Candidates', to: '/candidates', icon: 'candidates' },
+        ],
+      },
+      {
+        title: 'Reports',
+        items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }],
+      },
+    ]
   }, [user])
 
   if (!user) return null
@@ -62,55 +136,19 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       <aside className={`sidebar ${isOpen ? 'sidebar--open' : 'sidebar--closed'}`} aria-label="Role navigation">
         <h2 className="sidebar__title">CRM Suite</h2>
 
-        {user.role === 'manager' ? (
-          links.managerMenu.map((item) => (
-            <NavLink key={item.label} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
-              {item.icon ? <span className="menu-icon">{item.icon}</span> : null}
-              <span className="menu-label">{item.label}</span>
-            </NavLink>
-          ))
-        ) : (
-          <NavLink to={links.dashboard} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
-            <span className="menu-icon">📊</span>
-            <span className="menu-label">Dashboard</span>
-          </NavLink>
-        )}
-
-        {user.role !== 'manager' && links.management.length > 0 ? (
-          <div>
-            <button type="button" className="menu-item sidebar__menu-trigger" onClick={() => setOpenGroup((prev) => (prev === 'management' ? 'tasks' : 'management'))}>
-              <span className="menu-icon">🧰</span>
-              <span className="menu-label">Management</span>
-            </button>
-            {openGroup === 'management' ? (
-              <div className="submenu">
-                {links.management.map((item) => (
-                  <NavLink key={item.to} to={item.to} className={({ isActive }) => `submenu-item ${isActive ? 'submenu-item--active' : ''}`}>
-                    {item.icon ? `${item.icon} ` : ''}{item.label}
-                  </NavLink>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {user.role !== 'manager' && links.tasks.length > 0 ? (
-          <div>
-            <button type="button" className="menu-item sidebar__menu-trigger" onClick={() => setOpenGroup((prev) => (prev === 'tasks' ? 'management' : 'tasks'))}>
-              <span className="menu-icon">🗂️</span>
-              <span className="menu-label">Tasks</span>
-            </button>
-            {openGroup === 'tasks' ? (
-              <div className="submenu">
-                {links.tasks.map((item) => (
-                  <NavLink key={item.label} to={item.to} className={({ isActive }) => `submenu-item ${isActive ? 'submenu-item--active' : ''}`}>
-                    {item.icon ? `${item.icon} ` : ''}{item.label}
-                  </NavLink>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        {sections.map((section) => (
+          <section key={section.title} className="sidebar__group">
+            <h3 className="sidebar__group-title">{section.title}</h3>
+            <div className="sidebar__group-links">
+              {section.items.map((item) => (
+                <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+                  <Icon name={item.icon} />
+                  <span className="menu-label">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          </section>
+        ))}
       </aside>
       {isOpen ? <button type="button" className="sidebar-backdrop" onClick={onClose} aria-label="Close navigation" /> : null}
     </>
