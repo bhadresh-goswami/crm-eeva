@@ -373,6 +373,10 @@ elseif ($uri === "/tasks/update-prices" && $method === "POST") {
     authorize($user,['admin','manager']);
     (new TaskController())->updatePrices();
 }
+elseif ($uri === "/tasks/bulk-price/update" && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new TaskController())->updatePrices();
+}
 elseif ($uri === "/tasks/cancel" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->cancelTask();

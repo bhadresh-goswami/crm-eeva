@@ -483,7 +483,7 @@ export const getBulkPriceTasks = async (query: { from_date?: string; to_date?: s
 }
 
 export const updateTaskPrices = async (updates: Array<{ task_id: number; amount: number }>) => {
-  return apiRequest<{ updated_count?: number; success?: boolean; message?: string }>('/tasks/update-prices', {
+  return apiRequest<{ updated_count?: number; success?: boolean; message?: string }>('/tasks/bulk-price/update', {
     method: 'POST',
     body: JSON.stringify(updates),
   })
