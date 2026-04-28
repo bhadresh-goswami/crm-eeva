@@ -61,7 +61,7 @@
 .bulk-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1150px;
+  min-width: 980px;
 }
 
 .bulk-table th,
