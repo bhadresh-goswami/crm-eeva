@@ -868,8 +868,8 @@ const TasksPage = () => {
                       </td>
                       <td>
                         <div className="roles-table__actions users-actions">
-                          <button className="button users-icon-btn action-btn" title="View" onClick={() => void openEdit(task)}>👁</button>
-                          <button className="button users-icon-btn action-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
+                          <button className="btn btn-sm btn-light users-icon-btn action-btn" title="View" onClick={() => void openEdit(task)}>👁️</button>
+                          <button className="btn btn-sm btn-light users-icon-btn action-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
                           <button className="button users-icon-btn action-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
                           <button
                             className="button users-icon-btn action-btn"
