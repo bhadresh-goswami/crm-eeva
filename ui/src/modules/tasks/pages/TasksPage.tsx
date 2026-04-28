@@ -16,6 +16,7 @@ import {
   getPocsByClient,
   getTaskTypes,
   getTasks,
+  getTasksLastUpdate,
   moveTaskToPending,
   updateTask,
   type CandidateOption,
@@ -305,6 +306,7 @@ const TasksPage = () => {
   const [selectedExpertId, setSelectedExpertId] = useState<number | null>(null)
   const [isBulkAssign, setIsBulkAssign] = useState(false)
   const [lastSeenTaskId, setLastSeenTaskId] = useState(0)
+  const [lastKnownTaskUpdate, setLastKnownTaskUpdate] = useState<string | null>(null)
   const [announcedNewTaskIds, setAnnouncedNewTaskIds] = useState<number[]>([])
   const [announcedUpcomingTaskIds, setAnnouncedUpcomingTaskIds] = useState<number[]>([])
 
@@ -428,23 +430,17 @@ const TasksPage = () => {
       return
     }
 
-    const interval = window.setInterval(() => {
-      if (!isUserBusy) {
-        void loadPage()
-      }
-    }, 20_000)
-
-    return () => window.clearInterval(interval)
-  }, [isTechExpert, isUserBusy, loadPage])
-
-  useEffect(() => {
-    if (!isTechExpert) {
-      return
-    }
-
     const interval = window.setInterval(async () => {
       if (isUserBusy) return
       try {
+        const latestStamp = await getTasksLastUpdate()
+        if (!latestStamp || latestStamp === lastKnownTaskUpdate) {
+          return
+        }
+
+        setLastKnownTaskUpdate(latestStamp)
+        await loadPage()
+
         const updates = await checkTaskUpdates(lastSeenTaskId, 30)
         if (updates.newTasks.length > 0) {
           const unseen = updates.newTasks.filter((task) => !announcedNewTaskIds.includes(task.id))
@@ -468,7 +464,7 @@ const TasksPage = () => {
     }, 20_000)
 
     return () => window.clearInterval(interval)
-  }, [announcedNewTaskIds, announcedUpcomingTaskIds, isTechExpert, isUserBusy, lastSeenTaskId, showAlert, showToast])
+  }, [announcedNewTaskIds, announcedUpcomingTaskIds, getTasksLastUpdate, isTechExpert, isUserBusy, lastKnownTaskUpdate, lastSeenTaskId, loadPage, showAlert, showToast])
 
   const clientOptions = useMemo(
     () => clients.map((client) => ({ id: client.id, label: client.company_name || client.name })).sort((a, b) => a.label.localeCompare(b.label)),
@@ -945,7 +941,7 @@ const TasksPage = () => {
 
       {isFormOpen ? (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ width: 'min(980px, 100%)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-card modal-card--xl" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <h3 className="modal-title" style={{ marginBottom: 0 }}>{formMode === 'create' ? 'Create New Task' : 'Edit Task'}</h3>
               <button className="button" type="button" onClick={() => setIsFormOpen(false)} aria-label="Close task modal">

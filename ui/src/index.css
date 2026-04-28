@@ -473,6 +473,10 @@ table td {
   animation: modalScale 0.18s ease;
 }
 
+.modal-card--md { width: min(600px, 95vw); }
+.modal-card--lg { width: min(900px, 95vw); }
+.modal-card--xl { width: 90vw; }
+
 .modal-title {
   font-size: 1.1rem;
   margin-bottom: 0.75rem;

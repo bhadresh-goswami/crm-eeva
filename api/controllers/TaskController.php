@@ -773,6 +773,27 @@ public function downloadFile() {
         }
     }
 
+    public function lastUpdate(): void {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $columns = $this->getTableColumns($conn, 'tasks');
+            $updateColumn = in_array('updated_at', $columns, true) ? 'updated_at' : 'created_at';
+
+            $stmt = $conn->query("SELECT COALESCE(MAX({$updateColumn}), MAX(created_at)) AS last_update FROM tasks");
+            $lastUpdate = $stmt->fetchColumn();
+
+            echo json_encode([
+                'success' => true,
+                'last_update' => $lastUpdate ?: null,
+            ]);
+        } catch (Throwable $error) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $error->getMessage()]);
+        }
+    }
+
 
     // ================= UPDATE =================
     public function update($user_id) {

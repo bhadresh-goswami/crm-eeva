@@ -74,6 +74,12 @@ export type TaskUpdateCheck = {
   upcomingTasks: TaskRecord[]
 }
 
+export const getTasksLastUpdate = async (): Promise<string | null> => {
+  const response = await apiRequest<Record<string, unknown>>('/tasks/last-update')
+  const value = String(response.last_update ?? '').trim()
+  return value || null
+}
+
 export type BulkPriceTaskRecord = {
   id: number
   description: string

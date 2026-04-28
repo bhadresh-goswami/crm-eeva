@@ -359,6 +359,10 @@ elseif ($uri === "/tasks/upload" && $method === "POST") {
 elseif ($uri === "/tasks/file" && $method === "GET") {
     (new TaskController())->downloadFile();
 }
+elseif ($uri === "/tasks/last-update" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
+    (new TaskController())->lastUpdate();
+}
 elseif ($uri === "/tasks/bulk-status" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->bulkUpdateStatus();
