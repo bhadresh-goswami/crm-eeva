@@ -280,3 +280,12 @@ table tbody tr:hover { background: #f3f4f6; }
   .activity-panel { width: 100%; }
   .manager-dashboard-layout { grid-template-columns: 1fr; }
 }
+
+.manager-v2__kpis{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;margin-bottom:14px}
+.manager-v2__kpi{border-radius:8px;color:#fff;padding:18px}
+.manager-v2__kpi h4{margin:6px 0}
+.manager-v2__kpi--blue{background:#4f6bed}.manager-v2__kpi--teal{background:#1ebccd}.manager-v2__kpi--green{background:#4caf50}.manager-v2__kpi--indigo{background:#5c6bc0}
+.manager-v2__grid{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.manager-v2__box{background:#fff;border-radius:10px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,.05);margin-bottom:12px}
+.manager-v2__boxhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+@media (max-width:1100px){.manager-v2__kpis{grid-template-columns:repeat(2,minmax(180px,1fr))}.manager-v2__grid{grid-template-columns:1fr}}
