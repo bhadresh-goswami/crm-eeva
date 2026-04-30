@@ -15,6 +15,9 @@ export type DashboardTask = {
   startTime?: string
   endTime?: string
   supportType?: string
+  amount?: number
+  duration?: number
+  paymentStatus?: string
 }
 
 export type DashboardExpert = {
@@ -87,6 +90,9 @@ const normalizeTask = (task: Record<string, unknown>): DashboardTask => ({
   status: String(task.status ?? 'pending').toLowerCase(),
   expertId: String(task.expertId ?? task.expert_id ?? task.assigned_to_id ?? '') || null,
   assignedToName: String(task.assigned_to_name ?? task.expert_name ?? task.assignedToName ?? ''),
+  amount: asNumber(task.total_amount ?? task.amount),
+  duration: asNumber(task.duration),
+  paymentStatus: String(task.payment_status ?? '').toLowerCase(),
   description: String(task.description ?? task.task_description ?? ''),
   fileUrl: String(task.file ?? task.file_url ?? task.attachment_url ?? task.attachment ?? ''),
   dueDate: String(task.task_date ?? task.due_date ?? task.date ?? ''),

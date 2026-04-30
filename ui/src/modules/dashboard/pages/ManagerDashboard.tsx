@@ -232,13 +232,18 @@ const ManagerDashboard = () => {
 
   const cards = useMemo(
     () => [
-      { label: 'Total Tasks (Last 30 Days)', value: kpi.totalLast30Days, tone: 'default' },
+      { label: 'Total Revenue', value: `₹${liveTasks.reduce((sum, task) => sum + Number(task.amount ?? 0), 0).toFixed(0)}`, tone: 'success' },
       { label: 'Completed Tasks', value: summaryData.completedTasks, tab: 'completed' as const, tone: 'success' },
       { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const, tone: 'warning' },
-      { label: 'Avg Duration (mins)', value: kpi.avgDuration, tone: 'default' },
+      { label: 'Pending Payments', value: summaryData.pendingPaymentUpdates ?? 0, tone: 'danger' },
+      { label: 'Success Rate', value: `${kpi.productivity}%`, tone: 'default' },
     ],
-    [kpi.avgDuration, kpi.totalLast30Days, summaryData.completedTasks, summaryData.pendingTasks],
+    [kpi.productivity, liveTasks, summaryData.completedTasks, summaryData.pendingPaymentUpdates, summaryData.pendingTasks],
   )
+
+  const pendingPaymentRows = useMemo(() => liveTasks
+    .filter((task) => task.status === 'completed' && (Number(task.amount ?? 0) <= 0 || (task.paymentStatus ?? '') === 'pending'))
+    .slice(0, 10), [liveTasks])
 
   const liveActivityTasks = useMemo(
     () => liveTasks.filter((task) => ['pending', 'assigned'].includes(task.status)).slice(0, 6),
@@ -326,6 +331,28 @@ const ManagerDashboard = () => {
               )
             })}
       </div>
+      <div className="card section">
+        <h3 className="tasks-activity__title">Pending Payments</h3>
+        <div className="table-responsive">
+          <table className="table table-striped align-middle mb-0">
+            <thead><tr><th>Date</th><th>Client</th><th>Candidate</th><th>Amount</th><th>Status</th><th>Duration</th><th>Actions</th></tr></thead>
+            <tbody>
+              {pendingPaymentRows.length === 0 ? <tr><td colSpan={7}>No pending payments.</td></tr> : pendingPaymentRows.map((task) => (
+                <tr key={`pending-${task.id}`}>
+                  <td>{task.dueDate?.slice(0, 10) || '-'}</td>
+                  <td>{task.client || '-'}</td>
+                  <td>{task.candidate || '-'}</td>
+                  <td>₹{Number(task.amount ?? 0)}</td>
+                  <td><span className={`badge ${(task.paymentStatus ?? 'pending') === 'paid' ? 'text-bg-success' : 'text-bg-warning'}`}>{task.paymentStatus || 'pending'}</span></td>
+                  <td>{task.duration ? `${task.duration} mins` : '-'}</td>
+                  <td className="d-flex gap-2"><button className="btn btn-sm btn-light" onClick={() => setDetailTask(task)}>👁️</button><button className="btn btn-sm btn-light" onClick={() => setActiveTab('completed')}>✏️</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div className="card section">
         <h3 className="tasks-activity__title">Critical Alerts</h3>
         <p className="card-text">Overdue: {criticalAlerts.overdue.length} • Upcoming (30m): {criticalAlerts.upcoming.length} • Unassigned: {criticalAlerts.unassigned.length}</p>
