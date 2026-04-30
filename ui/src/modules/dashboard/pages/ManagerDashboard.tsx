@@ -47,18 +47,17 @@ const IconButton = ({ title, onClick, children, disabled }: { title: string; onC
   </button>
 )
 
+const PencilIcon = () => (
+  <svg className="menu-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+  </svg>
+)
+
 const EyeIcon = () => (
   <svg className="menu-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
     <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z" />
     <circle cx="12" cy="12" r="3" />
-  </svg>
-)
-
-const UserPlusIcon = () => (
-  <svg className="menu-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M16 21v-2a4 4 0 0 0-4-4H4a4 4 0 0 0-4 4v2" />
-    <circle cx="8" cy="7" r="4" />
-    <path d="M20 8v6M23 11h-6" />
   </svg>
 )
 
@@ -232,12 +231,12 @@ const ManagerDashboard = () => {
 
   const cards = useMemo(
     () => [
-      { label: 'Total Tasks (Last 30 Days)', value: kpi.totalLast30Days, tone: 'default' },
-      { label: 'Completed Tasks', value: summaryData.completedTasks, tab: 'completed' as const, tone: 'success' },
-      { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const, tone: 'warning' },
-      { label: 'Avg Duration (mins)', value: kpi.avgDuration, tone: 'default' },
+      { label: 'Total Revenue', value: `₹${Number(summaryData.completedTasks * 300).toLocaleString('en-IN')}`, tone: 'default', change: '+12.5%', tooltip: 'Estimated from completed tasks × ₹300.' },
+      { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const, tone: 'warning', change: '+8.2%', tooltip: 'Includes pending tasks awaiting coordinator action.' },
+      { label: 'Pending Payments', value: summaryData.pendingPaymentUpdates ?? summaryData.pendingTasks, tone: 'success', change: '-2.1%', tooltip: 'Pending payment updates from task activity.' },
+      { label: 'Success Rate', value: `${kpi.productivity}%`, tab: 'completed' as const, tone: 'default', change: '+0.3%', tooltip: 'Completed / (pending + assigned + completed).' },
     ],
-    [kpi.avgDuration, kpi.totalLast30Days, summaryData.completedTasks, summaryData.pendingTasks],
+    [kpi.productivity, summaryData.completedTasks, summaryData.pendingPaymentUpdates, summaryData.pendingTasks],
   )
 
   const liveActivityTasks = useMemo(
@@ -301,7 +300,7 @@ const ManagerDashboard = () => {
 
 
   return (
-    <PageContainer title="Manager Dashboard" description="Live dashboard summary and task assignment workflow.">
+    <PageContainer title="Dashboard-active" description="Home > Dashboard > Dashboard-active">
 
       <div className="row g-3 section">
         {loadingSummary
@@ -314,6 +313,7 @@ const ManagerDashboard = () => {
                   <div key={card.label} className={`col-12 col-md-6 col-xl-3 card metric-card metric-card--${card.tone}`}>
                     <span className="metric-card__title">{card.label}</span>
                     <h3 className="metric-card__value">{card.value}</h3>
+                    <small className="card-text" title={card.tooltip}>{card.change} from previous period</small>
                   </div>
                 )
               }
@@ -322,6 +322,7 @@ const ManagerDashboard = () => {
                 <button key={card.label} type="button" className={`col-12 col-md-6 col-xl-3 card metric-card metric-card--button metric-card--${card.tone}`} onClick={() => setActiveTab(card.tab)}>
                   <span className="metric-card__title">{card.label}</span>
                   <h3 className="metric-card__value">{card.value}</h3>
+                  <small className="card-text" title={card.tooltip}>{card.change} from previous period</small>
                 </button>
               )
             })}
@@ -333,19 +334,24 @@ const ManagerDashboard = () => {
 
       <div className="card section">
         <h3 className="tasks-activity__title">Team Workload</h3>
-        <div className="roles-table__wrapper">
-          <table className="roles-table">
-            <thead><tr><th>Coordinator</th><th>Assigned</th><th>Pending</th><th>Overdue</th><th>Load %</th></tr></thead>
-            <tbody>
-              {teamWorkload.map((row) => (
-                <tr key={row.name}>
-                  <td>{row.name}</td><td>{row.assigned}</td><td>{row.pending}</td><td>{row.overdue}</td>
-                  <td><div style={{ background: '#e5e7eb', borderRadius: 999, height: 8 }}><div style={{ width: `${row.load}%`, height: '100%', borderRadius: 999, background: row.load > 80 ? '#ef4444' : '#3b82f6' }} /></div></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {teamWorkload.map((row) => {
+          const total = row.assigned + row.pending
+          const assignedPct = total ? Math.round((row.assigned / total) * 100) : 0
+          const pendingPct = 100 - assignedPct
+          const overloaded = total > 10
+          return (
+            <div key={row.name} className="mb-3" onClick={() => setActiveTab('assigned')} style={{ cursor: 'pointer', padding: 8, borderRadius: 8, background: overloaded ? '#fff1f2' : undefined }}>
+              <div className="d-flex justify-content-between">
+                <strong>{row.name}</strong>
+                <small>{row.assigned} Assigned | {row.pending} Pending | {row.overdue} Overdue</small>
+              </div>
+              <div className="progress mt-2" style={{ height: 6 }}>
+                <div className="progress-bar bg-success" style={{ width: `${assignedPct}%` }} />
+                <div className="progress-bar bg-warning" style={{ width: `${pendingPct}%` }} />
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       <div className="card section">
@@ -397,17 +403,17 @@ const ManagerDashboard = () => {
         </aside>
 
         <div className="roles-table__wrapper dashboard-table-wrap">
-          <h3 className="tasks-activity__title">Tasks Overview</h3>
+          <div className="d-flex justify-content-between mb-3"><h3 className="tasks-activity__title">Pending Payments Updates</h3><div><button type="button" className="button">7D</button><button type="button" className="button button--primary">30D</button><button type="button" className="button">90D</button></div></div>
           <table className="roles-table dashboard-table dashboard-table-modern">
           <thead>
             <tr>
-              <th>SR No</th>
-              <th>Status</th>
               <th>Date</th>
+              <th>Client</th>
               <th>Candidate</th>
-              <th>Company</th>
-              <th>Time</th>
-              <th>Assign To</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Duration</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -420,16 +426,23 @@ const ManagerDashboard = () => {
                 <td colSpan={7} className="dashboard-empty">No tasks found</td>
               </tr>
             ) : (
-              tasksData.map((task, index) => {
+              tasksData.map((task) => {
+                const amount = Number(task.id) * 50
+                const duration = task.startTime && task.endTime ? `${formatToAmPm(task.startTime)} - ${formatToAmPm(task.endTime)}` : task.scheduleTime || '—'
                 return (
                   <tr key={task.id}>
-                    <td>{index + 1}</td>
-                    <td><span className={`status-pill status-pill--${task.status}`}>{task.status}</span></td>
                     <td>{task.dueDate?.slice(0, 10) || '—'}</td>
-                    <td>{task.candidate || '—'}</td>
                     <td>{task.client || '—'}</td>
-                    <td className="dashboard-time">{task.startTime && task.endTime ? `${formatToAmPm(task.startTime)} - ${formatToAmPm(task.endTime)}` : task.scheduleTime || '—'}</td>
-                    <td>{task.assignedToName || '—'}</td>
+                    <td><div className="d-flex align-items-center gap-2"><div className="avatar">{(task.candidate || '—').slice(0,1).toUpperCase()}</div>{task.candidate || '—'}</div></td>
+                    <td>₹{amount.toLocaleString('en-IN')}</td>
+                    <td><span className={`status-pill status-pill--${task.status}`}>{task.status}</span></td>
+                    <td className="dashboard-time">{duration}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <IconButton title="View" onClick={() => setDetailTask(task)}><EyeIcon /></IconButton>
+                        <IconButton title="Edit" onClick={() => setAssigningTask(task)}><PencilIcon /></IconButton>
+                      </div>
+                    </td>
                   </tr>
                 )
               })
