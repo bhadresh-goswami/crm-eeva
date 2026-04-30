@@ -289,3 +289,12 @@ table tbody tr:hover { background: #f3f4f6; }
 .manager-v2__box{background:#fff;border-radius:10px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,.05);margin-bottom:12px}
 .manager-v2__boxhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 @media (max-width:1100px){.manager-v2__kpis{grid-template-columns:repeat(2,minmax(180px,1fr))}.manager-v2__grid{grid-template-columns:1fr}}
+
+.manager-v2__card{padding:0;overflow:hidden}
+.manager-v2__card-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #e5e7eb;background:#fff}
+.manager-v2__card-body{padding:14px 16px;background:#fff}
+.manager-v2__scroll-y{max-height:520px;overflow:auto}
+.manager-v2__scroll-y--small{max-height:260px;overflow:auto}
+.manager-v2__scroll-y--medium{max-height:520px;overflow:auto}
+.manager-v2__scroll-x{overflow:auto}
+.manager-v2 .activity{border-left:3px solid #4f6bed;background:#f8fafc;border-radius:10px;padding:10px 12px;margin-bottom:12px}
