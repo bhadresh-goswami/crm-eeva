@@ -300,7 +300,7 @@ const ManagerDashboard = () => {
 
 
   return (
-    <PageContainer title="Manager Dashboard" description="Live dashboard summary and task assignment workflow.">
+    <PageContainer title="Dashboard-active" description="Home > Dashboard > Dashboard-active">
 
       <div className="row g-3 section">
         {loadingSummary
@@ -334,19 +334,24 @@ const ManagerDashboard = () => {
 
       <div className="card section">
         <h3 className="tasks-activity__title">Team Workload</h3>
-        <div className="roles-table__wrapper">
-          <table className="roles-table">
-            <thead><tr><th>Coordinator</th><th>Assigned</th><th>Pending</th><th>Overdue</th><th>Load %</th></tr></thead>
-            <tbody>
-              {teamWorkload.map((row) => (
-                <tr key={row.name} onClick={() => setActiveTab('assigned')} style={{ cursor: 'pointer', background: row.assigned + row.pending > 10 ? 'rgba(254,242,242,0.9)' : undefined }} title="Open user tasks">
-                  <td>{row.name}</td><td>{row.assigned}</td><td>{row.pending}</td><td>{row.overdue}</td>
-                  <td><div style={{ background: '#e5e7eb', borderRadius: 999, height: 8 }}><div style={{ width: `${row.load}%`, height: '100%', borderRadius: 999, background: row.load > 80 ? '#ef4444' : '#3b82f6' }} /></div></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {teamWorkload.map((row) => {
+          const total = row.assigned + row.pending
+          const assignedPct = total ? Math.round((row.assigned / total) * 100) : 0
+          const pendingPct = 100 - assignedPct
+          const overloaded = total > 10
+          return (
+            <div key={row.name} className="mb-3" onClick={() => setActiveTab('assigned')} style={{ cursor: 'pointer', padding: 8, borderRadius: 8, background: overloaded ? '#fff1f2' : undefined }}>
+              <div className="d-flex justify-content-between">
+                <strong>{row.name}</strong>
+                <small>{row.assigned} Assigned | {row.pending} Pending | {row.overdue} Overdue</small>
+              </div>
+              <div className="progress mt-2" style={{ height: 6 }}>
+                <div className="progress-bar bg-success" style={{ width: `${assignedPct}%` }} />
+                <div className="progress-bar bg-warning" style={{ width: `${pendingPct}%` }} />
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       <div className="card section">
@@ -398,7 +403,7 @@ const ManagerDashboard = () => {
         </aside>
 
         <div className="roles-table__wrapper dashboard-table-wrap">
-          <h3 className="tasks-activity__title">Pending Payments Updates</h3>
+          <div className="d-flex justify-content-between mb-3"><h3 className="tasks-activity__title">Pending Payments Updates</h3><div><button type="button" className="button">7D</button><button type="button" className="button button--primary">30D</button><button type="button" className="button">90D</button></div></div>
           <table className="roles-table dashboard-table dashboard-table-modern">
           <thead>
             <tr>
@@ -428,7 +433,7 @@ const ManagerDashboard = () => {
                   <tr key={task.id}>
                     <td>{task.dueDate?.slice(0, 10) || '—'}</td>
                     <td>{task.client || '—'}</td>
-                    <td>{task.candidate || '—'}</td>
+                    <td><div className="d-flex align-items-center gap-2"><div className="avatar">{(task.candidate || '—').slice(0,1).toUpperCase()}</div>{task.candidate || '—'}</div></td>
                     <td>₹{amount.toLocaleString('en-IN')}</td>
                     <td><span className={`status-pill status-pill--${task.status}`}>{task.status}</span></td>
                     <td className="dashboard-time">{duration}</td>
