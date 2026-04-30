@@ -13,6 +13,7 @@ import {
   type DashboardTask,
   type ManagerTaskStatus,
 } from '../api/dashboardApi'
+import { getTasksLastUpdate } from '../../tasks/api/tasksApi'
 
 const defaultSummary: DashboardSummary = {
   totalTasks: 0,
@@ -69,6 +70,7 @@ const ManagerDashboard = () => {
   const isAssignModalOpen = Boolean(assigningTask)
 
   const [detailTask, setDetailTask] = useState<DashboardTask | null>(null)
+  const [lastKnownTaskUpdate, setLastKnownTaskUpdate] = useState<string | null>(null)
 
   const loadSummary = async () => {
     try {
@@ -130,15 +132,22 @@ const ManagerDashboard = () => {
 
   useEffect(() => {
     const isUserBusy = Boolean(assigningTask) || Boolean(detailTask)
-    const interval = window.setInterval(() => {
+    const interval = window.setInterval(async () => {
       if (isUserBusy) return
-      void loadTasksByStatus(activeTab)
-      void loadSummary()
-      void loadLiveTasks()
-    }, 10_000)
+      try {
+        const latestStamp = await getTasksLastUpdate()
+        if (!latestStamp || latestStamp === lastKnownTaskUpdate) {
+          return
+        }
+        setLastKnownTaskUpdate(latestStamp)
+        await Promise.all([loadTasksByStatus(activeTab), loadSummary(), loadLiveTasks()])
+      } catch {
+        // ignore polling errors
+      }
+    }, 20_000)
 
     return () => window.clearInterval(interval)
-  }, [activeTab, assigningTask, detailTask])
+  }, [activeTab, assigningTask, detailTask, lastKnownTaskUpdate])
 
   useEffect(() => {
     let mounted = true
@@ -188,26 +197,32 @@ const ManagerDashboard = () => {
     const completedToday = liveTasks.filter((task) => task.status === 'completed' && task.dueDate?.slice(0, 10) === today).length
     const productiveBase = summaryData.pendingTasks + summaryData.assignedTasks + summaryData.completedTasks
     const productivity = productiveBase > 0 ? Math.round((summaryData.completedTasks / productiveBase) * 100) : 0
-    return { overdue, completedToday, productivity }
+    const durations = liveTasks.map((task) => Number((task as { duration?: number }).duration ?? 0)).filter((value) => Number.isFinite(value) && value > 0)
+    const avgDuration = durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : 0
+    const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const totalLast30Days = liveTasks.filter((task) => {
+      if (!task.dueDate) return false
+      const source = task.dueDate || ''
+      const date = new Date(String(source).slice(0, 10))
+      return !Number.isNaN(date.getTime()) && date >= last30Days
+    }).length
+    return { overdue, completedToday, productivity, avgDuration, totalLast30Days }
   }, [liveTasks, summaryData.assignedTasks, summaryData.completedTasks, summaryData.pendingTasks])
 
   const cards = useMemo(
     () => [
-      { label: 'Total Tasks', value: summaryData.totalTasks, tone: 'default' },
+      { label: 'Total Revenue', value: `₹${liveTasks.reduce((sum, task) => sum + Number(task.amount ?? 0), 0).toFixed(0)}`, tone: 'success' },
+      { label: 'Completed Tasks', value: summaryData.completedTasks, tab: 'completed' as const, tone: 'success' },
       { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const, tone: 'warning' },
-      { label: 'Assigned Tasks', value: summaryData.assignedTasks, tab: 'assigned' as const, tone: 'default' },
-      { label: 'Overdue Tasks', value: kpi.overdue, tone: 'danger' },
-      { label: 'Completed Today', value: kpi.completedToday, tab: 'completed' as const, tone: 'success' },
-      { label: 'Team Productivity', value: `${kpi.productivity}%`, tone: 'success' },
+      { label: 'Pending Payments', value: summaryData.pendingPaymentUpdates ?? 0, tone: 'danger' },
+      { label: 'Success Rate', value: `${kpi.productivity}%`, tone: 'default' },
     ],
-    [kpi.completedToday, kpi.overdue, kpi.productivity, summaryData.assignedTasks, summaryData.pendingTasks, summaryData.totalTasks],
+    [kpi.productivity, liveTasks, summaryData.completedTasks, summaryData.pendingPaymentUpdates, summaryData.pendingTasks],
   )
 
-  const getActionConfig = (status: string) => {
-    if (status === 'pending') return { label: 'Assign', disabled: false }
-    if (status === 'assigned') return { label: 'Reassign', disabled: false }
-    return { label: 'Assign', disabled: true }
-  }
+  const pendingPaymentRows = useMemo(() => liveTasks
+    .filter((task) => task.status === 'completed' && (Number(task.amount ?? 0) <= 0 || (task.paymentStatus ?? '') === 'pending'))
+    .slice(0, 10), [liveTasks])
 
   const liveActivityTasks = useMemo(
     () => liveTasks.filter((task) => ['pending', 'assigned'].includes(task.status)).slice(0, 6),
@@ -272,15 +287,15 @@ const ManagerDashboard = () => {
   return (
     <PageContainer title="Manager Dashboard" description="Live dashboard summary and task assignment workflow.">
 
-      <div className="metric-grid dashboard-cards section">
+      <div className="row g-3 section">
         {loadingSummary
-          ? Array.from({ length: 6 }).map((_, index) => (
-              <article key={index} className="card skeleton-card" aria-hidden="true" />
+          ? Array.from({ length: cards.length || 6 }).map((_, index) => (
+              <article key={index} className="col-12 col-md-6 col-xl-3 card skeleton-card" aria-hidden="true" />
             ))
           : cards.map((card) => {
               if (!card.tab) {
                 return (
-                  <div key={card.label} className={`card metric-card metric-card--${card.tone}`}>
+                  <div key={card.label} className={`col-12 col-md-6 col-xl-3 card metric-card metric-card--${card.tone}`}>
                     <span className="metric-card__title">{card.label}</span>
                     <h3 className="metric-card__value">{card.value}</h3>
                   </div>
@@ -288,13 +303,35 @@ const ManagerDashboard = () => {
               }
 
               return (
-                <button key={card.label} type="button" className={`card metric-card metric-card--button metric-card--${card.tone}`} onClick={() => setActiveTab(card.tab)}>
+                <button key={card.label} type="button" className={`col-12 col-md-6 col-xl-3 card metric-card metric-card--button metric-card--${card.tone}`} onClick={() => setActiveTab(card.tab)}>
                   <span className="metric-card__title">{card.label}</span>
                   <h3 className="metric-card__value">{card.value}</h3>
                 </button>
               )
             })}
       </div>
+      <div className="card section">
+        <h3 className="tasks-activity__title">Pending Payments</h3>
+        <div className="table-responsive">
+          <table className="table table-striped align-middle mb-0">
+            <thead><tr><th>Date</th><th>Client</th><th>Candidate</th><th>Amount</th><th>Status</th><th>Duration</th><th>Actions</th></tr></thead>
+            <tbody>
+              {pendingPaymentRows.length === 0 ? <tr><td colSpan={7}>No pending payments.</td></tr> : pendingPaymentRows.map((task) => (
+                <tr key={`pending-${task.id}`}>
+                  <td>{task.dueDate?.slice(0, 10) || '-'}</td>
+                  <td>{task.client || '-'}</td>
+                  <td>{task.candidate || '-'}</td>
+                  <td>₹{Number(task.amount ?? 0)}</td>
+                  <td><span className={`badge ${(task.paymentStatus ?? 'pending') === 'paid' ? 'text-bg-success' : 'text-bg-warning'}`}>{task.paymentStatus || 'pending'}</span></td>
+                  <td>{task.duration ? `${task.duration} mins` : '-'}</td>
+                  <td className="d-flex gap-2"><button className="btn btn-sm btn-light" onClick={() => setDetailTask(task)}>👁️</button><button className="btn btn-sm btn-light" onClick={() => setActiveTab('completed')}>✏️</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div className="card section">
         <h3 className="tasks-activity__title">Critical Alerts</h3>
         <p className="card-text">Overdue: {criticalAlerts.overdue.length} • Upcoming (30m): {criticalAlerts.upcoming.length} • Unassigned: {criticalAlerts.unassigned.length}</p>
@@ -347,79 +384,58 @@ const ManagerDashboard = () => {
 
       <div className="manager-dashboard-layout">
         <aside className="activity-panel section">
-          <h3 className="tasks-activity__title">Live Activity</h3>
+          <div className="activity-panel__header">
+            <h3 className="tasks-activity__title">Live Activity Feed</h3>
+            <span className="activity-live"><span className="activity-live__dot" /> Live</span>
+          </div>
           {liveActivityTasks.length === 0 ? <p className="card-text">No live tasks running.</p> : null}
-          {liveActivityTasks.map((task) => (
-            <div className="activity-item" key={`activity-${task.id}`}>
-              <span className="dot" />
-              <div>
-                <p className="name">{task.title}</p>
-                <p className="email">{task.dueDate || '—'} • {task.startTime ? formatToAmPm(task.startTime) : '—'}</p>
-                <p className="email">{task.status} • {task.assignedToName || 'Unassigned'}</p>
-              </div>
-            </div>
-          ))}
+          <div className="activity-timeline">
+            {liveActivityTasks.map((task) => (
+              <article className="activity-timeline__item" key={`activity-${task.id}`}>
+                <span className="activity-timeline__dot" />
+                <div className="activity-timeline__card">
+                  <p className="activity-timeline__title">{task.candidate || 'Candidate'} → {task.client || 'Company'} → Assigned to {task.assignedToName || 'Unassigned'} at {task.startTime ? formatToAmPm(task.startTime) : '—'}</p>
+                  <p className="activity-timeline__meta">{task.dueDate?.slice(0, 10) || '—'}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         </aside>
 
         <div className="roles-table__wrapper dashboard-table-wrap">
-          <table className="roles-table dashboard-table">
+          <h3 className="tasks-activity__title">Tasks Overview</h3>
+          <table className="roles-table dashboard-table dashboard-table-modern">
           <thead>
             <tr>
               <th>SR No</th>
-              <th>Title</th>
+              <th>Status</th>
+              <th>Date</th>
               <th>Candidate</th>
               <th>Company</th>
               <th>Time</th>
-              <th>Status</th>
               <th>Assign To</th>
-              <th>Description</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loadingTasks ? (
               <tr>
-                <td colSpan={9} className="dashboard-empty">Loading tasks...</td>
+                <td colSpan={7} className="dashboard-empty">Loading tasks...</td>
               </tr>
             ) : tasksData.length === 0 ? (
               <tr>
-                <td colSpan={9} className="dashboard-empty">No tasks found</td>
+                <td colSpan={7} className="dashboard-empty">No tasks found</td>
               </tr>
             ) : (
               tasksData.map((task, index) => {
-                const action = getActionConfig(task.status)
                 return (
                   <tr key={task.id}>
                     <td>{index + 1}</td>
-                    <td>{task.title}</td>
+                    <td><span className={`status-pill status-pill--${task.status}`}>{task.status}</span></td>
+                    <td>{task.dueDate?.slice(0, 10) || '—'}</td>
                     <td>{task.candidate || '—'}</td>
                     <td>{task.client || '—'}</td>
                     <td className="dashboard-time">{task.startTime && task.endTime ? `${formatToAmPm(task.startTime)} - ${formatToAmPm(task.endTime)}` : task.scheduleTime || '—'}</td>
-                    <td><span className="status-pill">{task.status}</span></td>
                     <td>{task.assignedToName || '—'}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="button users-icon-btn action-btn"
-                        title="View task details"
-                        aria-label="View task details"
-                        onClick={() => setDetailTask(task)}
-                      >
-                        👁
-                      </button>
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="button users-icon-btn action-btn"
-                        disabled={action.disabled}
-                        title={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
-                        aria-label={action.label === 'Reassign' ? 'Reassign task' : 'Assign task'}
-                        onClick={() => setAssigningTask(task)}
-                      >
-                        👤
-                      </button>
-                    </td>
                   </tr>
                 )
               })

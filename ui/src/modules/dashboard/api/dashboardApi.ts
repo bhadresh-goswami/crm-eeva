@@ -15,6 +15,9 @@ export type DashboardTask = {
   startTime?: string
   endTime?: string
   supportType?: string
+  amount?: number
+  duration?: number
+  paymentStatus?: string
 }
 
 export type DashboardExpert = {
@@ -34,6 +37,7 @@ export type DashboardSummary = {
   totalClients: number
   expertsPresent: number
   expertsTotal: number
+  pendingPaymentUpdates?: number
 }
 
 type TaskStatus = 'pending' | 'assigned' | 'cancelled' | 'completed'
@@ -86,6 +90,9 @@ const normalizeTask = (task: Record<string, unknown>): DashboardTask => ({
   status: String(task.status ?? 'pending').toLowerCase(),
   expertId: String(task.expertId ?? task.expert_id ?? task.assigned_to_id ?? '') || null,
   assignedToName: String(task.assigned_to_name ?? task.expert_name ?? task.assignedToName ?? ''),
+  amount: asNumber(task.total_amount ?? task.amount),
+  duration: asNumber(task.duration),
+  paymentStatus: String(task.payment_status ?? '').toLowerCase(),
   description: String(task.description ?? task.task_description ?? ''),
   fileUrl: String(task.file ?? task.file_url ?? task.attachment_url ?? task.attachment ?? ''),
   dueDate: String(task.task_date ?? task.due_date ?? task.date ?? ''),
@@ -117,6 +124,7 @@ const normalizeSummary = (response: Record<string, unknown>) => ({
   totalClients: asNumber(response.totalClients ?? response.total_clients ?? response.clients),
   expertsPresent: asNumber(response.expertsPresent ?? response.experts_present),
   expertsTotal: asNumber(response.expertsTotal ?? response.experts_total ?? response.experts),
+  pendingPaymentUpdates: asNumber(response.pendingPaymentUpdates ?? response.pending_payment_updates),
 })
 
 const managerStatusMap: Record<ManagerTaskStatus, string> = {
