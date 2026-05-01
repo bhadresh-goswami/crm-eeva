@@ -65,7 +65,7 @@ export default function ManagerDashboard() {
     void loadData()
   }, [])
 
-  const teamWorkload = useMemo(() => {
+  const teamWorkload = (() => {
     const map = new Map<string, { assigned: number; pending: number }>()
     tasks.forEach((task) => {
       const name = task.assignedToName || 'Unassigned'
@@ -75,7 +75,7 @@ export default function ManagerDashboard() {
       map.set(name, prev)
     })
     return [...map.entries()].slice(0, 6)
-  }, [tasks])
+  })()
 
   return (
     <PageContainer title="Dashboard-active" description="Home > Dashboard > Dashboard-active">
