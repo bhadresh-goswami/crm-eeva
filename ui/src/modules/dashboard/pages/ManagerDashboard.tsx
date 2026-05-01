@@ -32,19 +32,19 @@ type SummaryCardProps = {
   change: string
   borderClass: string
   tintClass: string
-  icon: string
+  icon?: string
 }
 
 const SummaryCard = ({ title, value, change, borderClass, tintClass, icon }: SummaryCardProps) => (
-  <div className="col-xl-3 col-lg-6 col-md-6 col-sm-12">
-    <div className={`card summary-card h-100 shadow-sm border-0 ${borderClass} ${tintClass}`}>
+  <div className="col-xl-3 col-lg-3 col-md-6 col-sm-12">
+    <div className={`card summary-card h-100 shadow-sm border-0 text-white ${borderClass} ${tintClass}`}>
       <div className="card-body d-flex justify-content-between align-items-center">
         <div>
-          <p className="text-muted mb-1 small">{title}</p>
-          <h4 className="fw-bold mb-1">{value}</h4>
-          <small className="growth-text">↑ {change}</small>
+          <p className="summary-card__title mb-1">{title}</p>
+          <h4 className="summary-card__value fw-light mb-1">{value}</h4>
+          <small className="growth-text">{change.startsWith("-") ? "↓" : "↑"} {change}</small>
         </div>
-        <div className="icon-box" aria-hidden="true">{icon}</div>
+        {icon ? <div className="icon-box" aria-hidden="true">{icon}</div> : null}
       </div>
     </div>
   </div>
@@ -82,7 +82,7 @@ export default function ManagerDashboard() {
   }, [])
 
   return (
-    <PageContainer title="Manager Dashboard" description="Home > Dashboard > Manager Dashboard">
+    <PageContainer title="Dashboard-active" description="Home > Dashboard > Dashboard-active">
       <div className="container-fluid dashboard-summary">
         {error ? <div className="alert alert-danger mb-3">{error}</div> : null}
         <div className="row g-3">
@@ -94,10 +94,10 @@ export default function ManagerDashboard() {
             </div>
           ) : (
             <>
-              <SummaryCard title="Total Revenue" value={formatINR(summary.totalRevenue)} change={summary.revenueGrowth} borderClass="summary-card--revenue" tintClass="bg-light-primary" icon="₹" />
-              <SummaryCard title="Pending Tasks" value={summary.pendingTasks.toLocaleString('en-IN')} change={summary.tasksGrowth} borderClass="summary-card--tasks" tintClass="bg-light-info" icon="✓" />
-              <SummaryCard title="Pending Payment Updates" value={summary.pendingPayments.toLocaleString('en-IN')} change={summary.paymentsChange} borderClass="summary-card--payments" tintClass="bg-light-success" icon="👛" />
-              <SummaryCard title="Success Rate" value={summary.successRate} change={summary.successGrowth} borderClass="summary-card--success" tintClass="summary-card--gradient" icon="📈" />
+              <SummaryCard title="Total Revenue" value={formatINR(summary.totalRevenue)} change={`${summary.revenueGrowth} from last month`} borderClass="summary-card--revenue" tintClass="" icon="" />
+              <SummaryCard title="Pending Tasks" value={summary.pendingTasks.toLocaleString('en-IN')} change={`${summary.tasksGrowth} from last week`} borderClass="summary-card--tasks" tintClass="" icon="" />
+              <SummaryCard title="Pending Payment Updates" value={summary.pendingPayments.toLocaleString('en-IN')} change={`${summary.paymentsChange} from yesterday`} borderClass="summary-card--payments" tintClass="" icon="" />
+              <SummaryCard title="Success Rate" value={summary.successRate} change={`${summary.successGrowth} from last month`} borderClass="summary-card--success" tintClass="" icon="" />
             </>
           )}
         </div>

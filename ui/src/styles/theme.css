@@ -299,30 +299,29 @@ table tbody tr:hover { background: #f3f4f6; }
 .manager-v2__scroll-x{overflow:auto}
 .manager-v2 .activity{border-left:3px solid #4f6bed;background:#f8fafc;border-radius:10px;padding:10px 12px;margin-bottom:12px}
 
+.dashboard-summary .row {
+  flex-wrap: nowrap;
+}
 .dashboard-summary .summary-card {
   transition: all 0.2s ease-in-out;
-  border-left: 4px solid transparent;
+  border-left: 0;
+  border-radius: 0;
+  min-height: 168px;
+}
+.dashboard-summary .summary-card .card-body {
+  padding: 1.5rem 2rem;
 }
 .dashboard-summary .summary-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12) !important;
 }
-.summary-card--revenue { border-left-color: var(--bs-primary); }
-.summary-card--tasks { border-left-color: var(--bs-info); }
-.summary-card--payments { border-left-color: var(--bs-success); }
-.summary-card--success { border-left-color: #212529; }
-.summary-card--gradient { background: linear-gradient(135deg, #f8f9fa 0%, #eef1f5 100%); }
-.bg-light-primary { background-color: rgba(13, 110, 253, 0.08); }
-.bg-light-info { background-color: rgba(13, 202, 240, 0.1); }
-.bg-light-success { background-color: rgba(25, 135, 84, 0.1); }
-.dashboard-summary .growth-text { color: #198754; font-weight: 600; }
-.dashboard-summary .icon-box {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3rem;
+.summary-card--revenue { background: #4f7ee8; }
+.summary-card--tasks { background: #18b6cb; }
+.summary-card--payments { background: #4caf50; }
+.summary-card--success { background: #4f7ee8; }
+.dashboard-summary .summary-card__title { color: rgba(255,255,255,.92); font-size: 1.05rem; }
+.dashboard-summary .summary-card__value { color: #fff; font-size: 2.75rem; line-height: 1.05; }
+.dashboard-summary .growth-text { color: rgba(255,255,255,.5); font-size: 1.05rem; font-weight: 600; }
+@media (max-width: 1200px) {
+  .dashboard-summary .row { flex-wrap: wrap; }
 }
