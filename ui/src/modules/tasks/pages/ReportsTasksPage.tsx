@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
 import { getTaskAssignmentReport, getTaskReport, type TaskRecord } from '../api/tasksApi'
+import { getExpertTasks } from '../api/expertTasksApi'
+import { useAuth } from '../../../context/AuthContext'
 
 const ReportsTasksPage = () => {
   const [tasks, setTasks] = useState<TaskRecord[]>([])
@@ -9,6 +11,9 @@ const ReportsTasksPage = () => {
   const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const { user } = useAuth()
+  const role = String(user?.role ?? '').toLowerCase()
+  const isExpertRole = ['expert', 'technical expert', 'expertlead', 'technical lead'].includes(role)
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
@@ -21,20 +26,56 @@ const ReportsTasksPage = () => {
     setLoading(true)
     setError(null)
     try {
-      const [taskRows, assignmentRows] = await Promise.all([
-        getTaskReport({ status: status || undefined, from_date: fromDate || undefined, to_date: toDate || undefined }),
-        getTaskAssignmentReport({ status: status || undefined, from_date: fromDate || undefined, to_date: toDate || undefined }),
-      ])
+      if (isExpertRole) {
+        const expertRows = await getExpertTasks({
+          status: status || undefined,
+          fromDate: fromDate || undefined,
+          toDate: toDate || undefined,
+        })
 
-      const assignmentMap = new Map<number, string>()
-      assignmentRows.forEach((row) => assignmentMap.set(row.task_id, row.assigned_to_name))
+        const mappedRows: TaskRecord[] = expertRows.map((row) => ({
+          id: row.task_id,
+          client_id: null,
+          client: row.company_name,
+          candidate: row.candidate_name,
+          candidate_id: null,
+          poc: '',
+          poc_id: null,
+          task_type_id: null,
+          task_type: row.support_type,
+          title: row.title,
+          description: row.description,
+          due_date: row.due_date,
+          time_start: row.start_time,
+          time_end: row.end_time,
+          duration: 0,
+          total_amount: 0,
+          payment_mode: '',
+          payment_status: '',
+          status: row.status_name,
+          assigned_to_id: row.assigned_to_id,
+          assigned_to_name: row.assigned_to_name,
+          file_url: row.file_url,
+          can_assign: false,
+        }))
 
-      const merged = taskRows.map((row) => ({
-        ...row,
-        assigned_to_name: assignmentMap.get(row.id) ?? row.assigned_to_name,
-      }))
+        setTasks(mappedRows)
+      } else {
+        const [taskRows, assignmentRows] = await Promise.all([
+          getTaskReport({ status: status || undefined, from_date: fromDate || undefined, to_date: toDate || undefined }),
+          getTaskAssignmentReport({ status: status || undefined, from_date: fromDate || undefined, to_date: toDate || undefined }),
+        ])
 
-      setTasks(merged)
+        const assignmentMap = new Map<number, string>()
+        assignmentRows.forEach((row) => assignmentMap.set(row.task_id, row.assigned_to_name))
+
+        const merged = taskRows.map((row) => ({
+          ...row,
+          assigned_to_name: assignmentMap.get(row.id) ?? row.assigned_to_name,
+        }))
+
+        setTasks(merged)
+      }
       setCurrentPage(1)
     } catch (loadError) {
       setTasks([])
