@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
 import { getTaskAssignmentReport, getTaskReport, type TaskRecord } from '../api/tasksApi'
-import { useAuth } from '../../../context/AuthContext'
 
 const ReportsTasksPage = () => {
   const [tasks, setTasks] = useState<TaskRecord[]>([])
@@ -10,8 +9,13 @@ const ReportsTasksPage = () => {
   const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
-  const { user } = useAuth()
-  const isExpert = user?.role === 'expert'
+
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
+  const totalTasks = tasks.length
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = Math.min(currentPage * pageSize, totalTasks)
+  const paginatedTasks = tasks.slice(startIndex, endIndex)
 
   const load = async () => {
     setLoading(true)
@@ -31,6 +35,7 @@ const ReportsTasksPage = () => {
       }))
 
       setTasks(merged)
+      setCurrentPage(1)
     } catch (loadError) {
       setTasks([])
       setError(loadError instanceof Error ? loadError.message : 'Failed to load task reports.')
@@ -71,6 +76,8 @@ const ReportsTasksPage = () => {
                 <option value="assigned">Assigned</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
+                <option value="pending">Pending</option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </div>
 
@@ -102,42 +109,92 @@ const ReportsTasksPage = () => {
         </div>
       </section>
 
-      <section className="card section p-3">
-        <div className="table-responsive">
-          <table className="table table-striped table-hover align-middle mb-0">
-            <thead className="table-light">
-              <tr>
-                <th>ID</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Candidate</th>
-                <th>Assign To</th>
-                {!isExpert ? <th>Company</th> : null}
-                <th>Start Time</th>
-                <th>End Time</th>
-                <th>Actual Start/End (IST)</th>
-                <th>Duration</th>
-              </tr>
-            </thead>
-          <tbody>
-            {loading ? <tr><td colSpan={10}>Loading...</td></tr> : tasks.length === 0 ? <tr><td colSpan={10}>No tasks found.</td></tr> : tasks.map((task) => (
-              <tr key={task.id}>
-                <td>{task.id}</td>
-                <td className="text-capitalize">{task.status}</td>
-                <td>{task.due_date || '-'}</td>
-                <td>{task.candidate || '-'}</td>
-                <td>{task.assigned_to_name || '-'}</td>
-                {!isExpert ? <td>{task.client || '-'}</td> : null}
-                <td>{formatTimeValue(task.time_start)}</td>
-                <td>{formatTimeValue(task.time_end)}</td>
-                <td>{`${formatTimeValue(task.time_start)} / ${formatTimeValue(task.time_end)}`}</td>
-                <td>{Number.isFinite(task.duration) && task.duration > 0 ? `${task.duration} mins` : '-'}</td>
-              </tr>
-            ))}
-          </tbody>
-          </table>
+      <div className="card shadow-sm">
+        <div className="card-body">
+          <div className="table-responsive">
+            <table className="table table-hover table-bordered align-middle">
+              <thead className="table-light">
+                <tr>
+                  <th>ID</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Candidate</th>
+                  <th>Assigned To</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Actual Time</th>
+                  <th>Duration</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {loading ? <tr><td colSpan={9} className="text-center text-muted py-4">Loading...</td></tr> : paginatedTasks.length > 0 ? paginatedTasks.map((task) => (
+                  <tr key={task.id}>
+                    <td>{task.id}</td>
+
+                    <td>
+                      <span className={`badge ${
+                        task.status === 'completed'
+                          ? 'bg-success'
+                          : task.status === 'in_progress'
+                          ? 'bg-warning text-dark'
+                          : 'bg-secondary'
+                      }`}>
+                        {task.status}
+                      </span>
+                    </td>
+
+                    <td>{task.due_date || '--'}</td>
+                    <td>{task.candidate || '--'}</td>
+                    <td>{task.assigned_to_name || '--'}</td>
+
+                    <td>{formatTimeValue(task.time_start) || '--'}</td>
+                    <td>{formatTimeValue(task.time_end) || '--'}</td>
+
+                    <td>
+                      {task.time_start && task.time_end
+                        ? `${formatTimeValue(task.time_start)} / ${formatTimeValue(task.time_end)}`
+                        : '-- / --'}
+                    </td>
+
+                    <td>{Number.isFinite(task.duration) && task.duration > 0 ? `${task.duration} mins` : '--'}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={9} className="text-center text-muted py-4">
+                      No tasks found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="d-flex justify-content-between align-items-center mt-3">
+            <span className="text-muted">
+              Showing {totalTasks === 0 ? 0 : startIndex + 1} to {endIndex} of {totalTasks}
+            </span>
+
+            <div>
+              <button
+                className="btn btn-outline-secondary btn-sm me-2"
+                onClick={() => setCurrentPage((previous) => Math.max(1, previous - 1))}
+                disabled={currentPage === 1 || loading}
+              >
+                Previous
+              </button>
+
+              <button
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setCurrentPage((previous) => previous + 1)}
+                disabled={endIndex >= totalTasks || loading}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
 
       {error ? <div className="alert alert-danger mb-0" role="alert">{error}</div> : null}
     </PageContainer>
