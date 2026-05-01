@@ -25,6 +25,8 @@ export type TaskRecord = {
   assigned_to_name: string
   file_url: string
   can_assign: boolean
+  task_start_time?: string
+  task_end_time?: string
 }
 
 export type TaskPayload = {
