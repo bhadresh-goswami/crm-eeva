@@ -17,12 +17,16 @@ class TaskController {
     public function expertTasks($user_id) {
         $db = new Database();
         $conn = $db->connect();
-        $activeOnly = isset($_GET['active_only']) && (string)$_GET['active_only'] === '1';
 
-        $visibleUserIds = $this->getHierarchyUserIds($conn, (int)$user_id);
-        if (empty($visibleUserIds)) {
-            $visibleUserIds = [(int)$user_id];
-        }
+        $activeOnly = isset($_GET['active_only']) && (string)$_GET['active_only'] === '1';
+        $status = strtolower(trim((string)($_GET['status'] ?? '')));
+        $fromDate = trim((string)($_GET['from_date'] ?? ''));
+        $toDate = trim((string)($_GET['to_date'] ?? ''));
+        $taskTypeId = (int)($_GET['task_type_id'] ?? 0);
+
+        $hasValidFromDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromDate) === 1;
+        $hasValidToDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $toDate) === 1;
+        $applyDateRange = $hasValidFromDate && $hasValidToDate && strtotime($fromDate) <= strtotime($toDate);
 
         $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
         $assignedByColumn = null;
@@ -33,7 +37,11 @@ class TaskController {
             }
         }
 
-        $placeholders = implode(',', array_fill(0, count($visibleUserIds), '?'));
+        $hasTeamIdColumn = in_array('team_id', $assignmentColumns, true);
+        $teamVisibilityPredicate = $hasTeamIdColumn
+            ? " OR ta.team_id IN (SELECT tm.team_id FROM team_members tm WHERE tm.user_id = ?)"
+            : '';
+
         $assignedByJoin = $assignedByColumn
             ? "LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.{$assignedByColumn}"
             : "";
@@ -51,9 +59,12 @@ class TaskController {
                 t.due_date,
                 t.start_time,
                 t.end_time,
+                t.task_start_time,
+                t.task_end_time,
+                COALESCE(t.duration, 0) AS duration,
                 COALESCE(tt.name, '') AS support_type,
                 t.status_id,
-                COALESCE(ts.name, '') AS status_name,
+                LOWER(REPLACE(COALESCE(ts.name, ''), ' ', '_')) AS status_name,
                 ta.user_id AS assigned_to_id,
                 COALESCE(assigned_to_user.name, '') AS assigned_to_name,
                 CASE WHEN ta.user_id = ? THEN 1 ELSE 0 END AS is_own_task,
@@ -73,18 +84,37 @@ class TaskController {
                   WHERE task_id = t.id
                   ORDER BY id DESC LIMIT 1
               )
-            WHERE ta.user_id IN ({$placeholders})
-              AND ta.is_active = 1
+            WHERE (
+                ta.user_id = ?{$teamVisibilityPredicate}
+            )
         ";
 
-        $params = array_merge([(int)$user_id], $visibleUserIds);
-        if ($activeOnly) {
-            $query .= " AND ta.is_active = 1";
+        $params = [(int)$user_id, (int)$user_id];
+        if ($hasTeamIdColumn) {
+            $params[] = (int)$user_id;
         }
 
-        $query .= "
-            ORDER BY t.due_date ASC, t.start_time ASC, t.id DESC
-        ";
+        if ($status !== '') {
+            $query .= " AND LOWER(REPLACE(COALESCE(ts.name, ''), ' ', '_')) = ?";
+            $params[] = $status;
+        }
+
+        if ($applyDateRange) {
+            $query .= " AND t.due_date BETWEEN ? AND ?";
+            $params[] = $fromDate;
+            $params[] = $toDate;
+        }
+
+        if ($taskTypeId > 0) {
+            $query .= " AND t.task_type_id = ?";
+            $params[] = $taskTypeId;
+        }
+
+        if ($activeOnly) {
+            $query .= " AND LOWER(REPLACE(COALESCE(ts.name, ''), ' ', '_')) = 'in_progress' AND ta.is_active = 1";
+        }
+
+        $query .= " ORDER BY t.due_date ASC, t.start_time ASC, t.id DESC";
 
         $stmt = $conn->prepare($query);
         $stmt->execute($params);
