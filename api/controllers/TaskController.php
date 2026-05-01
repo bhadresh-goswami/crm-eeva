@@ -87,10 +87,6 @@ class TaskController {
             WHERE (
                 ta.user_id = ?{$teamVisibilityPredicate}
             )
-              AND EXISTS (
-                SELECT 1 FROM task_feedback tf
-                WHERE tf.task_id = t.id
-              )
         ";
 
         $params = [(int)$user_id, (int)$user_id];
