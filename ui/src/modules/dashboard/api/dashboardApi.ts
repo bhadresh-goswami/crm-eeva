@@ -35,6 +35,13 @@ export type DashboardSummary = {
   expertsPresent: number
   expertsTotal: number
   pendingPaymentUpdates?: number
+  totalRevenue?: number
+  revenueGrowth?: string
+  tasksGrowth?: string
+  pendingPayments?: number
+  paymentsChange?: string
+  successRate?: string
+  successGrowth?: string
 }
 
 type TaskStatus = 'pending' | 'assigned' | 'cancelled' | 'completed'
@@ -119,6 +126,13 @@ const normalizeSummary = (response: Record<string, unknown>) => ({
   expertsPresent: asNumber(response.expertsPresent ?? response.experts_present),
   expertsTotal: asNumber(response.expertsTotal ?? response.experts_total ?? response.experts),
   pendingPaymentUpdates: asNumber(response.pendingPaymentUpdates ?? response.pending_payment_updates),
+  totalRevenue: asNumber(response.totalRevenue ?? response.total_revenue),
+  revenueGrowth: String(response.revenueGrowth ?? response.revenue_growth ?? '+0.0%'),
+  tasksGrowth: String(response.tasksGrowth ?? response.tasks_growth ?? '+0.0%'),
+  pendingPayments: asNumber(response.pendingPayments ?? response.pending_payments ?? response.pendingPaymentUpdates ?? response.pending_payment_updates),
+  paymentsChange: String(response.paymentsChange ?? response.payments_change ?? '+0.0%'),
+  successRate: String(response.successRate ?? response.success_rate ?? '0.00%'),
+  successGrowth: String(response.successGrowth ?? response.success_growth ?? '+0.0%'),
 })
 
 const managerStatusMap: Record<ManagerTaskStatus, string> = {

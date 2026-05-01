@@ -1,59 +1,124 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
-import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
-import AnimatedModal from '../../../shared/components/AnimatedModal'
-import { useAlert } from '../../../shared/alerts/useAlert'
-import { assignManagerTask, getManagerAvailableExperts, getManagerDashboardSummary, getManagerTasksByStatus, type DashboardExpert, type DashboardTask } from '../api/dashboardApi'
+import { getManagerDashboardSummary, getManagerTasksByStatus, type DashboardTask } from '../api/dashboardApi'
 
-const STATUS_ORDER = ['pending', 'assigned', 'completed', 'cancelled'] as const
-const formatDate = (v?: string) => (v ? new Date(v).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—')
-const toMins = (s?: string, e?: string) => { if (!s || !e) return '—'; const [sh, sm] = s.slice(0, 5).split(':').map(Number); const [eh, em] = e.slice(0, 5).split(':').map(Number); return `${Math.max(0, eh * 60 + em - (sh * 60 + sm))} mins` }
-const statusClass = (status: string) => (status === 'completed' ? 'completed' : status === 'pending' ? 'pending' : status === 'cancelled' ? 'failed' : 'processing')
+type SummaryState = {
+  totalRevenue: number
+  revenueGrowth: string
+  pendingTasks: number
+  tasksGrowth: string
+  pendingPayments: number
+  paymentsChange: string
+  successRate: string
+  successGrowth: string
+}
+
+const defaultSummary: SummaryState = {
+  totalRevenue: 0,
+  revenueGrowth: '+0.0%',
+  pendingTasks: 0,
+  tasksGrowth: '+0.0%',
+  pendingPayments: 0,
+  paymentsChange: '+0.0%',
+  successRate: '0.00%',
+  successGrowth: '+0.0%',
+}
+
+const formatINR = (amount: number) => `₹${amount.toLocaleString('en-IN')}`
+const formatDate = (value?: string) => (value ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) : '—')
 
 export default function ManagerDashboard() {
-  const { showToast } = useAlert()
-  const [summary, setSummary] = useState<any>(null)
+  const [summary, setSummary] = useState<SummaryState>(defaultSummary)
   const [tasks, setTasks] = useState<DashboardTask[]>([])
-  const [details, setDetails] = useState<DashboardTask | null>(null)
-  const [editTask, setEditTask] = useState<DashboardTask | null>(null)
-  const [experts, setExperts] = useState<DashboardExpert[]>([])
-  const [selectedExpertId, setSelectedExpertId] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { void (async () => { const [s, grouped] = await Promise.all([getManagerDashboardSummary(), Promise.all(STATUS_ORDER.map((x) => getManagerTasksByStatus(x)))]); setSummary(s); setTasks(grouped.flat().sort((a, b) => Number(b.id) - Number(a.id))) })() }, [])
-  useEffect(() => { if (!editTask) return; void (async () => setExperts(await getManagerAvailableExperts({ taskDate: editTask.dueDate || '', startTime: editTask.startTime || '', endTime: editTask.endTime || '' })))() }, [editTask])
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const [response, pending, assigned, completed] = await Promise.all([
+          getManagerDashboardSummary(),
+          getManagerTasksByStatus('pending'),
+          getManagerTasksByStatus('assigned'),
+          getManagerTasksByStatus('completed'),
+        ])
+        setTasks([...pending, ...assigned, ...completed].slice(0, 20))
+        setSummary({
+          totalRevenue: Number(response.totalRevenue ?? 0),
+          revenueGrowth: String(response.revenueGrowth ?? '+12.5%'),
+          pendingTasks: Number(response.pendingTasks ?? 0),
+          tasksGrowth: String(response.tasksGrowth ?? '+8.2%'),
+          pendingPayments: Number(response.pendingPayments ?? response.pendingPaymentUpdates ?? 0),
+          paymentsChange: String(response.paymentsChange ?? '-2.1%'),
+          successRate: String(response.successRate ?? '3.47%'),
+          successGrowth: String(response.successGrowth ?? '+0.3%'),
+        })
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : 'Unable to load dashboard data.')
+      } finally {
+        setLoading(false)
+      }
+    }
 
-  const completed = tasks.filter((t) => t.status === 'completed')
-  const revenue = completed.reduce((sum, t) => sum + Number(t.id) * 50, 0)
-  const pendingPayments = tasks.filter((t) => t.status !== 'completed').length
-  const successRate = tasks.length ? ((completed.length / tasks.length) * 100).toFixed(2) : '0.00'
-  const workload = useMemo(() => {
-    const m = new Map<string, { assigned: number; pending: number; overdue: number }>(); const now = new Date()
-    tasks.forEach((t) => { const k = t.assignedToName || 'Unassigned'; const r = m.get(k) || { assigned: 0, pending: 0, overdue: 0 }; if (t.status === 'assigned') r.assigned++; if (t.status === 'pending') r.pending++; if (t.dueDate && new Date(t.dueDate) < now && !['completed', 'cancelled'].includes(t.status)) r.overdue++; m.set(k, r) })
-    return [...m.entries()].map(([name, r]) => ({ name, ...r }))
-  }, [tasks])
+    void loadData()
+  }, [])
 
-  return <PageContainer title="Dashboard-active" description="Home > Dashboard > Dashboard-active"><div className="manager-v2">
-    <div className="manager-v2__kpis row g-3">{[
-      ['Total Revenue', `INR ${revenue.toLocaleString('en-IN')}`, '+12.5% from last month', 'blue'],
-      ['Pending Tasks', String(summary?.pendingTasks ?? 0), '+8.2% from last week', 'teal'],
-      ['Pending Payment Updates', String(pendingPayments), '-2.1% from yesterday', 'green'],
-      ['Success Rate', `${successRate}%`, '+0.3% from last month', 'indigo'],
-    ].map((k) => <div className="col-12 col-md-6 col-lg-3" key={k[0]}><div className={`manager-v2__kpi manager-v2__kpi--${k[3]}`}><small>{k[0]}</small><h4>{k[1]}</h4><small>{k[2]}</small></div></div>)}</div>
+  const teamWorkload = (() => {
+    const map = new Map<string, { assigned: number; pending: number }>()
+    tasks.forEach((task) => {
+      const name = task.assignedToName || 'Unassigned'
+      const prev = map.get(name) || { assigned: 0, pending: 0 }
+      if (task.status === 'assigned') prev.assigned += 1
+      if (task.status === 'pending') prev.pending += 1
+      map.set(name, prev)
+    })
+    return [...map.entries()].slice(0, 6)
+  })()
 
-    <div className="row g-3">
-      <div className="col-lg-8">
-        <div className="card manager-v2__card"><div className="card-header manager-v2__card-header"><h6>Pending Payments Updates</h6><div><button className="button">7D</button><button className="button button--primary">30D</button><button className="button">90D</button></div></div><div className="card-body manager-v2__card-body"><div className="roles-table__wrapper manager-v2__scroll-x manager-v2__scroll-y"><table className="roles-table"><thead><tr><th>DATE</th><th>CLIENT</th><th>CANDIDATE</th><th>AMOUNT</th><th>STATUS</th><th>DURATION</th><th>ACTIONS</th></tr></thead><tbody>{tasks.map((t) => <tr key={`pay-${t.id}`}><td>{formatDate(t.dueDate)}</td><td>{t.client || '—'}</td><td><div className="user-cell"><div className="avatar">{(t.candidate || 'U')[0].toUpperCase()}</div><span>{t.candidate || '—'}</span></div></td><td>₹{(Number(t.id) * 50).toLocaleString('en-IN')}</td><td><span className={`badge ${statusClass(t.status)}`}>{t.status}</span></td><td>{toMins(t.startTime, t.endTime)}</td><td><button className="button" onClick={() => setDetails(t)}>👁️</button><button className="button" onClick={() => setEditTask(t)}>✏️</button></td></tr>)}</tbody></table></div></div></div>
+  return (
+    <PageContainer title="Dashboard-active" description="Home > Dashboard > Dashboard-active">
+      <div className="pc-container">
+        <div className="pc-content">
+          {error ? <div className="alert alert-danger">{error}</div> : null}
 
-        <div className="card manager-v2__card"><div className="card-header manager-v2__card-header"><h6>Recent Completed Tasks</h6><div><button className="button">Export</button><button className="button button--primary">+ Add New</button></div></div><div className="card-body manager-v2__card-body"><div className="roles-table__wrapper manager-v2__scroll-x manager-v2__scroll-y"><table className="roles-table"><thead><tr><th>SR NO</th><th>STATUS</th><th>DATE</th><th>CANDIDATE</th><th>COMPANY</th><th>TIME</th><th>ASSIGN TO</th></tr></thead><tbody>{completed.map((t, i) => <tr key={`ov-${t.id}`}><td>{i + 1}</td><td><span className={`badge ${statusClass(t.status)}`}>{t.status}</span></td><td>{formatDate(t.dueDate)}</td><td>{t.candidate || '—'}</td><td>{t.client || '—'}</td><td>{t.startTime || '—'} / {t.endTime || '—'}</td><td>{t.assignedToName || '—'}</td></tr>)}</tbody></table></div></div></div>
+          <div className="row g-3 mb-3">
+            <div className="col-md-6 col-xl-3"><div className="card bg-primary"><div className="card-body d-flex justify-content-between align-items-center"><div><h6 className="text-white mb-2">Total Revenue</h6><h3 className="text-white mb-0 f-w-300">{formatINR(summary.totalRevenue)}</h3><p className="text-white-50 mb-0">{summary.revenueGrowth} from last month</p></div><i className="ph ph-chart-line-up text-white f-30" /></div></div></div>
+            <div className="col-md-6 col-xl-3"><div className="card bg-info"><div className="card-body d-flex justify-content-between align-items-center"><div><h6 className="text-white mb-2">Pending Tasks</h6><h3 className="text-white mb-0 f-w-300">{summary.pendingTasks.toLocaleString('en-IN')}</h3><p className="text-white-50 mb-0">{summary.tasksGrowth} from last week</p></div><i className="ph ph-list-checks text-white f-30" /></div></div></div>
+            <div className="col-md-6 col-xl-3"><div className="card bg-success"><div className="card-body d-flex justify-content-between align-items-center"><div><h6 className="text-white mb-2">Pending Payments</h6><h3 className="text-white mb-0 f-w-300">{summary.pendingPayments.toLocaleString('en-IN')}</h3><p className="text-white-50 mb-0">{summary.paymentsChange} from yesterday</p></div><i className="ph ph-wallet text-white f-30" /></div></div></div>
+            <div className="col-md-6 col-xl-3"><div className="card bg-dark"><div className="card-body d-flex justify-content-between align-items-center"><div><h6 className="text-white mb-2">Success Rate</h6><h3 className="text-white mb-0 f-w-300">{summary.successRate}</h3><p className="text-white-50 mb-0">{summary.successGrowth} from last month</p></div><i className="ph ph-chart-pie text-white f-30" /></div></div></div>
+          </div>
+
+          <div className="row g-3">
+            <div className="col-xl-8">
+              <div className="card">
+                <div className="card-header d-flex justify-content-between align-items-center"><h5>Pending Payments Updates</h5></div>
+                <div className="card-body table-responsive">
+                  <table className="table table-hover">
+                    <thead><tr><th>Date</th><th>Client</th><th>Candidate</th><th>Amount</th><th>Status</th><th>Duration</th><th className="text-center">Actions</th></tr></thead>
+                    <tbody>
+                      {loading ? <tr><td colSpan={7}>Loading...</td></tr> : tasks.slice(0, 6).map((task) => <tr key={`payment-${task.id}`}><td>{formatDate(task.dueDate)}</td><td>{task.client}</td><td>{task.candidate}</td><td className="text-success">{formatINR(300)}</td><td><span className={`badge ${task.status === 'completed' ? 'bg-success' : 'bg-warning text-dark'}`}>{task.status}</span></td><td>30 mins</td><td className="text-center"><div className="btn-group"><button className="btn btn-light btn-sm"><i className="ph ph-eye" /></button><button className="btn btn-light btn-sm"><i className="ph ph-pencil" /></button><button className="btn btn-light btn-sm"><i className="ph ph-trash" /></button></div></td></tr>)}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-xl-4">
+              <div className="card"><div className="card-header"><h5>Team Workload</h5></div><div className="card-body"><table className="table"><thead><tr><th>Coordinator</th><th>Assigned</th><th>Pending</th></tr></thead><tbody>{teamWorkload.length ? teamWorkload.map(([name, value]) => <tr key={name}><td>{name}</td><td>{value.assigned}</td><td className="text-warning">{value.pending}</td></tr>) : <tr><td colSpan={3}>No data</td></tr>}</tbody></table></div></div>
+            </div>
+
+            <div className="col-xl-8">
+              <div className="card"><div className="card-header d-flex justify-content-between"><h5>Tasks Overview</h5><button className="btn btn-primary btn-sm">+ Add</button></div><div className="card-body table-responsive"><table className="table"><thead><tr><th>#</th><th>Status</th><th>Date</th><th>Candidate</th><th>Company</th><th>Time</th><th>Assign</th></tr></thead><tbody>{tasks.slice(0, 6).map((task, index) => <tr key={`task-${task.id}`}><td>{index + 1}</td><td><span className={`badge ${task.status === 'completed' ? 'bg-success' : 'bg-info'}`}>{task.status}</span></td><td>{formatDate(task.dueDate)}</td><td>{task.candidate}</td><td>{task.client}</td><td>{task.startTime || '02:30'}</td><td>{task.assignedToName || '—'}</td></tr>)}</tbody></table></div></div>
+            </div>
+
+            <div className="col-xl-4">
+              <div className="card"><div className="card-header d-flex justify-content-between"><h5>Live Activity Feed</h5><span className="text-success small">● Live</span></div><div className="card-body">{tasks.slice(0, 4).map((task) => <div key={`activity-${task.id}`} className="p-2 mb-2 rounded manager-activity-item"><h6 className="mb-1">{task.candidate} | {task.client}</h6><p className="mb-1 text-muted f-12">{task.supportType || 'Task Type'}</p><span className="text-muted f-10">{formatDate(task.dueDate)} | {task.startTime || 'Time'}</span></div>)}<button className="btn btn-outline-primary btn-sm w-100 mt-2">View All Activities</button></div></div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <div className="col-lg-4">
-        <div className="card manager-v2__card"><div className="card-header manager-v2__card-header"><h6>Team Workload</h6></div><div className="card-body manager-v2__card-body"><div className="roles-table__wrapper manager-v2__scroll-x manager-v2__scroll-y--small"><table className="roles-table"><thead><tr><th>COORDINATOR</th><th>ASSIGNED</th><th>PENDING</th><th>OV</th></tr></thead><tbody>{workload.map((w) => <tr key={w.name}><td>{w.name}</td><td>{w.assigned}</td><td>{w.pending}</td><td>{w.overdue}</td></tr>)}</tbody></table></div></div></div>
-        <div className="card manager-v2__card"><div className="card-header manager-v2__card-header"><h6>Live Activity Feed</h6><span className="activity-live"><span className="activity-live__dot"/> Live</span></div><div className="card-body manager-v2__card-body manager-v2__scroll-y--medium">{tasks.slice(0, 8).map((t) => <div key={`act-${t.id}`} className="activity"><div className="activity-timeline__title">{t.candidate || 'Candidate Name'} | {t.client || 'client Name'}</div><div className="activity-timeline__meta">{t.supportType || 'Task Type'}</div><div className="activity-timeline__meta">{formatDate(t.dueDate)} | {t.startTime || 'Time In/Out'}</div></div>)}<button className="button" style={{ width: '100%' }}>View All Activities</button></div></div>
-      </div>
-    </div></div>
-
-    <TaskDetailsModal isOpen={Boolean(details)} role="manager" task={details ? { taskId: Number(details.id), title: details.title, status: details.status, candidateName: details.candidate || '—', companyName: details.client || '—', supportType: details.supportType || '—', assignedTo: details.assignedToName || '—', dueDate: details.dueDate, startTime: details.startTime, endTime: details.endTime, description: details.description || '' } : null} onClose={() => setDetails(null)} />
-    <AnimatedModal isOpen={Boolean(editTask)} title="Assign/Reassign" onClose={() => setEditTask(null)}><div className="roles-table__wrapper"><table className="roles-table"><thead><tr><th>Expert</th><th>Status</th><th>Action</th></tr></thead><tbody>{experts.map((e) => <tr key={e.id}><td>{e.name}</td><td>{e.status}</td><td><button className="button" onClick={() => setSelectedExpertId(e.id)}>{selectedExpertId === e.id ? 'Selected' : 'Select'}</button></td></tr>)}</tbody></table></div><div className="modal-actions"><button className="button" onClick={() => setEditTask(null)}>Cancel</button><button className="button button--primary" onClick={async () => { if (!editTask || !selectedExpertId) return; await assignManagerTask(editTask.id, selectedExpertId); showToast({ type: 'success', message: 'Task updated' }); setEditTask(null) }}>Save</button></div></AnimatedModal>
-  </PageContainer>
+    </PageContainer>
+  )
 }
