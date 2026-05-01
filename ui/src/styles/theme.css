@@ -318,3 +318,5 @@ table tbody tr:hover { background: #f3f4f6; }
 .dashboard-summary .summary-card__spark span:nth-child(4){height:32px}
 .dashboard-summary .summary-card__spark span:nth-child(5){height:24px}
 @media (max-width: 1200px) { .dashboard-summary .row { flex-wrap: wrap; } }
+
+.manager-activity-item{background:#f5f7fb;border-left:3px solid #3b82f6;}
