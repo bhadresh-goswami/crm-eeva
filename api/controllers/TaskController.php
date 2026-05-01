@@ -28,6 +28,10 @@ class TaskController {
         $hasValidToDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $toDate) === 1;
         $applyDateRange = $hasValidFromDate && $hasValidToDate && strtotime($fromDate) <= strtotime($toDate);
 
+        $hasValidFromDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromDate) === 1;
+        $hasValidToDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $toDate) === 1;
+        $applyDateRange = $hasValidFromDate && $hasValidToDate && strtotime($fromDate) <= strtotime($toDate);
+
         $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
         $assignedByColumn = null;
         foreach (['assigned_by', 'assigned_by_id'] as $columnName) {
