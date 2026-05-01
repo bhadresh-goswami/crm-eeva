@@ -10,6 +10,7 @@ import PocsPage from '../modules/pocs/pages/PocsPage'
 import TasksEntryPage from '../modules/tasks/pages/TasksEntryPage'
 import BulkPriceUpdatePage from '../modules/tasks/pages/BulkPriceUpdatePage'
 import ReportsTasksPage from '../modules/tasks/pages/ReportsTasksPage'
+import CandidateReportPage from '../modules/tasks/pages/CandidateReportPage'
 import UsersPage from '../modules/users/pages/UsersPage'
 import InvoiceListPage from '../modules/invoices/pages/InvoiceListPage'
 import InvoiceCreatePage from '../modules/invoices/pages/InvoiceCreatePage'
@@ -65,6 +66,7 @@ const AppRoutes = () => {
           </Route>
           <Route element={<ProtectedRoute allowedRoles={['admin', 'manager', 'coordinator', 'expert', 'expertlead']} />}>
             <Route path="/reports/tasks" element={<ReportsTasksPage />} />
+            <Route path="/reports/candidates" element={<CandidateReportPage />} />
           </Route>
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/pocs" element={<PocsPage />} />
