@@ -1,0 +1,2698 @@
+<!doctype html>
+<html lang="en">
+  <!-- [Head] start -->
+  
+<!-- Mirrored from demo.dashboardpack.com/admindek-html/table/tbl_dt-datetime-sorting.html by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 30 Apr 2026 17:18:28 GMT -->
+<!-- Added by HTTrack --><meta http-equiv="content-type" content="text/html;charset=UTF-8" /><!-- /Added by HTTrack -->
+<head>
+    <title>Date Time Sorting Bootstrap Table | Admindek Dashboard Template</title>
+<!-- [Meta] -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui" />
+<meta
+  name="description"
+  content="Admindek - Modern responsive dashboard template built with Bootstrap 5. Features dark/light themes, RTL support, and extensive UI components for admin panels and web applications."
+/>
+<meta
+  name="keywords"
+  content="Admindek - Bootstrap 5 admin template, responsive dashboard, dark mode, RTL support, admin panel, UI components, web application template, modern dashboard"
+/>
+<meta name="author" content="DashboardPack.com" />
+<meta name="theme-color" content="#1e293b" />
+<meta name="color-scheme" content="light dark" />
+
+<!-- [Open Graph] -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Date Time Sorting Bootstrap Table | Admindek Dashboard Template" />
+<meta property="og:description" content="Modern responsive dashboard template built with Bootstrap 5. Features dark/light themes, RTL support, and extensive UI components." />
+<meta property="og:site_name" content="Admindek" />
+
+<!-- [Twitter/X Card] -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Date Time Sorting Bootstrap Table | Admindek Dashboard Template" />
+<meta name="twitter:description" content="Modern responsive dashboard template built with Bootstrap 5. Features dark/light themes, RTL support, and extensive UI components." />
+
+<!-- [Favicon] icons -->
+<link rel="icon" href="../assets/images/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="../assets/images/apple-touch-icon.png" />
+<link rel="manifest" href="../assets/images/site.webmanifest" />
+
+    <link rel="stylesheet" href="../assets/css/plugins/style.css" />
+    <!-- [Font] Family -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&amp;display=swap" rel="stylesheet" />
+<!-- [phosphor Icons] https://phosphoricons.com/ -->
+<link rel="stylesheet" href="../assets/css/plugins/phosphor-icons.css" />
+<!-- [Tabler Icons] https://tablericons.com -->
+<link rel="stylesheet" href="../assets/css/plugins/tabler-icons.min.css" />
+<!-- [Template CSS Files] -->
+<link rel="stylesheet" href="../assets/css/style.css" id="main-style-link" />
+<link rel="stylesheet" href="../assets/css/style-preset.css" />
+<!-- [Vite Development Scripts] -->
+<!-- Development script removed for production -->
+
+  </head>
+  <!-- [Head] end -->
+  <!-- [Body] Start -->
+  <body data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" data-pc-theme="light">
+    <!-- [ Pre-loader ] start -->
+<div class="loader-bg">
+  <div class="loader-track">
+    <div class="loader-fill"></div>
+  </div>
+</div>
+<!-- [ Pre-loader ] End -->
+ <!-- [ Sidebar Menu ] start -->
+<nav class="pc-sidebar">
+  <div class="navbar-wrapper">
+    <div class="m-header">
+      <a href="../dashboard/index.html" class="b-brand text-primary">
+        <!-- ========   Change your logo from here   ============ -->
+        <img src="../assets/images/logo-white.svg" class="img-fluid logo-lg" alt="logo" />
+      </a>
+    </div>
+    <div class="navbar-content">
+      <ul class="pc-navbar">
+        <li class="pc-item pc-caption">
+  <label data-i18n="Navigation">Navigation</label>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-house-line"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Dashboard">Dashboard</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+    <span class="pc-badge">10</span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../dashboard/index.html" data-i18n="Default">Default</a></li>
+    <li class="pc-item"><a class="pc-link" href="../dashboard/ecommerce.html" data-i18n="Ecommerce">Ecommerce</a></li>
+    <li class="pc-item"><a class="pc-link" href="../dashboard/crm.html" data-i18n="CRM">CRM</a></li>
+    <li class="pc-item"><a class="pc-link" href="../dashboard/analytics.html" data-i18n="Analytics">Analytics</a></li>
+    <li class="pc-item"><a class="pc-link" href="../dashboard/crypto.html" data-i18n="Crypto">Crypto</a></li>
+    <li class="pc-item"><a class="pc-link" href="../dashboard/finance.html" data-i18n="Finance">Finance</a></li>
+    <li class="pc-item"><a class="pc-link" href="../dashboard/project.html" data-i18n="Project">Project</a></li>
+    <li class="pc-item"><a class="pc-link" href="../dashboard/saas.html" data-i18n="SaaS">SaaS</a></li>
+    <li class="pc-item"><a class="pc-link" href="../dashboard/hr.html" data-i18n="HR">HR</a></li>
+    <li class="pc-item"><a class="pc-link" href="../dashboard/marketing.html" data-i18n="Marketing">Marketing</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-layout"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Layouts">Layouts</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../demo/layout-vertical.html" data-i18n="Vertical">Vertical</a></li>
+    <li class="pc-item"><a class="pc-link" href="../demo/layout-horizontal.html" data-i18n="Horizontal">Horizontal</a></li>
+    <li class="pc-item"><a class="pc-link" href="../demo/layout-tab.html" data-i18n="Tab">Tab</a></li>
+    <li class="pc-item"><a class="pc-link" href="../demo/layout-2.html" data-i18n="Layouts 2">Layouts 2</a></li>
+    <li class="pc-item"><a class="pc-link" href="../demo/layout-3.html" data-i18n="Layouts 3">Layouts 3</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-flower-lotus"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Widget">Widget</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../widget/w_statistics.html" data-i18n="Statistics">Statistic</a></li>
+    <li class="pc-item"><a class="pc-link" href="../widget/w_data.html" data-i18n="Data">Data</a></li>
+    <li class="pc-item"><a class="pc-link" href="../widget/w_table.html" data-i18n="Tables">Table</a></li>
+    <li class="pc-item"><a class="pc-link" href="../widget/w_user.html" data-i18n="User">User</a></li>
+    <li class="pc-item"><a class="pc-link" href="../widget/w_chart.html" data-i18n="Chart">Chart</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-caption">
+  <label data-i18n="Admin Panel">Admin Panel</label>
+  <i class="ph ph-book-open-text"></i>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-book-open-text"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Online Courses">Online Courses</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../admins/course-dashboard.html" data-i18n="Dashboard">Dashboard</a></li>
+    <li class="pc-item pc-hasmenu">
+      <a class="pc-link" href="#!">
+        <span data-i18n="Teacher">Teacher</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+      ></a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="../admins/course-teacher-list.html" data-i18n="List">List</a></li>
+        <li class="pc-item"><a class="pc-link" href="../admins/course-teacher-apply.html" data-i18n="Apply">Apply</a></li>
+        <li class="pc-item"><a class="pc-link" href="../admins/course-teacher-add.html" data-i18n="Add">Add</a></li>
+      </ul>
+    </li>
+    <li class="pc-item pc-hasmenu">
+      <a class="pc-link" href="#!">
+        <span data-i18n="Student">Student</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+      </a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="../admins/course-student-list.html" data-i18n="List">list</a></li>
+        <li class="pc-item"><a class="pc-link" href="../admins/course-student-apply.html" data-i18n="Apply">Apply</a></li>
+        <li class="pc-item"><a class="pc-link" href="../admins/course-student-add.html" data-i18n="Add">Add</a></li>
+      </ul>
+    </li>
+    <li class="pc-item pc-hasmenu">
+      <a class="pc-link" href="#!">
+        <span data-i18n="Courses">Courses</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+      ></a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="../admins/course-course-view.html" data-i18n="View">View</a></li>
+        <li class="pc-item"><a class="pc-link" href="../admins/course-course-add.html" data-i18n="Add">Add</a></li>
+      </ul>
+    </li>
+    <li class="pc-item"><a class="pc-link" href="../admins/course-pricing.html" data-i18n="Pricing">Pricing</a></li>
+    <li class="pc-item"><a class="pc-link" href="../admins/course-site.html" data-i18n="Site">Site</a></li>
+    <li class="pc-item pc-hasmenu">
+      <a class="pc-link" href="#!">
+        <span data-i18n="Setting">Setting</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+      </a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="../admins/course-setting-payment.html" data-i18n="Payment">Payment</a></li>
+        <li class="pc-item"><a class="pc-link" href="../admins/course-setting-pricing.html" data-i18n="Pricing">Pricing</a></li>
+        <li class="pc-item"
+          ><a class="pc-link" href="../admins/course-setting-notifications.html" data-i18n="Notification">Notifications</a></li
+        >
+      </ul>
+    </li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-users-four"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Membership">Membership</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+    <span class="pc-badge" style="background: #ffc107; color: #212529; width: auto; min-width: 20px; padding: 2px 6px; border-radius: 10px; font-size: 9px; font-weight: 600;">Pro</span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../admins/membership-dashboard.html" data-i18n="Dashboard">Dashboard</a></li>
+    <li class="pc-item"><a class="pc-link" href="../admins/membership-list.html" data-i18n="List">List</a></li>
+    <li class="pc-item"><a class="pc-link" href="../admins/membership-pricing.html" data-i18n="Pricing">Pricing</a></li>
+    <li class="pc-item"><a class="pc-link" href="../admins/membership-setting.html" data-i18n="Setting">Setting</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon"><i class="ph ph-lifebuoy"></i></span>
+    <span class="pc-mtext" data-i18n="Helpdesk">Helpdesk</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../admins/helpdesk-dashboard.html" data-i18n="Dashboard">Dashboard</a></li>
+    <li class="pc-item pc-hasmenu">
+      <a class="pc-link" href="#!">
+        <span data-i18n="Ticket">Ticket</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+      </a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="../admins/helpdesk-create-ticket.html" data-i18n="Create">Create</a></li>
+        <li class="pc-item"><a class="pc-link" href="../admins/helpdesk-ticket.html" data-i18n="List">List</a></li>
+        <li class="pc-item"><a class="pc-link" href="../admins/helpdesk-ticket-details.html" data-i18n="Details">Details</a></li>
+      </ul>
+    </li>
+    <li class="pc-item"><a class="pc-link" href="../admins/helpdesk-customer.html" data-i18n="Customer">Customer</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon"><i class="ph ph-printer"></i></span><span class="pc-mtext" data-i18n="Invoice">invoice</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../admins/invoice-dashboard.html" data-i18n="Dashboard">Dashboard</a></li>
+    <li class="pc-item"><a class="pc-link" href="../admins/invoice-create.html" data-i18n="Create">Create</a></li>
+    <li class="pc-item"><a class="pc-link" href="../admins/invoice-view.html" data-i18n="Details">Details</a></li>
+    <li class="pc-item"><a class="pc-link" href="../admins/invoice-list.html" data-i18n="List">List</a></li>
+    <li class="pc-item"><a class="pc-link" href="../admins/invoice-edit.html" data-i18n="Edit">Edit</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-caption">
+  <label data-i18n="UI Components">UI Components</label>
+  <i class="ph ph-pencil-ruler"></i>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon"><i class="ph ph-pencil-ruler"></i></span><span class="pc-mtext" data-i18n="Basic">Basic</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_alert.html" data-i18n="Alert">Alert</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_button.html" data-i18n="Button">Button</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_badges.html" data-i18n="Badges">Badges</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_breadcrumb.html" data-i18n="Breadcrumb">Breadcrumb</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_card.html" data-i18n="Cards">Cards</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_color.html" data-i18n="Color">Color</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_collapse.html" data-i18n="Collapse">Collapse</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_carousel.html" data-i18n="Carousel">Carousel</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_dropdowns.html" data-i18n="Dropdowns">Dropdowns</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_offcanvas.html" data-i18n="Offcanvas">Offcanvas</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_pagination.html" data-i18n="Pagination">Pagination</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_progress.html" data-i18n="Progress">Progress</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_list-group.html" data-i18n="List Group">List group</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_modal.html" data-i18n="Modal">Modal</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_spinner.html" data-i18n="Spinner">Spinner</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_tabs.html" data-i18n="Tabs & pills">Tabs & pills</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_typography.html" data-i18n="Typography">Typography</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_tooltip-popover.html" data-i18n="Tooltip">Tooltip</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_toasts.html" data-i18n="Toasts">Toasts</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/bc_extra.html" data-i18n="Other">Other</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link"
+    ><span class="pc-micon"><i class="ph ph-briefcase"></i></span><span class="pc-mtext" data-i18n="Advanced">Advance</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+    <span class="pc-badge" style="background: #198754; width: auto; min-width: 20px; padding: 2px 6px; border-radius: 10px; font-size: 9px; font-weight: 600;">New</span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_alert.html" data-i18n="Sweet Alert">Sweet alert</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_datepicker-component.html" data-i18n="Date Picker">Datepicker</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_lightbox.html" data-i18n="Lightbox">Lightbox</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_modal.html" data-i18n="Modal">Modal</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_notification.html" data-i18n="Notification">Notification</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_rangeslider.html" data-i18n="RangeSlider">Range slider</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_slider.html" data-i18n="Slider">Slider</a></li>
+    <li class="pc-item"
+      ><a class="pc-link" href="../elements/ac_syntax_highlighter.html" data-i18n="Syntax Highlighter">Syntax Highlighter</a></li
+    >
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_tour.html" data-i18n="Tour">Tour</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_treeview.html" data-i18n="Tree view">Tree view</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_skeleton.html" data-i18n="Skeleton">Skeleton Loading</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_empty-state.html" data-i18n="Empty State">Empty States</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/ac_micro-interactions.html" data-i18n="Micro Interactions">Micro Interactions</a></li>
+  </ul>
+</li>
+<li class="pc-item">
+  <a href="../elements/animation.html" class="pc-link">
+    <span class="pc-micon"> <i class="ph ph-vinyl-record"></i> </span><span class="pc-mtext" data-i18n="Animation">Animation</span>
+  </a>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon"> <i class="ph ph-feather"></i> </span><span class="pc-mtext" data-i18n="Icons">Icons</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../elements/icon-tabler.html" data-i18n="Tabler">Tabler</a></li>
+    <li class="pc-item"><a class="pc-link" href="../elements/icon-phosphor.html" data-i18n="Phospher">Phosphor</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-caption">
+  <label data-i18n="Forms">Forms</label>
+  <i class="ph ph-textbox"></i>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-textbox"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Form Elements">Forms Elements</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../forms/form_elements.html" data-i18n="Form Basic">Form Basic</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form_floating.html" data-i18n="Form Floating">Form Floating</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_basic.html" data-i18n="Form Options">Form Options</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_input_group.html" data-i18n="Input Group">Input Groups</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_checkbox.html" data-i18n="Checkbox">Checkbox</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_radio.html" data-i18n="Radio">Radio</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_switch.html" data-i18n="Switch">Switch</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_megaoption.html" data-i18n="Mega Option">Mega option</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-plug-charging"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Form Plugins">Forms Plugins</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item pc-hasmenu">
+      <a class="pc-link" href="#">
+        <span data-i18n="Date">Date</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+      ></a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="../forms/form2_datepicker.html" data-i18n="Date Picker">Datepicker</a></li>
+        <li class="pc-item"
+          ><a class="pc-link" href="../forms/form2_daterangepicker.html" data-i18n="Date Range Picker">Date Range Picker</a>
+        </li>
+        <li class="pc-item"><a class="pc-link" href="../forms/form2_timepicker.html" data-i18n="Timepicker">Timepicker</a></li>
+      </ul>
+    </li>
+    <li class="pc-item pc-hasmenu">
+      <a class="pc-link" href="#">
+        <span data-i18n="Select">Select</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+      </a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="../forms/form2_choices.html" data-i18n="Choices js">Choices js</a></li>
+      </ul>
+    </li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_rating.html" data-i18n="Rating">Rating</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_recaptcha.html" data-i18n="Google-Re-Captcha">Google reCaptcha</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_inputmask.html" data-i18n="Input Mask">Input Masks</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_clipboard.html" data-i18n="ClipBoard">Clipboard</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_nouislider.html" data-i18n="Nouislider">Nouislider</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_switchjs.html" data-i18n="Switch Examples">Switch Examples</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_typeahead.html" data-i18n="TypeaHead">Typeahead</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-pen-nib"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Text Editor">Text Editors</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_tinymce.html" data-i18n="Rich Text">Rich Text Editor</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_quill.html" data-i18n="Quill">Quill</a></li>
+    <li class="pc-item pc-hasmenu">
+      <a class="pc-link" href="#">
+        <span data-i18n="CK editor">CK editor</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+      </a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="../forms/editor-classic.html" data-i18n="classic">classic</a></li>
+        <li class="pc-item"><a class="pc-link" href="../forms/editor-document.html" data-i18n="Document">Document</a></li>
+        <li class="pc-item"><a class="pc-link" href="../forms/editor-inline.html" data-i18n="Inline">Inline</a></li>
+        <li class="pc-item"><a class="pc-link" href="../forms/editor-balloon.html" data-i18n="Balloon">Balloon</a></li>
+      </ul>
+    </li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_markdown.html" data-i18n="Markdown">Markdown</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-windows-logo"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Form Layouts">Form Layouts</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_lay-default.html" data-i18n="Layouts">Layouts</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_lay-multicolumn.html" data-i18n="MultiColumn">Multicolumn</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_lay-actionbars.html" data-i18n="ActionBars">Actionbars</a></li>
+    <li class="pc-item"
+      ><a class="pc-link" href="../forms/form2_lay-stickyactionbars.html" data-i18n="Sticky-ActionBar">Sticky Action bars</a>
+    </li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-cloud-arrow-up"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="File Upload">File upload</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../forms/file-upload.html" data-i18n="Dropzone">Dropzone</a></li>
+    <li class="pc-item"><a class="pc-link" href="../forms/form2_flu-uppy.html" data-i18n="Uppy">Uppy</a></li>
+  </ul>
+</li>
+<li class="pc-item">
+  <a href="../forms/form2_wizard.html" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-tabs"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="wizard">wizard</span></a
+  >
+</li>
+<li class="pc-item">
+  <a href="../forms/form-validation.html" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-password"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Form Validation">Form Validation</span></a
+  >
+</li>
+<li class="pc-item">
+  <a href="../forms/image_crop.html" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-crop"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Images Cropper">Image cropper</span>
+  </a>
+</li>
+<li class="pc-item pc-caption">
+  <label data-i18n="Tables">table</label>
+  <i class="ph ph-table"></i>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-table"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Bootstrap Table">Bootstrap Table</span
+    ><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="tbl_bootstrap.html" data-i18n="Basic Table">Basic table</a></li>
+    <li class="pc-item"><a class="pc-link" href="tbl_sizing.html" data-i18n="Sizing table">Sizing table</a></li>
+    <li class="pc-item"><a class="pc-link" href="tbl_border.html" data-i18n="Border table">Border table</a></li>
+    <li class="pc-item"><a class="pc-link" href="tbl_styling.html" data-i18n="Styling table">Styling table</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-grid-nine"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Vanilla table">Vanilla Table</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="tbl_dt-simple.html" data-i18n="Basic initialization">Basic initialization</a></li>
+    <li class="pc-item"><a class="pc-link" href="tbl_dt-dynamic-import.html" data-i18n="Dynamic Import">Dynamic Import</a></li>
+    <li class="pc-item"
+      ><a class="pc-link" href="tbl_dt-render-column-cells.html" data-i18n="Render Column Cells">Render Column Cells</a></li
+    >
+    <li class="pc-item"
+      ><a class="pc-link" href="tbl_dt-column-manipulation.html" data-i18n="Column Manipulation">Column Manipulation</a></li
+    >
+    <li class="pc-item"
+      ><a class="pc-link" href="tbl_dt-datetime-sorting.html" data-i18n="Datetime Sorting">Datetime Sorting</a></li
+    >
+    <li class="pc-item"><a class="pc-link" href="tbl_dt-methods.html" data-i18n="Methods">Methods</a></li>
+    <li class="pc-item"><a class="pc-link" href="tbl_dt-add-rows.html" data-i18n="Add Rows">Add Rows</a></li>
+    <li class="pc-item"><a class="pc-link" href="tbl_dt-fetch-api.html" data-i18n="Fetch API">Fetch API</a></li>
+    <li class="pc-item"><a class="pc-link" href="tbl_dt-filters.html" data-i18n="Filters">Filters</a></li>
+    <li class="pc-item"><a class="pc-link" href="tbl_dt-export.html" data-i18n="Export">Export</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-columns"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Data Table">Data table</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"
+      ><a class="pc-link" href="dt_advance.html" data-i18n="Advance initialization">Advance initialization</a></li
+    >
+    <li class="pc-item"><a class="pc-link" href="dt_styling.html" data-i18n="Styling">Styling</a></li>
+    <li class="pc-item"><a class="pc-link" href="dt_api.html" data-i18n="API">API</a></li>
+    <li class="pc-item"><a class="pc-link" href="dt_plugin.html" data-i18n="Plug-in">Plug-in</a></li>
+    <li class="pc-item"><a class="pc-link" href="dt_sources.html" data-i18n="Data sources">Data sources</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-wall"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="DT extensions">DT extensions</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="dt_ext_autofill.html" data-i18n="Autofill">Autofill</a></li>
+    <li class="pc-item pc-hasmenu">
+      <a href="#!" class="pc-link">
+        <span data-i18n="Button">Button</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+      ></a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="dt_ext_basic_buttons.html" data-i18n="Basic button">Basic button</a></li>
+        <li class="pc-item"><a class="pc-link" href="dt_ext_export_buttons.html" data-i18n="Data export">Data export</a></li>
+      </ul>
+    </li>
+    <li class="pc-item"><a class="pc-link" href="dt_ext_col_reorder.html" data-i18n="Col reorder">Col reorder</a></li>
+    <li class="pc-item"><a class="pc-link" href="dt_ext_fixed_columns.html" data-i18n="Fixed columns">Fixed columns</a></li>
+    <li class="pc-item"><a class="pc-link" href="dt_ext_fixed_header.html" data-i18n="Fixed header">Fixed header</a></li>
+    <li class="pc-item"><a class="pc-link" href="dt_ext_key_table.html" data-i18n="Key table">Key table</a></li>
+    <li class="pc-item"><a class="pc-link" href="dt_ext_responsive.html" data-i18n="Responsive">Responsive</a></li>
+    <li class="pc-item"><a class="pc-link" href="dt_ext_row_reorder.html" data-i18n="Row reorder">Row reorder</a></li>
+    <li class="pc-item"><a class="pc-link" href="dt_ext_scroller.html" data-i18n="Scroller">Scroller</a></li>
+    <li class="pc-item"><a class="pc-link" href="dt_ext_select.html" data-i18n="Select table">Select table</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-caption">
+  <label data-i18n="Chart & Maps">Charts &and; Maps</label>
+  <i class="ph ph-chart-donut"></i>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-chart-donut"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Charts">Charts</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../chart/chart-apex.html" data-i18n="Apex Chart">Apex Chart</a></li>
+    <li class="pc-item"><a class="pc-link" href="../chart/chart-peity.html" data-i18n="Sparkline Chart">Sparkline Chart</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-map-trifold"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Map">Maps</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../chart/map-vector.html" data-i18n="Vector Map">Vector Maps</a></li>
+    <li class="pc-item"><a class="pc-link" href="../chart/map-gmap.html" data-i18n="Google Map">Gmaps</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-caption">
+  <label data-i18n="Application">Application</label>
+  <i class="ph ph-calendar-blank"></i>
+  <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 8px; font-size: 8px; font-weight: 600; margin-left: 6px; display: inline-block;">Hot</span>
+</li>
+<li class="pc-item">
+  <a href="../application/calendar.html" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-calendar-blank"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Calender">Calendar</span></a
+  >
+</li>
+<li class="pc-item">
+  <a href="../application/email.html" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-envelope-simple"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Email">Email</span>
+  </a>
+</li>
+<li class="pc-item">
+  <a href="../application/file-manager.html" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-folder-notch-open"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="File Manager">File Manager</span>
+  </a>
+</li>
+<li class="pc-item">
+  <a href="../application/chat.html" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-chats-circle"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Chat">Message</span></a
+  >
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-robot"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="AI">AI</span>
+    <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+    <span class="pc-badge">5</span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../application/ai-chat.html" data-i18n="AI Chat">AI Chat</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/ai-image.html" data-i18n="AI Image">Image Generator</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/ai-writer.html" data-i18n="AI Writer">Content Writer</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/ai-dashboard.html" data-i18n="AI Dashboard">Dashboard</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/ai-prompts.html" data-i18n="AI Prompts">Prompt Library</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-list-bullets"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Task">Task</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../application/task-list.html" data-i18n="List">List</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/task-board.html" data-i18n="Board">Board</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/task-detail.html" data-i18n="Detail">Detail</a></li>
+  </ul>
+</li>
+<li class="pc-item">
+  <a href="../application/todo.html" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-list-checks"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="To Do">To Do</span>
+  </a>
+</li>
+<li class="pc-item">
+  <a href="../application/notifications.html" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-bell-ringing"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Notifications">Notifications</span>
+  </a>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-images"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Gallery">Gallery</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../application/gallery-grid.html" data-i18n="Grid">Grid</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/gallery-masonry.html" data-i18n="Masonry">Masonry</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/gallery-advance.html" data-i18n="Advance">Advance</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-printer"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Invoice">Invoice</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../application/invoice.html" data-i18n="Invoice">Invoice</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/invoice-summary.html" data-i18n="Invoice summary">Invoice summary</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/invoice-list.html" data-i18n="Invoice list">Invoice list</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-user-circle"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Users">Users</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../application/user-profile.html" data-i18n="Profile">Profile</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/user-profile-social.html" data-i18n="Social Profile">Social Profile</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/user-card.html" data-i18n="User Card">User Card</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/user-list.html" data-i18n="User List">User List</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-storefront"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="E-Commerce">E-Commerce</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" href="../application/ec-product-list.html" data-i18n="Product List">Product List</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/ec-product-detail.html" data-i18n="Product Detail">Product Detail</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/ec-add-product.html" data-i18n="Add Product">Add Product</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/ec-cart.html" data-i18n="Cart">Cart</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/ec-checkout.html" data-i18n="Checkout">Checkout</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/ec-order-list.html" data-i18n="Order List">Order List</a></li>
+    <li class="pc-item"><a class="pc-link" href="../application/ec-order-detail.html" data-i18n="Order Detail">Order Detail</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-caption">
+  <label data-i18n="pages">Pages</label>
+  <i class="ph ph-shield-checkered"></i>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-lock-key"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Authentication">Authentication</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+  </a>
+  <ul class="pc-submenu">
+    <li class="pc-item pc-hasmenu">
+      <a href="#!" class="pc-link">
+        <span data-i18n="Login">Login</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+      </a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/login-v1.html" data-i18n="Login v1">Login v1</a></li>
+        <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/login-v2.html" data-i18n="Login v2">Login v2</a></li>
+        <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/login-v3.html" data-i18n="Login v3">Login v3</a></li>
+        <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/login-v4.html" data-i18n="Login v4">Login v4</a></li>
+        <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/login-v5.html" data-i18n="Login v5">Login v5</a></li>
+      </ul>
+    </li>
+    <li class="pc-item pc-hasmenu">
+      <a href="#!" class="pc-link">
+        <span data-i18n="Register">Register</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+      </a>
+      <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/register-v1.html" data-i18n="Register v1">Register v1</a></li>
+        <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/register-v2.html" data-i18n="Register v2">Register v2</a></li>
+        <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/register-v3.html" data-i18n="Register v3">Register v3</a></li>
+        <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/register-v4.html" data-i18n="Register v4">Register v4</a></li>
+        <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/register-v5.html" data-i18n="Register v5">Register v5</a></li>
+      </ul>
+    </li>
+    <li class="pc-item pc-hasmenu">
+      <a href="#!" class="pc-link">
+        <span data-i18n="Reset Password">Reset password</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+      </a>
+      <ul class="pc-submenu">
+        <li class="pc-item"
+          ><a class="pc-link" target="_blank" href="../pages/reset-password-v1.html" data-i18n="Reset Password v1">Reset password v1</a></li
+        >
+        <li class="pc-item"
+          ><a class="pc-link" target="_blank" href="../pages/reset-password-v2.html" data-i18n="Reset Password v2">Reset password v2</a></li
+        >
+        <li class="pc-item"
+          ><a class="pc-link" target="_blank" href="../pages/reset-password-v3.html" data-i18n="Reset Password v3">Reset password v3</a></li
+        >
+        <li class="pc-item"
+          ><a class="pc-link" target="_blank" href="../pages/reset-password-v4.html" data-i18n="Reset Password v4">Reset password v4</a></li
+        >
+        <li class="pc-item"
+          ><a class="pc-link" target="_blank" href="../pages/reset-password-v5.html" data-i18n="Reset Password v5">Reset password v5</a></li
+        >
+      </ul>
+    </li>
+    <li class="pc-item pc-hasmenu">
+      <a href="#!" class="pc-link">
+        <span data-i18n="Change password">Change password</span>
+        <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+      ></a>
+      <ul class="pc-submenu">
+        <li class="pc-item"
+          ><a class="pc-link" target="_blank" href="../pages/change-password-v1.html" data-i18n="Change password v1"
+            >Change password v1</a
+          ></li
+        >
+        <li class="pc-item"
+          ><a class="pc-link" target="_blank" href="../pages/change-password-v2.html" data-i18n="Change password v2"
+            >Change password v2</a
+          ></li
+        >
+        <li class="pc-item"
+          ><a class="pc-link" target="_blank" href="../pages/change-password-v3.html" data-i18n="Change password v3"
+            >Change password v3</a
+          ></li
+        >
+        <li class="pc-item"
+          ><a class="pc-link" target="_blank" href="../pages/change-password-v4.html" data-i18n="Change password v4"
+            >Change password v4</a
+          ></li
+        >
+        <li class="pc-item"
+          ><a class="pc-link" target="_blank" href="../pages/change-password-v5.html" data-i18n="Change password v5"
+            >Change password v5</a
+          ></li
+        >
+      </ul>
+    </li>
+  </ul>
+</li>
+<li class="pc-item pc-hasmenu">
+  <a href="#!" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-wrench"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Maintenance">Maintenance</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span
+  ></a>
+  <ul class="pc-submenu">
+    <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/error.html" data-i18n="Error">Error</a></li>
+    <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/coming-soon.html" data-i18n="Coming-Soon">Coming Soon</a></li>
+    <li class="pc-item"><a class="pc-link" target="_blank" href="../pages/offline-ui.html" data-i18n="Offline Ui">Offline Ui</a></li>
+  </ul>
+</li>
+<li class="pc-item pc-caption">
+  <label data-i18n="Other">Other</label>
+  <i class="ph ph-tree-structure"></i>
+</li>
+<li class="pc-item">
+  <a href="../other/sample-page.html" class="pc-link">
+    <span class="pc-micon">
+      <i class="ph ph-desktop"></i>
+    </span>
+    <span class="pc-mtext" data-i18n="Sample Page">Sample page</span>
+  </a>
+</li>
+
+      </ul>
+    </div>
+  </div>
+</nav>
+<!-- [ Sidebar Menu ] end -->
+ <!-- [ Header Topbar ] start -->
+<header class="pc-header">
+  <div class="header-wrapper"> <!-- [Mobile Media Block] start -->
+<div class="me-auto pc-mob-drp">
+  <ul class="list-unstyled">
+    <li class="pc-h-item pc-sidebar-collapse">
+      <a href="#" class="pc-head-link ms-0" id="sidebar-hide">
+        <i class="ph ph-list"></i>
+      </a>
+    </li>
+    <li class="pc-h-item pc-sidebar-popup">
+      <a href="#" class="pc-head-link ms-0" id="mobile-collapse">
+        <i class="ph ph-list"></i>
+      </a>
+    </li>
+    <li class="pc-h-item">
+      <a class="pc-head-link m-0" href="#" data-bs-toggle="modal" data-bs-target="#commandPalette" title="Search (⌘K)" style="width: auto; overflow: visible; padding: 0 10px; gap: 6px;">
+        <i class="ph ph-magnifying-glass"></i>
+        <kbd class="d-none d-md-inline-block" style="position: relative; z-index: 5; font-size: 0.625rem; padding: 1px 5px; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: 3px; color: var(--bs-secondary); font-family: inherit; line-height: 1.4;">⌘K</kbd>
+      </a>
+    </li>
+  </ul>
+</div>
+<!-- [Mobile Media Block end] -->
+<div class="ms-auto">
+  <ul class="list-unstyled">
+    <li class="dropdown pc-h-item">
+      <a
+        class="pc-head-link dropdown-toggle arrow-none me-0"
+        data-bs-toggle="dropdown"
+        href="#"
+        role="button"
+        aria-haspopup="false"
+        aria-expanded="false"
+      >
+        <i class="ph ph-sun-dim"></i>
+      </a>
+      <div class="dropdown-menu dropdown-menu-end pc-h-dropdown">
+        <a href="#!" class="dropdown-item" onclick="layout_change('dark')">
+          <i class="ph ph-moon"></i>
+          <span>Dark</span>
+        </a>
+        <a href="#!" class="dropdown-item" onclick="layout_change('light')">
+          <i class="ph ph-sun"></i>
+          <span>Light</span>
+        </a>
+        <a href="#!" class="dropdown-item" onclick="layout_change_default()">
+          <i class="ph ph-cpu"></i>
+          <span>Default</span>
+        </a>
+      </div>
+    </li>
+    <li class="dropdown pc-h-item d-none d-md-inline-flex">
+      <a
+        class="pc-head-link head-link-primary dropdown-toggle arrow-none me-0"
+        data-bs-toggle="dropdown"
+        href="#"
+        role="button"
+        aria-haspopup="false"
+        aria-expanded="false"
+      >
+        <i class="ph ph-translate"></i>
+      </a>
+      <div class="dropdown-menu dropdown-menu-end pc-h-dropdown lng-dropdown">
+        <a href="#!" class="dropdown-item" data-lng="en">
+          <span>
+            English
+            <small>(UK)</small>
+          </span>
+        </a>
+        <a href="#!" class="dropdown-item" data-lng="fr">
+          <span>
+            français
+            <small>(French)</small>
+          </span>
+        </a>
+        <a href="#!" class="dropdown-item" data-lng="ro">
+          <span>
+            Română
+            <small>(Romanian)</small>
+          </span>
+        </a>
+        <a href="#!" class="dropdown-item" data-lng="cn">
+          <span>
+            中国人
+            <small>(Chinese)</small>
+          </span>
+        </a>
+      </div>
+    </li>
+    <li class="dropdown pc-h-item">
+      <a
+        class="pc-head-link dropdown-toggle arrow-none me-0"
+        data-bs-toggle="dropdown"
+        href="#"
+        role="button"
+        aria-haspopup="false"
+        aria-expanded="false"
+      >
+        <i class="ph ph-diamonds-four"></i>
+      </a>
+      <div class="dropdown-menu dropdown-menu-end pc-h-dropdown">
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-user"></i>
+          <span>My Account</span>
+        </a>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-gear"></i>
+          <span>Settings</span>
+        </a>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-lifebuoy"></i>
+          <span>Support</span>
+        </a>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-lock-key"></i>
+          <span>Lock Screen</span>
+        </a>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-power"></i>
+          <span>Logout</span>
+        </a>
+      </div>
+    </li>
+    <li class="dropdown pc-h-item">
+      <a
+        class="pc-head-link dropdown-toggle arrow-none me-0"
+        data-bs-toggle="dropdown"
+        href="#"
+        role="button"
+        aria-haspopup="false"
+        aria-expanded="false"
+      >
+        <i class="ph ph-bell"></i>
+        <span class="badge bg-success pc-h-badge">5</span>
+      </a>
+      <div class="dropdown-menu dropdown-notification dropdown-menu-end pc-h-dropdown">
+        <div class="dropdown-header d-flex align-items-center justify-content-between">
+          <h5 class="m-0">Notifications</h5>
+          <a href="#!" class="btn btn-link btn-sm">Mark all read</a>
+        </div>
+        <div class="dropdown-body text-wrap header-notification-scroll position-relative" style="max-height: calc(100vh - 215px)">
+          <p class="text-span">Today</p>
+          <div class="card bg-transparent mb-2 border-0">
+            <div class="card-body p-3 rounded" style="background: rgba(var(--bs-light-rgb), 0.3); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(var(--bs-primary-rgb), 0.05)'" onmouseout="this.style.background='rgba(var(--bs-light-rgb), 0.3)'">
+              <div class="d-flex">
+                <div class="flex-shrink-0">
+                  <div class="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="ph ph-credit-card text-success" style="font-size: 16px;"></i>
+                  </div>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <span class="float-end text-sm text-muted">2 min ago</span>
+                  <h5 class="text-body mb-2">Payment Received</h5>
+                  <p class="mb-0">$2,499.00 payment received for Pro Plan subscription from Acme Corp</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card bg-transparent mb-2 border-0">
+            <div class="card-body p-3 rounded" style="background: rgba(var(--bs-light-rgb), 0.3); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(var(--bs-primary-rgb), 0.05)'" onmouseout="this.style.background='rgba(var(--bs-light-rgb), 0.3)'">
+              <div class="d-flex">
+                <div class="flex-shrink-0">
+                  <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="ph ph-users text-primary" style="font-size: 16px;"></i>
+                  </div>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <span class="float-end text-sm text-muted">1 hour ago</span>
+                  <h5 class="text-body mb-2">New Team Member</h5>
+                  <p class="mb-0">Sarah Johnson joined your workspace and was assigned to the Marketing team</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card bg-transparent mb-2 border-0">
+            <div class="card-body p-3 rounded" style="background: rgba(var(--bs-light-rgb), 0.3); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(var(--bs-primary-rgb), 0.05)'" onmouseout="this.style.background='rgba(var(--bs-light-rgb), 0.3)'">
+              <div class="d-flex">
+                <div class="flex-shrink-0">
+                  <div class="bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="ph ph-chart-line text-warning" style="font-size: 16px;"></i>
+                  </div>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <span class="float-end text-sm text-muted">3 hours ago</span>
+                  <h5 class="text-body mb-2">Monthly Report Ready</h5>
+                  <p class="mb-0">Your January 2025 analytics report is ready. Revenue up 24% vs last month</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="text-span">Yesterday</p>
+          <div class="card bg-transparent mb-2 border-0">
+            <div class="card-body p-3 rounded" style="background: rgba(var(--bs-light-rgb), 0.3); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(var(--bs-primary-rgb), 0.05)'" onmouseout="this.style.background='rgba(var(--bs-light-rgb), 0.3)'">
+              <div class="d-flex">
+                <div class="flex-shrink-0">
+                  <div class="bg-danger bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="ph ph-shield-check text-danger" style="font-size: 16px;"></i>
+                  </div>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <span class="float-end text-sm text-muted">18 hours ago</span>
+                  <h5 class="text-body mb-2">Security Alert</h5>
+                  <p class="mb-2">New login detected from San Francisco, CA. If this wasn't you, please secure your account</p>
+                  <button class="btn btn-sm btn-outline-secondary me-2">Ignore</button>
+                  <button class="btn btn-sm btn-danger">Secure Account</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card bg-transparent mb-2 border-0">
+            <div class="card-body p-3 rounded" style="background: rgba(var(--bs-light-rgb), 0.3); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(var(--bs-primary-rgb), 0.05)'" onmouseout="this.style.background='rgba(var(--bs-light-rgb), 0.3)'">
+              <div class="d-flex">
+                <div class="flex-shrink-0">
+                  <div class="bg-info bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                    <i class="ph ph-rocket text-info" style="font-size: 16px;"></i>
+                  </div>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <span class="float-end text-sm text-muted">1 day ago</span>
+                  <h5 class="text-body mb-2">Feature Update</h5>
+                  <p class="mb-0">New AI-powered insights are now available in your dashboard. Check out the enhanced analytics</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card bg-transparent mb-2 border-0">
+            <div class="card-body p-3 rounded" style="background: rgba(var(--bs-light-rgb), 0.3); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(var(--bs-primary-rgb), 0.05)'" onmouseout="this.style.background='rgba(var(--bs-light-rgb), 0.3)'">
+              <div class="d-flex">
+                <div class="flex-shrink-0">
+                  <img class="img-radius avatar rounded-0" src="../assets/images/user/avatar-5.svg" alt="Generic placeholder image" />
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <span class="float-end text-sm text-muted">5 hour ago</span>
+                  <h5 class="text-body mb-2">Security</h5>
+                  <p class="mb-0"
+                    >Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of
+                    type and scrambled it to make a type</p
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="text-center py-2">
+          <a href="#!" class="link-danger">Clear all Notifications</a>
+        </div>
+      </div>
+    </li>
+    <li class="dropdown pc-h-item header-user-profile">
+      <a
+        class="pc-head-link dropdown-toggle arrow-none me-0"
+        data-bs-toggle="dropdown"
+        href="#"
+        role="button"
+        aria-haspopup="false"
+        data-bs-auto-close="outside"
+        aria-expanded="false"
+      >
+        <i class="ph ph-user-circle"></i>
+      </a>
+      <div class="dropdown-menu dropdown-menu-end pc-h-dropdown">
+        <div class="dropdown-header">
+          <h6 class="mb-0">John Doe</h6>
+          <small class="text-muted">john.doe@acmecorp.com</small>
+          <span class="badge bg-success-subtle text-success mt-1">Pro Plan</span>
+        </div>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-user-circle"></i>
+          <span>Profile & Settings</span>
+        </a>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-buildings"></i>
+          <span>Workspace Settings</span>
+        </a>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-credit-card"></i>
+          <span>Billing & Usage</span>
+        </a>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-users-three"></i>
+          <span>Team Management</span>
+        </a>
+        <div class="dropdown-divider"></div>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-headset"></i>
+          <span>Support Center</span>
+        </a>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-keyboard"></i>
+          <span>Keyboard Shortcuts</span>
+        </a>
+        <a href="#!" class="dropdown-item">
+          <i class="ph ph-download"></i>
+          <span>Download Mobile App</span>
+        </a>
+        <div class="dropdown-divider"></div>
+        <a href="#!" class="dropdown-item text-danger">
+          <i class="ph ph-sign-out"></i>
+          <span>Sign Out</span>
+        </a>
+      </div>
+    </li>
+  </ul>
+</div>
+ </div>
+</header>
+<!-- [ Header ] end -->
+ <!-- [ Command Palette ] start -->
+<div class="modal fade" id="commandPalette" tabindex="-1" aria-label="Command palette" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable command-palette-dialog">
+    <div class="modal-content command-palette-content">
+      <div class="command-palette-header">
+        <div class="command-palette-input-wrapper">
+          <i class="ti ti-search command-palette-search-icon"></i>
+          <input type="text" class="command-palette-input" id="commandPaletteInput" placeholder="Search pages, actions..." autocomplete="off" />
+          <kbd class="command-palette-kbd">ESC</kbd>
+        </div>
+      </div>
+      <div class="command-palette-body" id="commandPaletteResults">
+        <!-- Results populated by JS -->
+      </div>
+      <div class="command-palette-footer">
+        <div class="d-flex align-items-center gap-3">
+          <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> Navigate</span>
+          <span><kbd>&crarr;</kbd> Open</span>
+          <span><kbd>ESC</kbd> Close</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- [ Command Palette ] end -->
+
+
+
+    <!-- [ Main Content ] start -->
+    <section class="pc-container">
+      <div class="pc-content">
+        <!-- [ breadcrumb ] start -->
+<div class="page-header">
+  <div class="page-block">
+    <div class="row align-items-center">
+      <div class="col-md-12">
+        <div class="page-header-title">
+          <h5 class="mb-0">Table-active</h5>
+        </div>
+      </div>
+      <div class="col-md-12">
+        <ul class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="https://demo.dashboardpack.com/dashboard/index.html">Home</a></li>
+          <li class="breadcrumb-item"><a href="javascript: void(0)">Table</a></li>
+          <li class="breadcrumb-item" aria-current="page">Table-active</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- [ breadcrumb ] end -->
+
+
+        <!-- [ Main Content ] start -->
+        <div class="row">
+          <!-- prettier-ignore -->
+          <div class="col-md-10 col-xxl-9 mb-4">
+  <!-- <h2>Simple-datatables</h2> -->
+  <p class="text-muted">A lightweight</p>
+  <div>
+    <a class="btn btn-sm btn-light-primary rounded-pill px-2" role="button" target="_blank" href="https://github.com/fiduswriter/simple-datatables">
+      <i class="ti ti-external-link me-1"></i>
+      Reference
+    </a>
+  </div>
+</div>
+
+        </div>
+        <div class="row">
+          <!-- [ basic-table ] start -->
+          <div class="col-xl-12">
+            <div class="card">
+              <div class="card-header">
+                <h5>Datetime Sorting</h5>
+              </div>
+              <div class="card-body table-border-style">
+                <div class="table-responsive">
+                  <table class="table" id="pc-dt-satetime-sorting">
+                    <thead>
+                      <tr>
+                        <th data-type="date" data-format="ISO_8601">ISO 8601</th>
+                        <th data-type="date" data-format="MYSQL">MySQL</th>
+                        <th>RFC 2822</th
+                        ><!-- Type and format defined in the js -->
+                        <th>MMM DD, YYYY</th>
+                        <!-- Type and format defined in the js -->
+                        <th data-type="date" data-format="DD/MM/YYYY">DD/MM/YYYY</th>
+                        <th data-type="date" data-format="MM-DD-YY">MM-DD-YY</th>
+                        <th data-type="date" data-format="UNIX">UNIX</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>2013-06-27T19:10:21-07:00</td>
+                        <td>1994-12-06 22:56:36</td>
+                        <td>Tue, 14 Mar 1995 07:11:46 -0800</td>
+                        <td>Dec 8, 2001</td>
+                        <td>19/10/2025</td>
+                        <td>07-23-12</td>
+                        <td>853102101</td>
+                      </tr>
+                      <tr>
+                        <td>1980-09-12T02:50:23-07:00</td>
+                        <td>1997-11-23 07:06:45</td>
+                        <td>Mon, 21 Nov 2005 04:23:35 -0800</td>
+                        <td>Aug 19, 1997</td>
+                        <td>27/05/1981</td>
+                        <td>01-13-17</td>
+                        <td>713671686</td>
+                      </tr>
+                      <tr>
+                        <td>1994-10-27T12:11:30-07:00</td>
+                        <td>2001-06-22 09:21:47</td>
+                        <td>Sat, 30 Apr 2005 03:36:38 -0700</td>
+                        <td>Aug 1, 1984</td>
+                        <td>04/11/2011</td>
+                        <td>04-25-11</td>
+                        <td>1408349475</td>
+                      </tr>
+                      <tr>
+                        <td>2025-05-20T15:38:00-07:00</td>
+                        <td>1990-12-20 10:13:03</td>
+                        <td>Thu, 16 Jan 2003 16:38:36 -0800</td>
+                        <td>Aug 19, 1982</td>
+                        <td>05/11/1989</td>
+                        <td>03-06-18</td>
+                        <td>677441387</td>
+                      </tr>
+                      <tr>
+                        <td>1982-07-05T06:31:38-07:00</td>
+                        <td>1989-11-18 13:43:58</td>
+                        <td>Thu, 09 Nov 2000 10:25:09 -0800</td>
+                        <td>Oct 11, 2003</td>
+                        <td>16/07/1992</td>
+                        <td>10-29-11</td>
+                        <td>523469491</td>
+                      </tr>
+                      <tr>
+                        <td>2008-08-11T01:01:32-07:00</td>
+                        <td>1981-02-16 19:29:34</td>
+                        <td>Thu, 18 Dec 2003 07:16:19 -0800</td>
+                        <td>May 16, 1981</td>
+                        <td>30/04/1989</td>
+                        <td>05-24-87</td>
+                        <td>1141495716</td>
+                      </tr>
+                      <tr>
+                        <td>1982-11-28T18:34:32-08:00</td>
+                        <td>2002-02-22 04:36:38</td>
+                        <td>Fri, 11 Mar 1994 01:16:08 -0800</td>
+                        <td>Apr 2, 2014</td>
+                        <td>12/10/2008</td>
+                        <td>05-01-90</td>
+                        <td>464746558</td>
+                      </tr>
+                      <tr>
+                        <td>1996-07-29T13:05:44-07:00</td>
+                        <td>1993-03-15 18:27:14</td>
+                        <td>Fri, 06 Jun 2003 07:53:59 -0700</td>
+                        <td>Jul 16, 2004</td>
+                        <td>14/02/1995</td>
+                        <td>02-08-96</td>
+                        <td>405430252</td>
+                      </tr>
+                      <tr>
+                        <td>1987-03-02T20:03:45-08:00</td>
+                        <td>1990-01-09 10:26:10</td>
+                        <td>Thu, 15 Sep 2005 13:12:25 -0700</td>
+                        <td>Nov 9, 2005</td>
+                        <td>14/06/1983</td>
+                        <td>11-19-13</td>
+                        <td>1310935236</td>
+                      </tr>
+                      <tr>
+                        <td>2014-04-02T01:20:31-07:00</td>
+                        <td>1995-03-19 17:07:42</td>
+                        <td>Sat, 11 May 2013 04:14:36 -0700</td>
+                        <td>Jun 11, 2000</td>
+                        <td>17/02/2001</td>
+                        <td>05-03-15</td>
+                        <td>636464866</td>
+                      </tr>
+                      <tr>
+                        <td>1984-01-18T00:39:34-08:00</td>
+                        <td>2025-12-11 13:14:55</td>
+                        <td>Fri, 25 Jan 2013 21:09:50 -0800</td>
+                        <td>Aug 15, 2013</td>
+                        <td>11/02/2005</td>
+                        <td>11-29-93</td>
+                        <td>922286213</td>
+                      </tr>
+                      <tr>
+                        <td>2012-09-04T15:14:23-07:00</td>
+                        <td>1990-01-22 12:37:32</td>
+                        <td>Sat, 01 May 1999 08:20:37 -0700</td>
+                        <td>Jan 27, 1999</td>
+                        <td>02/02/2010</td>
+                        <td>12-04-06</td>
+                        <td>545366064</td>
+                      </tr>
+                      <tr>
+                        <td>1988-03-14T11:42:05-08:00</td>
+                        <td>1992-10-11 21:13:23</td>
+                        <td>Tue, 16 Sep 2008 10:32:44 -0700</td>
+                        <td>May 28, 2012</td>
+                        <td>15/08/2003</td>
+                        <td>02-21-90</td>
+                        <td>896785729</td>
+                      </tr>
+                      <tr>
+                        <td>1983-06-01T05:28:43-07:00</td>
+                        <td>1999-07-12 06:19:13</td>
+                        <td>Tue, 16 Nov 1999 21:31:30 -0800</td>
+                        <td>Nov 30, 2008</td>
+                        <td>23/01/2004</td>
+                        <td>03-17-08</td>
+                        <td>1422578713</td>
+                      </tr>
+                      <tr>
+                        <td>1980-08-06T05:20:08-07:00</td>
+                        <td>1986-09-14 19:36:53</td>
+                        <td>Fri, 29 Oct 1999 22:21:35 -0700</td>
+                        <td>May 28, 2014</td>
+                        <td>23/01/1983</td>
+                        <td>03-13-04</td>
+                        <td>1459690948</td>
+                      </tr>
+                      <tr>
+                        <td>2014-02-15T19:50:40-08:00</td>
+                        <td>1997-11-11 15:45:24</td>
+                        <td>Tue, 07 Jun 1988 16:20:04 -0700</td>
+                        <td>Oct 17, 1992</td>
+                        <td>04/12/1993</td>
+                        <td>10-10-08</td>
+                        <td>1349969151</td>
+                      </tr>
+                      <tr>
+                        <td>2007-02-08T13:38:13-08:00</td>
+                        <td>2010-01-05 22:22:21</td>
+                        <td>Mon, 18 Sep 2025 01:18:07 -0700</td>
+                        <td>Apr 29, 1999</td>
+                        <td>16/08/1994</td>
+                        <td>06-30-84</td>
+                        <td>756326365</td>
+                      </tr>
+                      <tr>
+                        <td>2014-02-03T17:32:42-08:00</td>
+                        <td>1989-06-20 22:14:41</td>
+                        <td>Mon, 20 Apr 1981 04:11:15 -0800</td>
+                        <td>Jan 17, 1993</td>
+                        <td>16/07/2025</td>
+                        <td>09-20-15</td>
+                        <td>688566388</td>
+                      </tr>
+                      <tr>
+                        <td>2025-03-30T05:58:40-07:00</td>
+                        <td>2010-10-31 08:34:15</td>
+                        <td>Tue, 26 May 1998 19:03:54 -0700</td>
+                        <td>Jan 12, 2012</td>
+                        <td>13/08/1988</td>
+                        <td>11-27-09</td>
+                        <td>660566468</td>
+                      </tr>
+                      <tr>
+                        <td>1992-07-03T09:37:26-07:00</td>
+                        <td>1996-01-19 16:42:48</td>
+                        <td>Wed, 06 Apr 2005 16:01:04 -0700</td>
+                        <td>Aug 19, 1994</td>
+                        <td>10/10/1990</td>
+                        <td>12-03-10</td>
+                        <td>797131280</td>
+                      </tr>
+                      <tr>
+                        <td>2004-03-01T04:34:57-08:00</td>
+                        <td>1982-10-26 19:46:32</td>
+                        <td>Fri, 23 May 2008 11:31:53 -0700</td>
+                        <td>Apr 27, 2025</td>
+                        <td>30/03/2000</td>
+                        <td>09-15-13</td>
+                        <td>1012207791</td>
+                      </tr>
+                      <tr>
+                        <td>1984-01-23T01:49:39-08:00</td>
+                        <td>2003-06-12 23:12:34</td>
+                        <td>Wed, 07 May 2014 13:14:43 -0700</td>
+                        <td>May 22, 1981</td>
+                        <td>14/12/1994</td>
+                        <td>05-04-88</td>
+                        <td>411303318</td>
+                      </tr>
+                      <tr>
+                        <td>2000-02-01T08:26:03-08:00</td>
+                        <td>2013-08-17 17:08:56</td>
+                        <td>Sun, 16 Feb 2014 08:49:40 -0800</td>
+                        <td>Sep 14, 1991</td>
+                        <td>05/01/1998</td>
+                        <td>09-03-00</td>
+                        <td>1230907590</td>
+                      </tr>
+                      <tr>
+                        <td>1990-04-28T11:08:20-07:00</td>
+                        <td>2025-04-15 18:30:45</td>
+                        <td>Mon, 30 Jan 1995 17:37:31 -0800</td>
+                        <td>Nov 5, 1998</td>
+                        <td>26/10/2025</td>
+                        <td>08-04-99</td>
+                        <td>506528026</td>
+                      </tr>
+                      <tr>
+                        <td>2025-05-30T18:51:39-07:00</td>
+                        <td>2008-10-16 08:24:15</td>
+                        <td>Fri, 24 May 2002 16:37:40 -0700</td>
+                        <td>Jul 31, 2008</td>
+                        <td>05/07/1992</td>
+                        <td>10-13-08</td>
+                        <td>1469041684</td>
+                      </tr>
+                      <tr>
+                        <td>1997-09-23T16:45:18-07:00</td>
+                        <td>1980-10-18 17:44:41</td>
+                        <td>Mon, 01 May 1995 19:59:01 -0700</td>
+                        <td>Nov 4, 2000</td>
+                        <td>25/12/1989</td>
+                        <td>07-19-12</td>
+                        <td>621984653</td>
+                      </tr>
+                      <tr>
+                        <td>1995-04-29T23:03:40-07:00</td>
+                        <td>1989-10-25 12:31:30</td>
+                        <td>Tue, 15 Jan 2002 05:54:34 -0800</td>
+                        <td>Jan 6, 2004</td>
+                        <td>14/09/1988</td>
+                        <td>12-06-05</td>
+                        <td>1197629198</td>
+                      </tr>
+                      <tr>
+                        <td>1992-09-03T16:13:30-07:00</td>
+                        <td>2025-11-02 20:53:12</td>
+                        <td>Sun, 26 Oct 2008 10:23:41 -0700</td>
+                        <td>Feb 20, 2012</td>
+                        <td>24/08/1997</td>
+                        <td>10-09-90</td>
+                        <td>971030263</td>
+                      </tr>
+                      <tr>
+                        <td>1985-06-14T07:56:01-07:00</td>
+                        <td>2012-08-21 03:36:44</td>
+                        <td>Sat, 14 Jul 1990 09:55:01 -0700</td>
+                        <td>Jul 18, 2006</td>
+                        <td>02/12/1986</td>
+                        <td>07-19-10</td>
+                        <td>790694847</td>
+                      </tr>
+                      <tr>
+                        <td>2003-07-04T23:31:49-07:00</td>
+                        <td>2011-09-10 03:13:33</td>
+                        <td>Wed, 14 Apr 1999 22:22:13 -0700</td>
+                        <td>Mar 17, 2025</td>
+                        <td>04/04/1997</td>
+                        <td>02-14-17</td>
+                        <td>531923003</td>
+                      </tr>
+                      <tr>
+                        <td>2003-04-08T17:11:53-07:00</td>
+                        <td>1994-01-07 13:48:34</td>
+                        <td>Tue, 21 Nov 2000 08:27:16 -0800</td>
+                        <td>Dec 20, 1994</td>
+                        <td>10/01/2004</td>
+                        <td>09-09-12</td>
+                        <td>852109187</td>
+                      </tr>
+                      <tr>
+                        <td>2004-10-13T08:16:30-07:00</td>
+                        <td>2003-10-15 00:27:08</td>
+                        <td>Wed, 05 Nov 2008 04:29:41 -0800</td>
+                        <td>Apr 16, 2008</td>
+                        <td>15/07/2011</td>
+                        <td>06-29-89</td>
+                        <td>768738934</td>
+                      </tr>
+                      <tr>
+                        <td>2014-09-08T02:46:50-07:00</td>
+                        <td>2005-06-25 22:30:28</td>
+                        <td>Wed, 29 Aug 2007 11:36:57 -0700</td>
+                        <td>Jul 30, 2007</td>
+                        <td>14/06/2025</td>
+                        <td>12-19-82</td>
+                        <td>792021852</td>
+                      </tr>
+                      <tr>
+                        <td>2013-07-31T20:04:20-07:00</td>
+                        <td>2000-05-08 03:10:48</td>
+                        <td>Wed, 21 Aug 2002 02:44:56 -0700</td>
+                        <td>Aug 5, 1992</td>
+                        <td>12/06/1990</td>
+                        <td>01-31-09</td>
+                        <td>499082057</td>
+                      </tr>
+                      <tr>
+                        <td>1981-06-19T06:12:48-07:00</td>
+                        <td>1996-01-04 13:55:27</td>
+                        <td>Sun, 16 Apr 1995 17:10:31 -0700</td>
+                        <td>Jan 29, 2003</td>
+                        <td>17/12/2009</td>
+                        <td>09-23-01</td>
+                        <td>751381880</td>
+                      </tr>
+                      <tr>
+                        <td>1983-03-26T22:14:09-08:00</td>
+                        <td>2010-05-24 10:15:52</td>
+                        <td>Wed, 30 May 1990 04:00:23 -0700</td>
+                        <td>Nov 5, 2001</td>
+                        <td>30/06/2005</td>
+                        <td>06-27-17</td>
+                        <td>1361673368</td>
+                      </tr>
+                      <tr>
+                        <td>2007-10-27T00:12:47-07:00</td>
+                        <td>1990-03-19 14:32:54</td>
+                        <td>Wed, 15 Jul 2025 19:09:29 -0700</td>
+                        <td>Jun 9, 2009</td>
+                        <td>24/10/2002</td>
+                        <td>08-06-06</td>
+                        <td>381211783</td>
+                      </tr>
+                      <tr>
+                        <td>1986-03-01T20:03:21-08:00</td>
+                        <td>1999-11-11 15:25:57</td>
+                        <td>Wed, 12 Dec 1990 08:33:58 -0800</td>
+                        <td>Mar 30, 2009</td>
+                        <td>09/10/1996</td>
+                        <td>09-30-14</td>
+                        <td>409927546</td>
+                      </tr>
+                      <tr>
+                        <td>2008-05-23T06:42:32-07:00</td>
+                        <td>1997-09-23 09:21:44</td>
+                        <td>Tue, 21 Aug 1990 22:35:33 -0700</td>
+                        <td>Jul 13, 2002</td>
+                        <td>07/06/2006</td>
+                        <td>03-07-96</td>
+                        <td>720880299</td>
+                      </tr>
+                      <tr>
+                        <td>1988-01-08T21:13:18-08:00</td>
+                        <td>2003-08-29 15:35:34</td>
+                        <td>Wed, 04 May 1983 07:15:13 -0700</td>
+                        <td>May 3, 2001</td>
+                        <td>06/10/2025</td>
+                        <td>03-22-92</td>
+                        <td>589612117</td>
+                      </tr>
+                      <tr>
+                        <td>1985-11-28T05:00:37-08:00</td>
+                        <td>1998-02-15 10:31:39</td>
+                        <td>Wed, 17 Jul 1996 14:19:42 -0700</td>
+                        <td>Jan 16, 2006</td>
+                        <td>19/01/1982</td>
+                        <td>02-16-03</td>
+                        <td>936614487</td>
+                      </tr>
+                      <tr>
+                        <td>1998-04-16T10:01:58-07:00</td>
+                        <td>1988-09-27 12:09:21</td>
+                        <td>Sun, 31 Dec 1989 04:56:52 -0800</td>
+                        <td>Jul 1, 2006</td>
+                        <td>11/07/2025</td>
+                        <td>06-29-88</td>
+                        <td>744280097</td>
+                      </tr>
+                      <tr>
+                        <td>2001-04-26T04:45:59-07:00</td>
+                        <td>1983-12-12 01:14:03</td>
+                        <td>Tue, 10 May 1994 16:46:37 -0700</td>
+                        <td>Feb 13, 1987</td>
+                        <td>12/01/2002</td>
+                        <td>08-08-93</td>
+                        <td>1032132619</td>
+                      </tr>
+                      <tr>
+                        <td>2025-07-09T08:17:55-07:00</td>
+                        <td>1995-12-30 01:59:58</td>
+                        <td>Sun, 24 Oct 1982 08:21:14 -0700</td>
+                        <td>Jan 23, 2006</td>
+                        <td>28/09/2014</td>
+                        <td>03-20-12</td>
+                        <td>438442662</td>
+                      </tr>
+                      <tr>
+                        <td>1986-04-17T16:29:47-08:00</td>
+                        <td>1997-12-23 00:33:41</td>
+                        <td>Tue, 19 Dec 2006 08:37:27 -0800</td>
+                        <td>Apr 21, 1994</td>
+                        <td>04/03/2025</td>
+                        <td>10-28-92</td>
+                        <td>1283999369</td>
+                      </tr>
+                      <tr>
+                        <td>2001-05-28T14:42:06-07:00</td>
+                        <td>1989-07-17 21:20:24</td>
+                        <td>Thu, 03 Oct 1996 14:01:26 -0700</td>
+                        <td>Jul 11, 1998</td>
+                        <td>12/02/1996</td>
+                        <td>07-17-14</td>
+                        <td>796383797</td>
+                      </tr>
+                      <tr>
+                        <td>2010-05-10T21:56:37-07:00</td>
+                        <td>1981-11-30 23:34:05</td>
+                        <td>Sun, 20 Jan 1991 18:26:15 -0800</td>
+                        <td>May 12, 1984</td>
+                        <td>13/08/1989</td>
+                        <td>09-27-15</td>
+                        <td>1093571343</td>
+                      </tr>
+                      <tr>
+                        <td>2013-04-15T11:28:17-07:00</td>
+                        <td>2025-05-26 18:25:17</td>
+                        <td>Mon, 07 Jul 2008 21:44:42 -0700</td>
+                        <td>Jul 7, 1997</td>
+                        <td>22/01/1990</td>
+                        <td>07-25-94</td>
+                        <td>1129728454</td>
+                      </tr>
+                      <tr>
+                        <td>2011-03-21T07:49:44-07:00</td>
+                        <td>1986-10-01 15:01:21</td>
+                        <td>Tue, 02 Dec 2014 09:47:38 -0800</td>
+                        <td>Sep 2, 2014</td>
+                        <td>07/10/2009</td>
+                        <td>10-17-10</td>
+                        <td>1513973450</td>
+                      </tr>
+                      <tr>
+                        <td>1985-09-18T16:06:08-07:00</td>
+                        <td>2007-11-28 01:13:17</td>
+                        <td>Sat, 14 Dec 2013 02:28:33 -0800</td>
+                        <td>Jan 29, 2002</td>
+                        <td>30/01/1983</td>
+                        <td>03-30-02</td>
+                        <td>465440158</td>
+                      </tr>
+                      <tr>
+                        <td>1998-03-06T08:34:10-08:00</td>
+                        <td>2012-09-04 15:17:32</td>
+                        <td>Tue, 20 Sep 2005 00:58:46 -0700</td>
+                        <td>Jan 8, 2010</td>
+                        <td>11/05/1992</td>
+                        <td>05-31-92</td>
+                        <td>1252904607</td>
+                      </tr>
+                      <tr>
+                        <td>1980-10-08T17:46:35-07:00</td>
+                        <td>1984-07-06 07:49:35</td>
+                        <td>Sun, 25 May 2008 09:57:45 -0700</td>
+                        <td>Oct 14, 2011</td>
+                        <td>05/04/1996</td>
+                        <td>02-07-94</td>
+                        <td>1502652368</td>
+                      </tr>
+                      <tr>
+                        <td>1997-09-07T09:04:35-07:00</td>
+                        <td>1986-11-12 02:14:07</td>
+                        <td>Sat, 17 Apr 1993 04:28:18 -0700</td>
+                        <td>Nov 14, 2003</td>
+                        <td>23/10/1992</td>
+                        <td>11-28-83</td>
+                        <td>566372083</td>
+                      </tr>
+                      <tr>
+                        <td>1992-10-10T21:54:26-07:00</td>
+                        <td>1992-08-15 20:56:52</td>
+                        <td>Fri, 15 Nov 2013 19:02:12 -0800</td>
+                        <td>Apr 1, 2025</td>
+                        <td>24/11/2011</td>
+                        <td>04-19-15</td>
+                        <td>654883244</td>
+                      </tr>
+                      <tr>
+                        <td>2011-12-14T11:17:22-08:00</td>
+                        <td>2000-09-16 01:28:14</td>
+                        <td>Sun, 21 Nov 1999 11:32:28 -0800</td>
+                        <td>Sep 2, 1988</td>
+                        <td>01/12/1989</td>
+                        <td>02-13-09</td>
+                        <td>972417505</td>
+                      </tr>
+                      <tr>
+                        <td>1995-12-13T19:41:05-08:00</td>
+                        <td>2010-05-28 14:09:07</td>
+                        <td>Thu, 13 Nov 2014 04:04:59 -0800</td>
+                        <td>Jan 21, 1992</td>
+                        <td>28/12/1989</td>
+                        <td>02-18-90</td>
+                        <td>553737111</td>
+                      </tr>
+                      <tr>
+                        <td>1995-05-16T17:26:28-07:00</td>
+                        <td>2000-05-07 02:25:42</td>
+                        <td>Tue, 26 Oct 1999 08:25:52 -0700</td>
+                        <td>Jun 2, 2004</td>
+                        <td>03/04/1992</td>
+                        <td>04-09-99</td>
+                        <td>404504492</td>
+                      </tr>
+                      <tr>
+                        <td>2014-02-28T00:16:31-08:00</td>
+                        <td>2009-05-05 15:57:45</td>
+                        <td>Mon, 28 Apr 1986 02:59:02 -0700</td>
+                        <td>Jan 23, 1981</td>
+                        <td>03/06/1983</td>
+                        <td>04-26-94</td>
+                        <td>994880898</td>
+                      </tr>
+                      <tr>
+                        <td>1984-11-06T19:37:35-08:00</td>
+                        <td>2000-08-28 03:13:44</td>
+                        <td>Mon, 22 Mar 1982 11:49:23 -0800</td>
+                        <td>Dec 4, 1991</td>
+                        <td>02/12/2014</td>
+                        <td>11-13-94</td>
+                        <td>960682780</td>
+                      </tr>
+                      <tr>
+                        <td>1989-03-06T03:14:21-08:00</td>
+                        <td>2006-09-29 04:05:51</td>
+                        <td>Sun, 23 Oct 2005 09:06:01 -0700</td>
+                        <td>Jun 4, 2007</td>
+                        <td>10/11/1984</td>
+                        <td>10-11-81</td>
+                        <td>1444696397</td>
+                      </tr>
+                      <tr>
+                        <td>1990-06-21T22:15:34-07:00</td>
+                        <td>2002-05-23 00:48:07</td>
+                        <td>Wed, 25 Dec 2013 03:52:48 -0800</td>
+                        <td>Feb 14, 1982</td>
+                        <td>28/04/1986</td>
+                        <td>02-16-13</td>
+                        <td>1100640865</td>
+                      </tr>
+                      <tr>
+                        <td>2009-02-18T20:45:17-08:00</td>
+                        <td>2005-07-08 06:53:19</td>
+                        <td>Mon, 21 Jul 2008 12:19:24 -0700</td>
+                        <td>Mar 8, 1984</td>
+                        <td>10/03/2014</td>
+                        <td>08-29-04</td>
+                        <td>1447158214</td>
+                      </tr>
+                      <tr>
+                        <td>1987-09-16T02:54:29-07:00</td>
+                        <td>1982-08-28 04:58:50</td>
+                        <td>Tue, 15 Dec 1992 21:20:20 -0800</td>
+                        <td>Sep 7, 1998</td>
+                        <td>26/06/1984</td>
+                        <td>07-25-84</td>
+                        <td>1167747504</td>
+                      </tr>
+                      <tr>
+                        <td>2001-09-18T03:43:28-07:00</td>
+                        <td>2011-07-29 19:00:15</td>
+                        <td>Sat, 05 Nov 2005 20:41:02 -0800</td>
+                        <td>Mar 5, 2025</td>
+                        <td>06/08/2000</td>
+                        <td>01-30-10</td>
+                        <td>907753976</td>
+                      </tr>
+                      <tr>
+                        <td>1982-10-07T08:29:34-07:00</td>
+                        <td>2025-01-01 09:17:12</td>
+                        <td>Fri, 04 Dec 1998 22:59:19 -0800</td>
+                        <td>Nov 21, 2025</td>
+                        <td>10/10/2001</td>
+                        <td>11-20-02</td>
+                        <td>1087680650</td>
+                      </tr>
+                      <tr>
+                        <td>1989-11-19T07:23:39-08:00</td>
+                        <td>2025-12-04 23:21:41</td>
+                        <td>Thu, 09 Apr 1987 23:05:11 -0700</td>
+                        <td>Dec 19, 1990</td>
+                        <td>09/01/2025</td>
+                        <td>11-15-89</td>
+                        <td>1007550561</td>
+                      </tr>
+                      <tr>
+                        <td>2007-01-19T10:24:33-08:00</td>
+                        <td>2007-09-12 18:37:35</td>
+                        <td>Fri, 15 Jan 1988 08:01:15 -0800</td>
+                        <td>Dec 11, 1992</td>
+                        <td>17/12/1981</td>
+                        <td>05-15-84</td>
+                        <td>1247997030</td>
+                      </tr>
+                      <tr>
+                        <td>1981-03-04T02:11:30-08:00</td>
+                        <td>2025-07-06 01:00:20</td>
+                        <td>Fri, 10 Sep 1982 23:29:16 -0700</td>
+                        <td>Jul 23, 2005</td>
+                        <td>16/04/2025</td>
+                        <td>08-03-82</td>
+                        <td>412241977</td>
+                      </tr>
+                      <tr>
+                        <td>1987-04-04T03:55:06-08:00</td>
+                        <td>2000-06-05 23:08:42</td>
+                        <td>Wed, 16 Mar 2011 06:28:51 -0700</td>
+                        <td>Sep 8, 2013</td>
+                        <td>26/07/1995</td>
+                        <td>07-16-90</td>
+                        <td>1528912284</td>
+                      </tr>
+                      <tr>
+                        <td>2007-07-01T17:54:15-07:00</td>
+                        <td>1982-04-30 02:46:18</td>
+                        <td>Tue, 04 Jan 2000 16:39:06 -0800</td>
+                        <td>Jul 14, 2005</td>
+                        <td>06/10/2025</td>
+                        <td>02-18-11</td>
+                        <td>1102235287</td>
+                      </tr>
+                      <tr>
+                        <td>1985-10-25T00:44:19-07:00</td>
+                        <td>2012-06-02 13:39:51</td>
+                        <td>Sat, 08 Feb 2003 16:25:09 -0800</td>
+                        <td>Oct 4, 1988</td>
+                        <td>04/10/1999</td>
+                        <td>12-09-93</td>
+                        <td>1170775456</td>
+                      </tr>
+                      <tr>
+                        <td>1984-05-29T14:29:13-07:00</td>
+                        <td>2006-08-16 01:33:19</td>
+                        <td>Mon, 09 Apr 2001 12:57:28 -0700</td>
+                        <td>Nov 8, 2007</td>
+                        <td>25/05/2007</td>
+                        <td>09-27-04</td>
+                        <td>1178915549</td>
+                      </tr>
+                      <tr>
+                        <td>2012-06-19T02:43:23-07:00</td>
+                        <td>2004-11-19 19:28:01</td>
+                        <td>Wed, 26 Jan 2011 09:25:55 -0800</td>
+                        <td>Jun 27, 1982</td>
+                        <td>15/09/2002</td>
+                        <td>12-22-15</td>
+                        <td>424763754</td>
+                      </tr>
+                      <tr>
+                        <td>1992-08-30T02:31:43-07:00</td>
+                        <td>2011-12-04 16:58:24</td>
+                        <td>Mon, 12 Apr 1999 12:08:21 -0700</td>
+                        <td>May 23, 1998</td>
+                        <td>09/09/1989</td>
+                        <td>02-09-01</td>
+                        <td>1063333412</td>
+                      </tr>
+                      <tr>
+                        <td>2025-03-03T11:09:22-08:00</td>
+                        <td>2025-04-26 06:56:32</td>
+                        <td>Wed, 05 Feb 2014 18:06:44 -0800</td>
+                        <td>Jan 29, 1997</td>
+                        <td>11/05/1982</td>
+                        <td>04-22-14</td>
+                        <td>1494069173</td>
+                      </tr>
+                      <tr>
+                        <td>2009-07-06T14:51:37-07:00</td>
+                        <td>2005-07-31 14:00:30</td>
+                        <td>Sun, 05 May 1985 02:19:30 -0700</td>
+                        <td>Sep 20, 1986</td>
+                        <td>14/11/2025</td>
+                        <td>10-16-82</td>
+                        <td>425494316</td>
+                      </tr>
+                      <tr>
+                        <td>2010-06-05T02:22:52-07:00</td>
+                        <td>1983-11-26 00:30:41</td>
+                        <td>Mon, 08 Feb 2010 00:13:50 -0800</td>
+                        <td>Aug 6, 2025</td>
+                        <td>03/09/1982</td>
+                        <td>07-24-83</td>
+                        <td>1132474872</td>
+                      </tr>
+                      <tr>
+                        <td>2003-12-11T01:02:09-08:00</td>
+                        <td>2004-04-17 17:22:59</td>
+                        <td>Tue, 29 Jul 2008 18:35:35 -0700</td>
+                        <td>Sep 17, 2010</td>
+                        <td>11/07/1983</td>
+                        <td>03-27-92</td>
+                        <td>683336914</td>
+                      </tr>
+                      <tr>
+                        <td>1992-09-07T19:05:17-07:00</td>
+                        <td>2004-06-14 21:40:06</td>
+                        <td>Sat, 01 Feb 1986 06:43:34 -0800</td>
+                        <td>Oct 21, 2002</td>
+                        <td>03/12/1992</td>
+                        <td>01-22-09</td>
+                        <td>491024628</td>
+                      </tr>
+                      <tr>
+                        <td>1985-04-12T06:55:47-08:00</td>
+                        <td>1995-10-28 19:25:40</td>
+                        <td>Mon, 29 Sep 1986 10:29:15 -0700</td>
+                        <td>Aug 22, 2013</td>
+                        <td>23/05/1987</td>
+                        <td>03-30-10</td>
+                        <td>1488163985</td>
+                      </tr>
+                      <tr>
+                        <td>1996-02-08T00:41:25-08:00</td>
+                        <td>1981-10-23 05:37:50</td>
+                        <td>Mon, 14 Nov 2005 04:01:01 -0800</td>
+                        <td>Jul 14, 2006</td>
+                        <td>27/11/2011</td>
+                        <td>06-18-00</td>
+                        <td>790020757</td>
+                      </tr>
+                      <tr>
+                        <td>1982-11-10T01:01:25-08:00</td>
+                        <td>2001-05-13 08:39:35</td>
+                        <td>Wed, 12 Mar 2003 17:07:44 -0800</td>
+                        <td>May 26, 1983</td>
+                        <td>13/09/2011</td>
+                        <td>04-22-11</td>
+                        <td>846212303</td>
+                      </tr>
+                      <tr>
+                        <td>2025-09-15T21:43:58-07:00</td>
+                        <td>1987-07-26 19:05:46</td>
+                        <td>Thu, 26 May 1983 04:02:54 -0700</td>
+                        <td>Mar 17, 2012</td>
+                        <td>21/10/2002</td>
+                        <td>08-13-04</td>
+                        <td>485633547</td>
+                      </tr>
+                      <tr>
+                        <td>1983-08-26T03:18:00-07:00</td>
+                        <td>2005-11-07 22:50:23</td>
+                        <td>Mon, 02 Aug 1999 18:13:42 -0700</td>
+                        <td>Oct 28, 2001</td>
+                        <td>13/08/2009</td>
+                        <td>07-16-85</td>
+                        <td>1059643859</td>
+                      </tr>
+                      <tr>
+                        <td>1986-05-01T01:58:05-07:00</td>
+                        <td>1998-07-15 17:40:44</td>
+                        <td>Sat, 18 Sep 2010 05:07:33 -0700</td>
+                        <td>Oct 2, 2001</td>
+                        <td>02/07/1993</td>
+                        <td>12-22-01</td>
+                        <td>1370732530</td>
+                      </tr>
+                      <tr>
+                        <td>1984-10-16T12:35:13-07:00</td>
+                        <td>2012-07-27 09:20:43</td>
+                        <td>Wed, 22 Oct 1980 01:17:26 -0700</td>
+                        <td>Dec 25, 1993</td>
+                        <td>05/04/1999</td>
+                        <td>02-03-06</td>
+                        <td>1019935495</td>
+                      </tr>
+                      <tr>
+                        <td>1992-08-17T07:18:25-07:00</td>
+                        <td>1997-12-17 06:44:41</td>
+                        <td>Tue, 03 Apr 1990 16:40:26 -0700</td>
+                        <td>Mar 10, 2005</td>
+                        <td>18/02/1981</td>
+                        <td>02-01-11</td>
+                        <td>826578686</td>
+                      </tr>
+                      <tr>
+                        <td>2025-12-20T15:20:50-08:00</td>
+                        <td>2012-01-16 10:09:24</td>
+                        <td>Sat, 26 Aug 2000 03:38:49 -0700</td>
+                        <td>May 1, 2012</td>
+                        <td>11/03/2006</td>
+                        <td>01-02-13</td>
+                        <td>847762413</td>
+                      </tr>
+                      <tr>
+                        <td>1997-01-17T22:35:53-08:00</td>
+                        <td>1983-01-12 02:54:15</td>
+                        <td>Sat, 12 Jan 1985 15:22:12 -0800</td>
+                        <td>Oct 25, 2006</td>
+                        <td>04/08/1982</td>
+                        <td>07-03-89</td>
+                        <td>1322895415</td>
+                      </tr>
+                      <tr>
+                        <td>1988-02-17T16:49:39-08:00</td>
+                        <td>1983-09-24 11:23:10</td>
+                        <td>Wed, 30 Dec 1992 09:46:28 -0800</td>
+                        <td>Jan 21, 1983</td>
+                        <td>04/11/1997</td>
+                        <td>05-13-03</td>
+                        <td>474793582</td>
+                      </tr>
+                      <tr>
+                        <td>2013-05-29T15:54:03-07:00</td>
+                        <td>1984-08-23 12:04:35</td>
+                        <td>Thu, 19 Apr 1984 13:50:07 -0800</td>
+                        <td>Mar 14, 2000</td>
+                        <td>04/08/1982</td>
+                        <td>07-25-12</td>
+                        <td>1129290297</td>
+                      </tr>
+                      <tr>
+                        <td>2005-02-04T06:43:42-08:00</td>
+                        <td>1994-07-03 04:41:15</td>
+                        <td>Sat, 12 Feb 1994 23:52:24 -0800</td>
+                        <td>Aug 29, 1988</td>
+                        <td>08/08/2003</td>
+                        <td>02-04-99</td>
+                        <td>1066277541</td>
+                      </tr>
+                      <tr>
+                        <td>1994-04-27T07:34:29-07:00</td>
+                        <td>2025-04-24 11:38:30</td>
+                        <td>Mon, 24 Nov 1986 11:38:00 -0800</td>
+                        <td>Mar 20, 2025</td>
+                        <td>06/07/2006</td>
+                        <td>07-27-05</td>
+                        <td>1085900004</td>
+                      </tr>
+                      <tr>
+                        <td>2009-10-17T15:44:07-07:00</td>
+                        <td>1985-05-11 01:15:50</td>
+                        <td>Thu, 16 Aug 1990 01:30:02 -0700</td>
+                        <td>Jan 9, 1983</td>
+                        <td>29/02/1992</td>
+                        <td>06-10-85</td>
+                        <td>718192382</td>
+                      </tr>
+                      <tr>
+                        <td>1990-10-23T01:21:06-07:00</td>
+                        <td>2025-01-15 00:49:17</td>
+                        <td>Sun, 31 May 1981 18:43:13 -0700</td>
+                        <td>Jan 6, 2003</td>
+                        <td>31/01/1996</td>
+                        <td>11-06-88</td>
+                        <td>1192114903</td>
+                      </tr>
+                      <tr>
+                        <td>2000-02-08T17:44:10-08:00</td>
+                        <td>1991-06-26 11:33:19</td>
+                        <td>Fri, 20 Feb 1987 21:27:10 -0800</td>
+                        <td>Oct 20, 1989</td>
+                        <td>04/12/2013</td>
+                        <td>08-15-84</td>
+                        <td>822820973</td>
+                      </tr>
+                      <tr>
+                        <td>1983-10-12T23:57:34-07:00</td>
+                        <td>1981-10-18 00:03:12</td>
+                        <td>Mon, 14 Feb 2005 05:32:45 -0800</td>
+                        <td>Jan 31, 1989</td>
+                        <td>19/05/2025</td>
+                        <td>04-20-06</td>
+                        <td>587460720</td>
+                      </tr>
+                      <tr>
+                        <td>1999-12-15T17:31:49-08:00</td>
+                        <td>2014-07-01 12:04:56</td>
+                        <td>Thu, 31 Mar 2011 20:16:22 -0700</td>
+                        <td>Sep 15, 1992</td>
+                        <td>12/05/2006</td>
+                        <td>04-01-17</td>
+                        <td>609833456</td>
+                      </tr>
+                      <tr>
+                        <td>1986-12-31T10:34:22-08:00</td>
+                        <td>2001-10-04 06:18:49</td>
+                        <td>Fri, 06 Apr 2025 05:11:27 -0700</td>
+                        <td>Jul 1, 1994</td>
+                        <td>12/09/2006</td>
+                        <td>07-09-01</td>
+                        <td>1316507465</td>
+                      </tr>
+                      <tr>
+                        <td>1989-12-21T20:58:50-08:00</td>
+                        <td>2025-05-26 10:58:21</td>
+                        <td>Thu, 26 Mar 2025 21:13:34 -0700</td>
+                        <td>Oct 16, 1986</td>
+                        <td>12/02/1998</td>
+                        <td>09-17-84</td>
+                        <td>1183738788</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- [ basic-table ] end -->
+        </div>
+        <!-- [ Main Content ] end -->
+      </div>
+    </section>
+    <!-- [ Main Content ] end -->
+    <footer class="pc-footer">
+  <div class="footer-wrapper container-fluid">
+    <div class="row">
+      <div class="col my-1">
+        <p class="m-0">Admindek by <a href="https://dashboardpack.com/" target="_blank">DashboardPack</a></p>
+      </div>
+      <div class="col-md-auto my-1">
+        <ul class="list-inline footer-link mb-0">
+          <li class="list-inline-item"><a href="../index-2.html">Home</a></li>
+          <li class="list-inline-item"
+            ><a href="https://dashboardpack.com/docs/" target="_blank">Documentation</a></li
+          >
+          <li class="list-inline-item"><a href="https://dashboardpack.com/support/" target="_blank">Support</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</footer>
+ <!-- Required JS -->
+<script src="../assets/js/plugins/popper.min.js"></script>
+<script src="../assets/js/plugins/simplebar.min.js"></script>
+<script src="../assets/js/plugins/bootstrap.min.js"></script>
+<script src="../assets/js/plugins/i18next.min.js"></script>
+<script src="../assets/js/plugins/i18nextHttpBackend.min.js"></script>
+<script src="../assets/js/script.js"></script>
+<script src="../assets/js/theme.js"></script>
+<script src="../assets/js/multi-lang.js"></script>
+<script src="../assets/js/command-palette.js"></script>
+<script src="../assets/js/counter-animation.js"></script>
+<script src="../assets/js/progress-animation.js"></script>
+
+<!-- Theme Configuration Scripts (hardcoded based on vite.config.js values) -->
+<script>
+  layout_change('light');
+</script>
+<script>
+  change_box_container('false');
+</script>
+<script>
+  layout_caption_change('true');
+</script>
+<script>
+  layout_rtl_change('false');
+</script>
+<script>
+  preset_change('preset-1');
+</script>
+<script>
+  layout_theme_sidebar_change('false');
+</script>
+ <div class="pct-c-btn-modern">
+  <button type="button" class="customizer-trigger" data-bs-toggle="offcanvas" data-bs-target="#offcanvas_pc_layout" data-bs-toggle="tooltip" data-bs-placement="left" title="Theme Customizer">
+    <div class="trigger-icon">
+      <i class="ph ph-palette"></i>
+    </div>
+    <div class="trigger-text">Customize</div>
+  </button>
+</div>
+<div class="offcanvas border-0 pct-offcanvas-modern offcanvas-end" tabindex="-1" id="offcanvas_pc_layout">
+  <div class="customizer-header">
+    <div class="header-content">
+      <div class="header-icon">
+        <i class="ph ph-paint-brush"></i>
+      </div>
+      <div class="header-info">
+        <h5 class="customizer-title">Theme Customizer</h5>
+        <p class="customizer-subtitle">Personalize your experience</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn-reset" id="layoutreset" data-bs-toggle="tooltip" title="Reset to defaults">
+        <i class="ph ph-arrow-clockwise"></i>
+      </button>
+      <button type="button" class="btn-close-modern" data-bs-dismiss="offcanvas" aria-label="Close">
+        <i class="ph ph-x"></i>
+      </button>
+    </div>
+  </div>
+  <div class="customizer-search">
+    <div class="search-container">
+      <i class="ph ph-magnifying-glass search-icon"></i>
+      <input type="text" class="search-input" placeholder="Search settings..." id="customizer-search">
+    </div>
+  </div>
+  
+  <div class="quick-theme-toggle">
+    <div class="quick-toggle-header">
+      <h6 class="toggle-title">Theme Mode</h6>
+      <p class="toggle-subtitle">Quick switch between themes</p>
+    </div>
+    <div class="theme-mode-switcher">
+      <button class="theme-mode-btn active" data-mode="light" onclick="layout_change('light');" data-bs-toggle="tooltip" title="Light Mode">
+        <i class="ph ph-sun"></i>
+        <span>Light</span>
+      </button>
+      <button class="theme-mode-btn" data-mode="dark" onclick="layout_change('dark');" data-bs-toggle="tooltip" title="Dark Mode">
+        <i class="ph ph-moon"></i>
+        <span>Dark</span>
+      </button>
+    </div>
+  </div>
+  <div class="customizer-navigation">
+    <div class="nav-pills-modern" id="customizer-nav" role="tablist">
+      <button class="nav-pill active" id="layout-tab" data-bs-toggle="pill" data-bs-target="#layout-panel" type="button" role="tab" aria-controls="layout-panel" aria-selected="true">
+        <i class="ph ph-layout"></i>
+        <span>Layout</span>
+      </button>
+      <button class="nav-pill" id="colors-tab" data-bs-toggle="pill" data-bs-target="#colors-panel" type="button" role="tab" aria-controls="colors-panel" aria-selected="false">
+        <i class="ph ph-palette"></i>
+        <span>Colors</span>
+      </button>
+      <button class="nav-pill" id="advanced-tab" data-bs-toggle="pill" data-bs-target="#advanced-panel" type="button" role="tab" aria-controls="advanced-panel" aria-selected="false">
+        <i class="ph ph-gear-six"></i>
+        <span>Advanced</span>
+      </button>
+    </div>
+  </div>
+  <div class="customizer-content">
+    <div class="tab-content-modern" id="customizer-content">
+      <div class="tab-pane-modern fade show active" id="layout-panel" role="tabpanel" aria-labelledby="layout-tab" tabindex="0">
+        <div class="settings-group">
+          <div class="group-header">
+            <h6 class="group-title">Sidebar Configuration</h6>
+            <p class="group-description">Customize your sidebar appearance</p>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-label">Sidebar Theme</label>
+              <span class="setting-help">Choose between light and dark sidebar</span>
+            </div>
+            <div class="setting-control">
+              <div class="toggle-group">
+                <button class="toggle-option" data-value="true" onclick="layout_theme_sidebar_change('true');" data-bs-toggle="tooltip" title="Light Sidebar">
+                  <i class="ph ph-sun"></i>
+                  <span>Light</span>
+                </button>
+                <button class="toggle-option active" data-value="false" onclick="layout_theme_sidebar_change('false');" data-bs-toggle="tooltip" title="Dark Sidebar">
+                  <i class="ph ph-moon"></i>
+                  <span>Dark</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-label">Sidebar Icons</label>
+              <span class="setting-help">Show or hide navigation icons</span>
+            </div>
+            <div class="setting-control">
+              <div class="toggle-group sidebar-icons">
+                <button class="toggle-option active" data-value="true" onclick="layout_sidebar_icons_change('true');" data-bs-toggle="tooltip" title="Show Icons">
+                  <i class="ph ph-squares-four"></i>
+                  <span>Show</span>
+                </button>
+                <button class="toggle-option" data-value="false" onclick="layout_sidebar_icons_change('false');" data-bs-toggle="tooltip" title="Hide Icons">
+                  <i class="ph ph-minus-square"></i>
+                  <span>Hide</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-label">Sidebar Caption</label>
+              <span class="setting-help">Show or hide navigation captions</span>
+            </div>
+            <div class="setting-control">
+              <div class="image-toggle-group">
+                <button class="image-toggle active" data-value="true" onclick="layout_caption_change('true');" data-bs-toggle="tooltip" title="Show Captions">
+                  <img src="../assets/images/customizer/caption-on.svg" alt="Caption On" class="toggle-preview">
+                  <span class="toggle-label">Show</span>
+                </button>
+                <button class="image-toggle" data-value="false" onclick="layout_caption_change('false');" data-bs-toggle="tooltip" title="Hide Captions">
+                  <img src="../assets/images/customizer/caption-off.svg" alt="Caption Off" class="toggle-preview">
+                  <span class="toggle-label">Hide</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="setting-item pc-rtl">
+            <div class="setting-info">
+              <label class="setting-label">Text Direction</label>
+              <span class="setting-help">Left-to-right or right-to-left layout</span>
+            </div>
+            <div class="setting-control">
+              <div class="image-toggle-group">
+                <button class="image-toggle active" data-value="false" onclick="layout_rtl_change('false');" data-bs-toggle="tooltip" title="Left to Right">
+                  <img src="../assets/images/customizer/ltr.svg" alt="LTR" class="toggle-preview">
+                  <span class="toggle-label">LTR</span>
+                </button>
+                <button class="image-toggle" data-value="true" onclick="layout_rtl_change('true');" data-bs-toggle="tooltip" title="Right to Left">
+                  <img src="../assets/images/customizer/rtl.svg" alt="RTL" class="toggle-preview">
+                  <span class="toggle-label">RTL</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="setting-item pc-box-width">
+            <div class="setting-info">
+              <label class="setting-label">Layout Width</label>
+              <span class="setting-help">Container width configuration</span>
+            </div>
+            <div class="setting-control">
+              <div class="image-toggle-group">
+                <button class="image-toggle active" data-value="false" onclick="change_box_container('false')" data-bs-toggle="tooltip" title="Full Width Layout">
+                  <img src="../assets/images/customizer/full.svg" alt="Full Width" class="toggle-preview">
+                  <span class="toggle-label">Full</span>
+                </button>
+                <button class="image-toggle" data-value="true" onclick="change_box_container('true')" data-bs-toggle="tooltip" title="Fixed Width Layout">
+                  <img src="../assets/images/customizer/fixed.svg" alt="Fixed Width" class="toggle-preview">
+                  <span class="toggle-label">Fixed</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane-modern fade" id="colors-panel" role="tabpanel" aria-labelledby="colors-tab" tabindex="0">
+        <div class="settings-group">
+          <div class="group-header">
+            <h6 class="group-title">Theme Colors</h6>
+            <p class="group-description">Customize your color scheme</p>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-label">Primary Color</label>
+              <span class="setting-help">Choose your main brand color</span>
+            </div>
+            <div class="setting-control">
+              <div class="color-palette preset-color">
+                <button class="color-swatch-small active" data-bs-toggle="tooltip" title="Ocean Blue" data-value="preset-1">
+                  <span class="color-preview-small" style="background: #4680ff;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Royal Purple" data-value="preset-2">
+                  <span class="color-preview-small" style="background: #7c4dff;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Rose Pink" data-value="preset-3">
+                  <span class="color-preview-small" style="background: #e91e63;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Crimson Red" data-value="preset-4">
+                  <span class="color-preview-small" style="background: #dc2626;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Vibrant Orange" data-value="preset-5">
+                  <span class="color-preview-small" style="background: #ff9800;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Golden Yellow" data-value="preset-6">
+                  <span class="color-preview-small" style="background: #ffd54f;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Forest Green" data-value="preset-7">
+                  <span class="color-preview-small" style="background: #4caf50;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Aqua Cyan" data-value="preset-8">
+                  <span class="color-preview-small" style="background: #00bcd4;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+              </div>
+              <button class="reset-color-btn" data-target="preset-color" data-bs-toggle="tooltip" title="Reset to default">
+                <i class="ph ph-arrow-clockwise"></i>
+                <span>Reset to Default</span>
+              </button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-label">Header Theme</label>
+              <span class="setting-help">Customize header background color</span>
+            </div>
+            <div class="setting-control">
+              <div class="color-palette header-color">
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Ocean Blue" data-value="preset-1">
+                  <span class="color-preview-small" style="background: #4680ff;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Royal Purple" data-value="preset-2">
+                  <span class="color-preview-small" style="background: #7c4dff;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Rose Pink" data-value="preset-3">
+                  <span class="color-preview-small" style="background: #e91e63;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Crimson Red" data-value="preset-4">
+                  <span class="color-preview-small" style="background: #dc2626;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Vibrant Orange" data-value="preset-5">
+                  <span class="color-preview-small" style="background: #ff9800;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Golden Yellow" data-value="preset-6">
+                  <span class="color-preview-small" style="background: #ffd54f;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Forest Green" data-value="preset-7">
+                  <span class="color-preview-small" style="background: #4caf50;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Aqua Cyan" data-value="preset-8">
+                  <span class="color-preview-small" style="background: #00bcd4;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+              </div>
+              <button class="reset-color-btn" data-target="header-color" data-bs-toggle="tooltip" title="Reset to default">
+                <i class="ph ph-arrow-clockwise"></i>
+                <span>Reset to Default</span>
+              </button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-label">Navbar Theme</label>
+              <span class="setting-help">Customize navigation bar colors</span>
+            </div>
+            <div class="setting-control">
+              <div class="color-palette navbar-color">
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Ocean Blue" data-value="preset-1">
+                  <span class="color-preview-small" style="background: #4680ff;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Royal Purple" data-value="preset-2">
+                  <span class="color-preview-small" style="background: #7c4dff;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Rose Pink" data-value="preset-3">
+                  <span class="color-preview-small" style="background: #e91e63;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Crimson Red" data-value="preset-4">
+                  <span class="color-preview-small" style="background: #dc2626;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Vibrant Orange" data-value="preset-5">
+                  <span class="color-preview-small" style="background: #ff9800;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Golden Yellow" data-value="preset-6">
+                  <span class="color-preview-small" style="background: #ffd54f;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Forest Green" data-value="preset-7">
+                  <span class="color-preview-small" style="background: #4caf50;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Aqua Cyan" data-value="preset-8">
+                  <span class="color-preview-small" style="background: #00bcd4;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+              </div>
+              <button class="reset-color-btn" data-target="navbar-color" data-bs-toggle="tooltip" title="Reset to default">
+                <i class="ph ph-arrow-clockwise"></i>
+                <span>Reset to Default</span>
+              </button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-label">Logo Theme</label>
+              <span class="setting-help">Brand logo area customization</span>
+            </div>
+            <div class="setting-control">
+              <div class="color-palette logo-color">
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Ocean Blue" data-value="preset-1">
+                  <span class="color-preview-small" style="background: #4680ff;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Royal Purple" data-value="preset-2">
+                  <span class="color-preview-small" style="background: #7c4dff;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Rose Pink" data-value="preset-3">
+                  <span class="color-preview-small" style="background: #e91e63;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Crimson Red" data-value="preset-4">
+                  <span class="color-preview-small" style="background: #dc2626;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Vibrant Orange" data-value="preset-5">
+                  <span class="color-preview-small" style="background: #ff9800;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Golden Yellow" data-value="preset-6">
+                  <span class="color-preview-small" style="background: #ffd54f;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Forest Green" data-value="preset-7">
+                  <span class="color-preview-small" style="background: #4caf50;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Aqua Cyan" data-value="preset-8">
+                  <span class="color-preview-small" style="background: #00bcd4;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+              </div>
+              <button class="reset-color-btn" data-target="logo-color" data-bs-toggle="tooltip" title="Reset to default">
+                <i class="ph ph-arrow-clockwise"></i>
+                <span>Reset to Default</span>
+              </button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-label">Caption Colors</label>
+              <span class="setting-help">Navigation caption text colors</span>
+            </div>
+            <div class="setting-control">
+              <div class="color-palette caption-color">
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Ocean Blue" data-value="preset-1">
+                  <span class="color-preview-small" style="background: #4680ff;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Royal Purple" data-value="preset-2">
+                  <span class="color-preview-small" style="background: #7c4dff;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Rose Pink" data-value="preset-3">
+                  <span class="color-preview-small" style="background: #e91e63;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Crimson Red" data-value="preset-4">
+                  <span class="color-preview-small" style="background: #dc2626;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Vibrant Orange" data-value="preset-5">
+                  <span class="color-preview-small" style="background: #ff9800;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Golden Yellow" data-value="preset-6">
+                  <span class="color-preview-small" style="background: #ffd54f;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Forest Green" data-value="preset-7">
+                  <span class="color-preview-small" style="background: #4caf50;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+                <button class="color-swatch-small" data-bs-toggle="tooltip" title="Aqua Cyan" data-value="preset-8">
+                  <span class="color-preview-small" style="background: #00bcd4;"></span>
+                  <i class="ph ph-check color-check"></i>
+                </button>
+              </div>
+              <button class="reset-color-btn" data-target="caption-color" data-bs-toggle="tooltip" title="Reset to default">
+                <i class="ph ph-arrow-clockwise"></i>
+                <span>Reset to Default</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane-modern fade" id="advanced-panel" role="tabpanel" aria-labelledby="advanced-tab" tabindex="0">
+        <div class="settings-group">
+          <div class="group-header">
+            <h6 class="group-title">Advanced Settings</h6>
+            <p class="group-description">Fine-tune interface details</p>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-label">Dropdown Menu Icons</label>
+              <span class="setting-help">Choose icons for expandable menus</span>
+            </div>
+            <div class="setting-control">
+              <div class="icon-selector drp-menu-icon">
+                <button class="icon-option active" data-value="preset-1" data-bs-toggle="tooltip" title="Chevron Right">
+                  <i class="ti ti-chevron-right"></i>
+                </button>
+                <button class="icon-option" data-value="preset-2" data-bs-toggle="tooltip" title="Double Chevron">
+                  <i class="ti ti-chevrons-right"></i>
+                </button>
+                <button class="icon-option" data-value="preset-3" data-bs-toggle="tooltip" title="Caret Right">
+                  <i class="ti ti-caret-right"></i>
+                </button>
+                <button class="icon-option" data-value="preset-4" data-bs-toggle="tooltip" title="Plus Circle">
+                  <i class="ti ti-circle-plus"></i>
+                </button>
+                <button class="icon-option" data-value="preset-5" data-bs-toggle="tooltip" title="Plus">
+                  <i class="ti ti-plus"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-label">Link Indicators</label>
+              <span class="setting-help">Icons for menu link items</span>
+            </div>
+            <div class="setting-control">
+              <div class="icon-selector drp-menu-link-icon">
+                <button class="icon-option active" data-value="preset-1" data-bs-toggle="tooltip" title="No Icon">
+                  <span class="no-icon">None</span>
+                </button>
+                <button class="icon-option" data-value="preset-2" data-bs-toggle="tooltip" title="Arrow Right">
+                  <i class="ti ti-arrow-narrow-right"></i>
+                </button>
+                <button class="icon-option" data-value="preset-3" data-bs-toggle="tooltip" title="Chevron Right">
+                  <i class="ti ti-chevron-right"></i>
+                </button>
+                <button class="icon-option" data-value="preset-4" data-bs-toggle="tooltip" title="Double Chevron">
+                  <i class="ti ti-chevrons-right"></i>
+                </button>
+                <button class="icon-option" data-value="preset-5" data-bs-toggle="tooltip" title="Corner Down">
+                  <i class="ti ti-corner-down-right"></i>
+                </button>
+                <button class="icon-option" data-value="preset-6" data-bs-toggle="tooltip" title="Dash">
+                  <i class="ti ti-minus"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+    <!-- [Page Specific JS] start -->
+    <script src="../assets/js/plugins/simple-datatables.js"></script>
+    <script>
+      var datatable = new simpleDatatables.DataTable('#pc-dt-satetime-sorting', {
+        columns: [
+          {
+            select: 2,
+            type: 'date',
+            format: 'RFC_2822'
+          },
+          {
+            select: 3,
+            type: 'date',
+            format: 'MMM DD, YYYY'
+          }
+        ]
+      });
+    </script>
+    <!-- [Page Specific JS] end -->
+  </body>
+  <!-- [Body] end -->
+
+<!-- Mirrored from demo.dashboardpack.com/admindek-html/table/tbl_dt-datetime-sorting.html by HTTrack Website Copier/3.x [XR&CO'2014], Thu, 30 Apr 2026 17:18:28 GMT -->
+</html>

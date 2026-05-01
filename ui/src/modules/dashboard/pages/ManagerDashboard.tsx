@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
 import { getManagerDashboardSummary, getManagerTasksByStatus, type DashboardTask } from '../api/dashboardApi'
 
