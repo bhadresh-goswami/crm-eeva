@@ -89,7 +89,6 @@ class TaskController {
                 ta.user_id = ?{$teamVisibilityPredicate}
             )
               AND LOWER(REPLACE(COALESCE(ts.name, ''), ' ', '_')) IN ('assigned', 'in_progress', 'completed')
-              AND ta.is_active = 1
         ";
 
         $params = [(int)$user_id, (int)$user_id];
@@ -109,7 +108,7 @@ class TaskController {
         }
 
         if ($activeOnly) {
-            $query .= " AND LOWER(REPLACE(COALESCE(ts.name, ''), ' ', '_')) = 'in_progress'";
+            $query .= " AND LOWER(REPLACE(COALESCE(ts.name, ''), ' ', '_')) = 'in_progress' AND ta.is_active = 1";
         }
 
         $query .= " ORDER BY t.due_date ASC, t.start_time ASC, t.id DESC";
