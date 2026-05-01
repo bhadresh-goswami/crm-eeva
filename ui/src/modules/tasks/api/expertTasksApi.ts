@@ -40,8 +40,23 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   file_url: String(item.file_url ?? '').trim(),
 })
 
-export const getExpertTasks = async ({ activeOnly = false }: { activeOnly?: boolean } = {}) => {
-  const endpoint = activeOnly ? '/expert/tasks?active_only=1' : '/expert/tasks'
+export const getExpertTasks = async ({
+  activeOnly = false,
+  status,
+  fromDate,
+  toDate,
+}: {
+  activeOnly?: boolean
+  status?: string
+  fromDate?: string
+  toDate?: string
+} = {}) => {
+  const params = new URLSearchParams()
+  if (activeOnly) params.set('active_only', '1')
+  if (status) params.set('status', status)
+  if (fromDate) params.set('from_date', fromDate)
+  if (toDate) params.set('to_date', toDate)
+  const endpoint = params.toString() ? `/expert/tasks?${params.toString()}` : '/expert/tasks'
   const response = await apiRequest<{ data?: unknown[] }>(endpoint)
   const list = Array.isArray(response?.data) ? response.data : []
 
