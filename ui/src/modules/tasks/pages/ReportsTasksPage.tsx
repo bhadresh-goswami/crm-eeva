@@ -61,33 +61,37 @@ const ReportsTasksPage = () => {
 
   return (
     <PageContainer title="Task Reports" description="Role-based reporting across task status, schedule and assignments.">
-      <section className="card section p-4">
-        <div className="row g-3 align-items-end">
-          <div className="col-12 col-md-6 col-lg-3">
-            <label className="form-label fw-semibold d-block mb-2">Status</label>
-            <select className="form-select" value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="">All</option>
-              <option value="completed">completed</option>
-              <option value="pending">pending</option>
-              <option value="cancelled">cancelled</option>
-              <option value="assigned">assigned</option>
-            </select>
-          </div>
-          <div className="col-12 col-md-6 col-lg-3">
-            <label className="form-label fw-semibold d-block mb-2">From Date</label>
-            <input className="form-control" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
-          </div>
-          <div className="col-12 col-md-6 col-lg-3">
-            <label className="form-label fw-semibold d-block mb-2">To Date</label>
-            <input className="form-control" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
-          </div>
-          <div className="col-12 col-md-6 col-lg-2 d-grid">
-            <button className="btn btn-primary" onClick={() => void load()} disabled={loading}>
-              {loading ? 'Loading...' : 'Apply'}
-            </button>
+      <div className="card shadow-sm mb-4">
+        <div className="card-body">
+          <div className="row g-3 align-items-end">
+            <div className="col-md-3">
+              <label className="form-label fw-semibold">Status</label>
+              <select className="form-select" value={status} onChange={(event) => setStatus(event.target.value)}>
+                <option value="">All</option>
+                <option value="assigned">Assigned</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            <div className="col-md-3">
+              <label className="form-label fw-semibold">From Date</label>
+              <input type="date" className="form-control" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+            </div>
+
+            <div className="col-md-3">
+              <label className="form-label fw-semibold">To Date</label>
+              <input type="date" className="form-control" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+            </div>
+
+            <div className="col-md-3 d-grid">
+              <button className="btn btn-primary fw-semibold" onClick={() => void load()} disabled={loading}>
+                {loading ? 'Loading...' : 'Apply Filter'}
+              </button>
+            </div>
           </div>
         </div>
-      </section>
+      </div>
 
       <section className="card section p-3">
         <div className="d-flex flex-wrap gap-2">
