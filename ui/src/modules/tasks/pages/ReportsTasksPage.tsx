@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
-import { getTaskAssignmentReport, getTaskReport, type TaskRecord } from '../api/tasksApi'
+import { getTaskAssignmentReport, getTaskReport, getTaskTypes, type TaskRecord, type TaskTypeOption } from '../api/tasksApi'
 import { getExpertTasks } from '../api/expertTasksApi'
 import { useAuth } from '../../../context/AuthContext'
 
@@ -12,6 +12,8 @@ const ReportsTasksPage = () => {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [assigneeFilter, setAssigneeFilter] = useState('all')
+  const [taskTypeId, setTaskTypeId] = useState('')
+  const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([])
   const { user } = useAuth()
   const role = String(user?.role ?? '').toLowerCase()
   const isExpertRole = ['expert', 'technical expert', 'expertlead', 'technical lead'].includes(role)
@@ -27,6 +29,7 @@ const ReportsTasksPage = () => {
           status: status || undefined,
           fromDate: fromDate || undefined,
           toDate: toDate || undefined,
+          taskTypeId: taskTypeId ? Number(taskTypeId) : undefined,
         })
 
         const mappedRows: TaskRecord[] = expertRows.map((row) => ({
@@ -60,7 +63,7 @@ const ReportsTasksPage = () => {
         setTasks(mappedRows)
       } else {
         const [taskRows, assignmentRows] = await Promise.all([
-          getTaskReport({ status: status || undefined, from_date: fromDate || undefined, to_date: toDate || undefined }),
+          getTaskReport({ status: status || undefined, from_date: fromDate || undefined, to_date: toDate || undefined, task_type_id: taskTypeId ? Number(taskTypeId) : undefined }),
           getTaskAssignmentReport({ status: status || undefined, from_date: fromDate || undefined, to_date: toDate || undefined }),
         ])
 
@@ -85,6 +88,7 @@ const ReportsTasksPage = () => {
 
   useEffect(() => {
     void load()
+    void getTaskTypes().then(setTaskTypes).catch(() => setTaskTypes([]))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -158,6 +162,17 @@ const ReportsTasksPage = () => {
                 <option value="completed">Completed</option>
                 <option value="pending">Pending</option>
                 <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+
+
+            <div className="col-md-3">
+              <label className="form-label fw-semibold">Task Type</label>
+              <select className="form-select" value={taskTypeId} onChange={(event) => setTaskTypeId(event.target.value)}>
+                <option value="">All Types</option>
+                {taskTypes.map((type) => (
+                  <option key={type.id} value={String(type.id)}>{type.name}</option>
+                ))}
               </select>
             </div>
 

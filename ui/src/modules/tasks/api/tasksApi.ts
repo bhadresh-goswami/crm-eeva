@@ -551,6 +551,7 @@ export const getTaskReport = async (query: {
   client_id?: number
   candidate_id?: number
   assigned_user_id?: number
+  task_type_id?: number
 } = {}) => {
   const params = new URLSearchParams()
   if (query.status) params.set('status', query.status)
@@ -559,6 +560,7 @@ export const getTaskReport = async (query: {
   if (query.client_id) params.set('client_id', String(query.client_id))
   if (query.candidate_id) params.set('candidate_id', String(query.candidate_id))
   if (query.assigned_user_id) params.set('assigned_user_id', String(query.assigned_user_id))
+  if (query.task_type_id) params.set('task_type_id', String(query.task_type_id))
   const endpoint = params.toString() ? `/reports/tasks?${params.toString()}` : '/reports/tasks'
   const response = await apiRequest<unknown>(endpoint)
   return getList(response)

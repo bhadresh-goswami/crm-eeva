@@ -22,11 +22,11 @@ class TaskController {
         $status = strtolower(trim((string)($_GET['status'] ?? '')));
         $fromDate = trim((string)($_GET['from_date'] ?? ''));
         $toDate = trim((string)($_GET['to_date'] ?? ''));
+        $taskTypeId = (int)($_GET['task_type_id'] ?? 0);
 
-        $allowedStatuses = ['assigned', 'in_progress', 'completed'];
-        if ($status !== '' && !in_array($status, $allowedStatuses, true)) {
-            $status = '';
-        }
+        $hasValidFromDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromDate) === 1;
+        $hasValidToDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $toDate) === 1;
+        $applyDateRange = $hasValidFromDate && $hasValidToDate && strtotime($fromDate) <= strtotime($toDate);
 
         $hasValidFromDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromDate) === 1;
         $hasValidToDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $toDate) === 1;
@@ -91,7 +91,6 @@ class TaskController {
             WHERE (
                 ta.user_id = ?{$teamVisibilityPredicate}
             )
-              AND LOWER(REPLACE(COALESCE(ts.name, ''), ' ', '_')) IN ('assigned', 'in_progress', 'completed')
         ";
 
         $params = [(int)$user_id, (int)$user_id];
@@ -108,6 +107,11 @@ class TaskController {
             $query .= " AND t.due_date BETWEEN ? AND ?";
             $params[] = $fromDate;
             $params[] = $toDate;
+        }
+
+        if ($taskTypeId > 0) {
+            $query .= " AND t.task_type_id = ?";
+            $params[] = $taskTypeId;
         }
 
         if ($activeOnly) {

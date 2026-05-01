@@ -51,17 +51,20 @@ export const getExpertTasks = async ({
   status,
   fromDate,
   toDate,
+  taskTypeId,
 }: {
   activeOnly?: boolean
   status?: string
   fromDate?: string
   toDate?: string
+  taskTypeId?: number
 } = {}) => {
   const params = new URLSearchParams()
   if (activeOnly) params.set('active_only', '1')
   if (status) params.set('status', status)
   if (fromDate) params.set('from_date', fromDate)
   if (toDate) params.set('to_date', toDate)
+  if (taskTypeId && taskTypeId > 0) params.set('task_type_id', String(taskTypeId))
   const endpoint = params.toString() ? `/expert/tasks?${params.toString()}` : '/expert/tasks'
   const response = await apiRequest<{ data?: unknown[] }>(endpoint)
   const list = Array.isArray(response?.data) ? response.data : []
