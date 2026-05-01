@@ -63,6 +63,8 @@ class TaskController {
                 t.due_date,
                 t.start_time,
                 t.end_time,
+                t.task_start_time,
+                t.task_end_time,
                 COALESCE(t.duration, 0) AS duration,
                 COALESCE(tt.name, '') AS support_type,
                 t.status_id,

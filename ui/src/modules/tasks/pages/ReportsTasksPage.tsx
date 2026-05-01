@@ -45,6 +45,8 @@ const ReportsTasksPage = () => {
           time_start: row.start_time,
           time_end: row.end_time,
           duration: Number(row.duration ?? 0),
+          task_start_time: row.task_start_time,
+          task_end_time: row.task_end_time,
           total_amount: 0,
           payment_mode: '',
           payment_status: '',
@@ -119,6 +121,20 @@ const ReportsTasksPage = () => {
     assigned: tasks.filter((task) => task.status === 'assigned').length,
     cancelled: tasks.filter((task) => task.status === 'cancelled').length,
   }), [tasks])
+
+
+  const formatTime = (datetime?: string) => {
+    if (!datetime) return '--'
+
+    const date = new Date(datetime)
+    if (Number.isNaN(date.getTime())) return '--'
+
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    })
+  }
 
   const formatTimeValue = (value: string) => {
     if (!value) return '-'
@@ -229,9 +245,13 @@ const ReportsTasksPage = () => {
                     <td>{formatTimeValue(task.time_end) || '--'}</td>
 
                     <td>
-                      {task.time_start && task.time_end
-                        ? `${formatTimeValue(task.time_start)} / ${formatTimeValue(task.time_end)}`
-                        : '-- / --'}
+                      {(task.task_start_time || task.task_end_time) ? (
+                        <>
+                          {formatTime(task.task_start_time)} / {formatTime(task.task_end_time)}
+                        </>
+                      ) : (
+                        '-- / --'
+                      )}
                     </td>
 
                     <td>{Number.isFinite(task.duration) && task.duration > 0 ? `${task.duration} mins` : '--'}</td>
