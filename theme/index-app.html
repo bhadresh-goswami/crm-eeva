@@ -1173,9 +1173,7 @@
 </div>
 <!-- [ Command Palette ] end -->
 
-
-
-    <!-- [ Main Content ] start -->
+   <!-- [ Main Content ] start -->
     <div class="pc-container">
       <div class="pc-content">
         <!-- [ breadcrumb ] start -->
@@ -1200,879 +1198,302 @@
 <!-- [ breadcrumb ] end -->
 
         <!-- [ Main Content ] start -->
-        <div class="row">
-          <!-- [ Enhanced KPI Cards ] start -->
-          <div class="col-md-6 col-xl-3">
-            <div class="card bg-primary">
-              <div class="card-body">
-                <div class="d-flex align-items-center">
-                  <div class="flex-grow-1">
-                    <h6 class="mb-2 text-white">Total Revenue</h6>
-                    <h3 class="text-white mb-0 f-w-300">$847,290</h3>
-                    <p class="text-white-50 mb-0">
-                      <i class="ph ph-arrow-up me-1"></i>
-                      +12.5% from last month
-                    </p>
-                  </div>
-                  <div class="flex-shrink-0">
-                    <div id="total-revenue-chart" style="height: 50px; width: 80px;"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="card bg-success">
-              <div class="card-body">
-                <div class="d-flex align-items-center">
-                  <div class="flex-grow-1">
-                    <h6 class="mb-2 text-white">Active Users</h6>
-                    <h3 class="text-white mb-0 f-w-300">24,689</h3>
-                    <p class="text-white-50 mb-0">
-                      <i class="ph ph-arrow-up me-1"></i>
-                      +8.2% from last week
-                    </p>
-                  </div>
-                  <div class="flex-shrink-0">
-                    <div id="active-users-chart" style="height: 50px; width: 80px;"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="card bg-warning">
-              <div class="card-body">
-                <div class="d-flex align-items-center">
-                  <div class="flex-grow-1">
-                    <h6 class="mb-2 text-white">Orders</h6>
-                    <h3 class="text-white mb-0 f-w-300">1,847</h3>
-                    <p class="text-white-50 mb-0">
-                      <i class="ph ph-arrow-down me-1"></i>
-                      -2.1% from yesterday
-                    </p>
-                  </div>
-                  <div class="flex-shrink-0">
-                    <div id="orders-chart" style="height: 50px; width: 80px;"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6 col-xl-3">
-            <div class="card bg-info">
-              <div class="card-body">
-                <div class="d-flex align-items-center">
-                  <div class="flex-grow-1">
-                    <h6 class="mb-2 text-white">Conversion Rate</h6>
-                    <h3 class="text-white mb-0 f-w-300">3.47%</h3>
-                    <p class="text-white-50 mb-0">
-                      <i class="ph ph-arrow-up me-1"></i>
-                      +0.3% from last month
-                    </p>
-                  </div>
-                  <div class="flex-shrink-0">
-                    <div id="conversion-chart" style="height: 50px; width: 80px;"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- [ Enhanced KPI Cards ] end -->
+<div class="row">
 
-          <!-- [ Real-time Analytics ] start -->
-          <div class="col-xl-8">
-            <div class="card">
-              <div class="card-header d-flex align-items-center justify-content-between">
-                <h5>Real-time Analytics</h5>
-                <div class="btn-group" role="group">
-                  <button type="button" class="btn btn-outline-primary btn-sm">7D</button>
-                  <button type="button" class="btn btn-primary btn-sm">30D</button>
-                  <button type="button" class="btn btn-outline-primary btn-sm">90D</button>
-                </div>
-              </div>
-              <div class="card-body">
-                <div class="row mb-3">
-                  <div class="col-6">
-                    <div class="d-flex align-items-center">
-                      <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
-                        <i class="ph ph-users text-white f-18"></i>
-                      </div>
-                      <div>
-                        <h6 class="mb-0">Sessions</h6>
-                        <h4 class="mb-0 f-w-300">47,829</h4>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="col-6">
-                    <div class="d-flex align-items-center">
-                      <div class="bg-success rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
-                        <i class="ph ph-chart-line-up text-white f-18"></i>
-                      </div>
-                      <div>
-                        <h6 class="mb-0">Page Views</h6>
-                        <h4 class="mb-0 f-w-300">186,247</h4>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div id="real-time-chart" style="height: 350px;"></div>
-              </div>
-            </div>
-          </div>
-          <!-- [ Real-time Analytics ] end -->
+<!-- ===================== KPI CARDS ===================== -->
+<div class="col-md-6 col-xl-3">
+  <div class="card bg-primary">
+    <div class="card-body d-flex justify-content-between align-items-center">
+      <div>
+        <h6 class="text-white mb-2">Total Revenue</h6>
+        <h3 class="text-white mb-0 f-w-300">₹847,290</h3>
+        <p class="text-white-50 mb-0">↑ +12.5% from last month</p>
+      </div>
+      <div id="chart-revenue" style="height:50px;width:80px;"></div>
+    </div>
+  </div>
+</div>
 
-          <!-- [ Device Analytics ] start -->
-          <div class="col-xl-4">
-            <div class="card">
-              <div class="card-header">
-                <h5>Device Analytics</h5>
-              </div>
-              <div class="card-body">
-                <div id="device-chart" style="height: 200px;"></div>
-                <div class="row mt-3">
-                  <div class="col-12 pt-3 pb-3 border-top">
-                    <div class="d-flex align-items-center justify-content-between">
-                      <span class="d-flex align-items-center">
-                        <i class="ph ph-desktop text-primary me-2 f-18"></i>
-                        Desktop
-                      </span>
-                      <span class="fw-bold">45.8%</span>
-                    </div>
-                    <div class="progress mt-2" style="height: 4px;">
-                      <div class="progress-bar bg-primary" style="width: 45.8%"></div>
-                    </div>
-                  </div>
-                  <div class="col-12 pt-3 pb-3 border-top">
-                    <div class="d-flex align-items-center justify-content-between">
-                      <span class="d-flex align-items-center">
-                        <i class="ph ph-device-mobile text-success me-2 f-18"></i>
-                        Mobile
-                      </span>
-                      <span class="fw-bold">38.7%</span>
-                    </div>
-                    <div class="progress mt-2" style="height: 4px;">
-                      <div class="progress-bar bg-success" style="width: 38.7%"></div>
-                    </div>
-                  </div>
-                  <div class="col-12 pt-3 border-top">
-                    <div class="d-flex align-items-center justify-content-between">
-                      <span class="d-flex align-items-center">
-                        <i class="ph ph-device-tablet text-warning me-2 f-18"></i>
-                        Tablet
-                      </span>
-                      <span class="fw-bold">15.5%</span>
-                    </div>
-                    <div class="progress mt-2" style="height: 4px;">
-                      <div class="progress-bar bg-warning" style="width: 15.5%"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- [ Device Analytics ] end -->
+<div class="col-md-6 col-xl-3">
+  <div class="card bg-info">
+    <div class="card-body d-flex justify-content-between align-items-center">
+      <div>
+        <h6 class="text-white mb-2">Pending Tasks</h6>
+        <h3 class="text-white mb-0 f-w-300">24,689</h3>
+        <p class="text-white-50 mb-0">↑ +8.2% from last week</p>
+      </div>
+      <div id="chart-tasks" style="height:50px;width:80px;"></div>
+    </div>
+  </div>
+</div>
 
-          <!-- [ Interactive World Map ] start -->
-          <div class="col-xl-8">
-            <div class="card">
-              <div class="card-header d-flex align-items-center justify-content-between">
-                <h5>Global User Distribution</h5>
-                <div class="dropdown">
-                  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                    Last 30 Days
-                  </button>
-                  <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#">Last 7 Days</a></li>
-                    <li><a class="dropdown-item" href="#">Last 30 Days</a></li>
-                    <li><a class="dropdown-item" href="#">Last 90 Days</a></li>
-                  </ul>
-                </div>
-              </div>
-              <div class="card-body">
-                <div class="row mb-3">
-                  <div class="col-3 text-center">
-                    <h4 class="mb-0 text-primary">24.5K</h4>
-                    <span class="text-muted">USA</span>
-                  </div>
-                  <div class="col-3 text-center">
-                    <h4 class="mb-0 text-success">18.2K</h4>
-                    <span class="text-muted">Europe</span>
-                  </div>
-                  <div class="col-3 text-center">
-                    <h4 class="mb-0 text-warning">12.8K</h4>
-                    <span class="text-muted">Asia</span>
-                  </div>
-                  <div class="col-3 text-center">
-                    <h4 class="mb-0 text-info">8.1K</h4>
-                    <span class="text-muted">Others</span>
-                  </div>
-                </div>
-                <div id="world-low" style="height: 350px"></div>
-              </div>
-            </div>
-          </div>
-          <!-- [ Interactive World Map ] end -->
+<div class="col-md-6 col-xl-3">
+  <div class="card bg-success">
+    <div class="card-body d-flex justify-content-between align-items-center">
+      <div>
+        <h6 class="text-white mb-2">Pending</h6>
+        <h3 class="text-white mb-0 f-w-300">1,847</h3>
+        <p class="text-white-50 mb-0">↓ -2.1% from yesterday</p>
+      </div>
+      <div id="chart-payment" style="height:50px;width:80px;"></div>
+    </div>
+  </div>
+</div>
 
-          <!-- [ Sentiment Analysis & Quick Stats ] start -->
-          <div class="col-xl-4">
-            <div class="card mb-3">
-              <div class="card-header">
-                <h5>Customer Sentiment</h5>
-              </div>
-              <div class="card-body">
-                <div class="row text-center">
-                  <div class="col-6">
-                    <h6 class="text-danger mb-3">NEGATIVE</h6>
-                    <div id="sadball" style="height: 80px;"></div>
-                    <h4 class="mt-2 text-danger">24%</h4>
-                    <span class="text-muted">287 Reviews</span>
-                  </div>
-                  <div class="col-6">
-                    <h6 class="text-success mb-3">POSITIVE</h6>
-                    <div id="happyball" style="height: 80px;"></div>
-                    <h4 class="mt-2 text-success">76%</h4>
-                    <span class="text-muted">892 Reviews</span>
-                  </div>
-                </div>
-                <button class="btn btn-primary btn-sm w-100 mt-3">View All Reviews</button>
-              </div>
-            </div>
-            
-            <div class="card">
-              <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                  <h6 class="mb-0">Server Performance</h6>
-                  <span class="badge bg-success">Optimal</span>
-                </div>
-                <div class="row">
-                  <div class="col-6">
-                    <div class="text-center">
-                      <div id="cpu-usage" style="height: 60px; width: 60px; margin: 0 auto;"></div>
-                      <h6 class="mt-2 mb-0">CPU Usage</h6>
-                      <span class="text-muted">67%</span>
-                    </div>
-                  </div>
-                  <div class="col-6">
-                    <div class="text-center">
-                      <div id="memory-usage" style="height: 60px; width: 60px; margin: 0 auto;"></div>
-                      <h6 class="mt-2 mb-0">Memory</h6>
-                      <span class="text-muted">82%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- [ Sentiment Analysis & Quick Stats ] end -->
+<div class="col-md-6 col-xl-3">
+  <div class="card bg-primary">
+    <div class="card-body d-flex justify-content-between align-items-center">
+      <div>
+        <h6 class="text-white mb-2">Success Rate</h6>
+        <h3 class="text-white mb-0 f-w-300">3.47%</h3>
+        <p class="text-white-50 mb-0">↑ +0.3% from last month</p>
+      </div>
+      <div id="chart-success" style="height:50px;width:80px;"></div>
+    </div>
+  </div>
+</div>
 
-          <!-- [ Advanced Data Table ] start -->
-          <div class="col-xl-8">
-            <div class="card">
-              <div class="card-header d-flex align-items-center justify-content-between">
-                <h5>Recent Transactions</h5>
-                <div class="btn-group" role="group">
-                  <button type="button" class="btn btn-outline-primary btn-sm">
-                    <i class="ph ph-download-simple me-1"></i>Export
-                  </button>
-                  <button type="button" class="btn btn-primary btn-sm">
-                    <i class="ph ph-plus me-1"></i>Add New
-                  </button>
-                </div>
-              </div>
-              <div class="card-body">
-                <div class="table-responsive">
-                  <table class="table table-hover mb-0" id="advanced-table">
-                    <thead>
-                      <tr>
-                        <th>
-                          <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="select-all">
-                          </div>
-                        </th>
-                        <th>Customer</th>
-                        <th>Product</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>
-                          <div class="form-check">
-                            <input class="form-check-input" type="checkbox">
-                          </div>
-                        </td>
-                        <td>
-                          <div class="d-flex align-items-center">
-                            <img class="rounded-circle me-3" style="width: 35px" src="assets/images/user/avatar-1.svg" alt="user">
-                            <div>
-                              <h6 class="mb-0">Sarah Johnson</h6>
-                              <span class="text-muted f-12">sarah@example.com</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <h6 class="mb-0">Premium Plan</h6>
-                            <span class="text-muted f-12">Monthly Subscription</span>
-                          </div>
-                        </td>
-                        <td>
-                          <h6 class="mb-0 text-success">$299.00</h6>
-                        </td>
-                        <td>
-                          <span class="badge bg-success">Completed</span>
-                        </td>
-                        <td>
-                          <span class="text-muted">Jan 07, 2025</span>
-                        </td>
-                        <td>
-                          <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary">
-                              <i class="ph ph-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-primary">
-                              <i class="ph ph-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger">
-                              <i class="ph ph-trash"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                          <div class="form-check">
-                            <input class="form-check-input" type="checkbox">
-                          </div>
-                        </td>
-                        <td>
-                          <div class="d-flex align-items-center">
-                            <img class="rounded-circle me-3" style="width: 35px" src="assets/images/user/avatar-2.svg" alt="user">
-                            <div>
-                              <h6 class="mb-0">Michael Chen</h6>
-                              <span class="text-muted f-12">michael@example.com</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <h6 class="mb-0">Enterprise Plan</h6>
-                            <span class="text-muted f-12">Annual Subscription</span>
-                          </div>
-                        </td>
-                        <td>
-                          <h6 class="mb-0 text-success">$2,999.00</h6>
-                        </td>
-                        <td>
-                          <span class="badge bg-warning">Pending</span>
-                        </td>
-                        <td>
-                          <span class="text-muted">Jan 06, 2025</span>
-                        </td>
-                        <td>
-                          <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary">
-                              <i class="ph ph-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-primary">
-                              <i class="ph ph-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger">
-                              <i class="ph ph-trash"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                          <div class="form-check">
-                            <input class="form-check-input" type="checkbox">
-                          </div>
-                        </td>
-                        <td>
-                          <div class="d-flex align-items-center">
-                            <img class="rounded-circle me-3" style="width: 35px" src="assets/images/user/avatar-3.svg" alt="user">
-                            <div>
-                              <h6 class="mb-0">Emma Wilson</h6>
-                              <span class="text-muted f-12">emma@example.com</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <h6 class="mb-0">Basic Plan</h6>
-                            <span class="text-muted f-12">Monthly Subscription</span>
-                          </div>
-                        </td>
-                        <td>
-                          <h6 class="mb-0 text-success">$99.00</h6>
-                        </td>
-                        <td>
-                          <span class="badge bg-danger">Failed</span>
-                        </td>
-                        <td>
-                          <span class="text-muted">Jan 05, 2025</span>
-                        </td>
-                        <td>
-                          <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary">
-                              <i class="ph ph-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-primary">
-                              <i class="ph ph-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger">
-                              <i class="ph ph-trash"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                          <div class="form-check">
-                            <input class="form-check-input" type="checkbox">
-                          </div>
-                        </td>
-                        <td>
-                          <div class="d-flex align-items-center">
-                            <img class="rounded-circle me-3" style="width: 35px" src="assets/images/user/avatar-4.svg" alt="user">
-                            <div>
-                              <h6 class="mb-0">Alex Rodriguez</h6>
-                              <span class="text-muted f-12">alex@example.com</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <h6 class="mb-0">Professional Plan</h6>
-                            <span class="text-muted f-12">Annual Subscription</span>
-                          </div>
-                        </td>
-                        <td>
-                          <h6 class="mb-0 text-success">$1,799.00</h6>
-                        </td>
-                        <td>
-                          <span class="badge bg-success">Completed</span>
-                        </td>
-                        <td>
-                          <span class="text-muted">Jan 04, 2025</span>
-                        </td>
-                        <td>
-                          <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary">
-                              <i class="ph ph-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-primary">
-                              <i class="ph ph-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger">
-                              <i class="ph ph-trash"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                          <div class="form-check">
-                            <input class="form-check-input" type="checkbox">
-                          </div>
-                        </td>
-                        <td>
-                          <div class="d-flex align-items-center">
-                            <img class="rounded-circle me-3" style="width: 35px" src="assets/images/user/avatar-5.svg" alt="user">
-                            <div>
-                              <h6 class="mb-0">Maria Garcia</h6>
-                              <span class="text-muted f-12">maria@example.com</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <h6 class="mb-0">Premium Plan</h6>
-                            <span class="text-muted f-12">Monthly Subscription</span>
-                          </div>
-                        </td>
-                        <td>
-                          <h6 class="mb-0 text-success">$299.00</h6>
-                        </td>
-                        <td>
-                          <span class="badge bg-warning">Processing</span>
-                        </td>
-                        <td>
-                          <span class="text-muted">Jan 03, 2025</span>
-                        </td>
-                        <td>
-                          <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary">
-                              <i class="ph ph-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-primary">
-                              <i class="ph ph-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger">
-                              <i class="ph ph-trash"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                          <div class="form-check">
-                            <input class="form-check-input" type="checkbox">
-                          </div>
-                        </td>
-                        <td>
-                          <div class="d-flex align-items-center">
-                            <img class="rounded-circle me-3" style="width: 35px" src="assets/images/user/avatar-6.svg" alt="user">
-                            <div>
-                              <h6 class="mb-0">David Kim</h6>
-                              <span class="text-muted f-12">david@example.com</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <h6 class="mb-0">Basic Plan</h6>
-                            <span class="text-muted f-12">Monthly Subscription</span>
-                          </div>
-                        </td>
-                        <td>
-                          <h6 class="mb-0 text-success">$99.00</h6>
-                        </td>
-                        <td>
-                          <span class="badge bg-success">Completed</span>
-                        </td>
-                        <td>
-                          <span class="text-muted">Jan 02, 2025</span>
-                        </td>
-                        <td>
-                          <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary">
-                              <i class="ph ph-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-primary">
-                              <i class="ph ph-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger">
-                              <i class="ph ph-trash"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>
-                          <div class="form-check">
-                            <input class="form-check-input" type="checkbox">
-                          </div>
-                        </td>
-                        <td>
-                          <div class="d-flex align-items-center">
-                            <img class="rounded-circle me-3" style="width: 35px" src="assets/images/user/avatar-7.svg" alt="user">
-                            <div>
-                              <h6 class="mb-0">Lisa Thompson</h6>
-                              <span class="text-muted f-12">lisa@example.com</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <h6 class="mb-0">Enterprise Plan</h6>
-                            <span class="text-muted f-12">Annual Subscription</span>
-                          </div>
-                        </td>
-                        <td>
-                          <h6 class="mb-0 text-success">$2,999.00</h6>
-                        </td>
-                        <td>
-                          <span class="badge bg-success">Completed</span>
-                        </td>
-                        <td>
-                          <span class="text-muted">Jan 01, 2025</span>
-                        </td>
-                        <td>
-                          <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary">
-                              <i class="ph ph-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-primary">
-                              <i class="ph ph-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger">
-                              <i class="ph ph-trash"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="d-flex align-items-center justify-content-between mt-3">
-                  <span class="text-muted">Showing 1 to 3 of 247 entries</span>
-                  <nav>
-                    <ul class="pagination mb-0">
-                      <li class="page-item disabled">
-                        <span class="page-link">Previous</span>
-                      </li>
-                      <li class="page-item active">
-                        <span class="page-link">1</span>
-                      </li>
-                      <li class="page-item">
-                        <a class="page-link" href="#">2</a>
-                      </li>
-                      <li class="page-item">
-                        <a class="page-link" href="#">3</a>
-                      </li>
-                      <li class="page-item">
-                        <a class="page-link" href="#">Next</a>
-                      </li>
-                    </ul>
-                  </nav>
-                </div>
-              </div>
-            </div>
-          </div>
-          <!-- [ Advanced Data Table ] end -->
-          
-          <!-- [ Activity Feed ] start -->
-          <div class="col-xl-4">
-            <div class="card">
-              <div class="card-header d-flex align-items-center justify-content-between">
-                <h5>Live Activity Feed</h5>
-                <div class="d-flex align-items-center">
-                  <div class="bg-success rounded-circle me-2" style="width: 8px; height: 8px;"></div>
-                  <span class="text-muted f-12">Live</span>
-                </div>
-              </div>
-              <div class="card-body">
-                <div class="timeline">
-                  <div class="timeline-item">
-                    <div class="timeline-marker bg-primary"></div>
-                    <div class="timeline-content">
-                      <h6 class="mb-1">New user registration</h6>
-                      <p class="mb-1 text-muted f-12">John Doe signed up for Premium plan</p>
-                      <span class="text-muted f-10">2 minutes ago</span>
-                    </div>
-                  </div>
-                  <div class="timeline-item">
-                    <div class="timeline-marker bg-success"></div>
-                    <div class="timeline-content">
-                      <h6 class="mb-1">Payment received</h6>
-                      <p class="mb-1 text-muted f-12">$299.00 from Sarah Johnson</p>
-                      <span class="text-muted f-10">5 minutes ago</span>
-                    </div>
-                  </div>
-                  <div class="timeline-item">
-                    <div class="timeline-marker bg-warning"></div>
-                    <div class="timeline-content">
-                      <h6 class="mb-1">System alert</h6>
-                      <p class="mb-1 text-muted f-12">High memory usage detected</p>
-                      <span class="text-muted f-10">12 minutes ago</span>
-                    </div>
-                  </div>
-                  <div class="timeline-item">
-                    <div class="timeline-marker bg-info"></div>
-                    <div class="timeline-content">
-                      <h6 class="mb-1">Feature update</h6>
-                      <p class="mb-1 text-muted f-12">New dashboard widgets deployed</p>
-                      <span class="text-muted f-10">1 hour ago</span>
-                    </div>
-                  </div>
-                  <div class="timeline-item">
-                    <div class="timeline-marker bg-danger"></div>
-                    <div class="timeline-content">
-                      <h6 class="mb-1">Failed payment</h6>
-                      <p class="mb-1 text-muted f-12">Payment failed for Emma Wilson</p>
-                      <span class="text-muted f-10">2 hours ago</span>
-                    </div>
-                  </div>
-                </div>
-                <button class="btn btn-outline-primary btn-sm w-100 mt-3">View All Activities</button>
-              </div>
-            </div>
-          </div>
-          <!-- [ Activity Feed ] end -->
+<!-- ===================== ROW 2 ===================== -->
 
-          <!-- [ Advanced Performance Metrics ] start -->
-          <div class="col-xl-12">
-            <div class="card">
-              <div class="card-header d-flex align-items-center justify-content-between">
-                <h5>Performance Metrics Dashboard</h5>
-                <div class="btn-group" role="group">
-                  <button type="button" class="btn btn-outline-primary btn-sm">Real-time</button>
-                  <button type="button" class="btn btn-outline-primary btn-sm">Historical</button>
-                  <button type="button" class="btn btn-primary btn-sm">
-                    <i class="ph ph-gear me-1"></i>Settings
-                  </button>
-                </div>
-              </div>
-              <div class="card-body">
-                <div class="row">
-                  <!-- Sales Performance -->
-                  <div class="col-md-3">
-                    <div class="card border">
-                      <div class="card-body text-center">
-                        <div id="sales-performance" style="height: 120px;"></div>
-                        <h6 class="mt-3 mb-1">Sales Performance</h6>
-                        <h4 class="mb-0 text-primary">87%</h4>
-                        <span class="text-success f-12">
-                          <i class="ph ph-arrow-up me-1"></i>+15% vs last month
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- Customer Satisfaction -->
-                  <div class="col-md-3">
-                    <div class="card border">
-                      <div class="card-body text-center">
-                        <div id="customer-satisfaction" style="height: 120px;"></div>
-                        <h6 class="mt-3 mb-1">Customer Satisfaction</h6>
-                        <h4 class="mb-0 text-success">4.8/5</h4>
-                        <span class="text-success f-12">
-                          <i class="ph ph-arrow-up me-1"></i>+0.3 vs last month
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- System Uptime -->
-                  <div class="col-md-3">
-                    <div class="card border">
-                      <div class="card-body text-center">
-                        <div id="system-uptime" style="height: 120px;"></div>
-                        <h6 class="mt-3 mb-1">System Uptime</h6>
-                        <h4 class="mb-0 text-warning">99.9%</h4>
-                        <span class="text-muted f-12">
-                          <i class="ph ph-clock me-1"></i>Last 30 days
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- API Response Time -->
-                  <div class="col-md-3">
-                    <div class="card border">
-                      <div class="card-body text-center">
-                        <div id="api-response" style="height: 120px;"></div>
-                        <h6 class="mt-3 mb-1">API Response Time</h6>
-                        <h4 class="mb-0 text-info">247ms</h4>
-                        <span class="text-danger f-12">
-                          <i class="ph ph-arrow-down me-1"></i>-12ms vs last hour
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Advanced Chart Section -->
-                <div class="row mt-4">
-                  <div class="col-md-8">
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                      <h6 class="mb-0">Revenue Trends & Forecasting</h6>
-                      <div class="d-flex align-items-center">
-                        <span class="me-3">
-                          <i class="ph ph-circle text-primary me-1"></i>Actual
-                        </span>
-                        <span class="me-3">
-                          <i class="ph ph-circle text-success me-1"></i>Forecast
-                        </span>
-                        <span>
-                          <i class="ph ph-circle text-warning me-1"></i>Target
-                        </span>
-                      </div>
-                    </div>
-                    <div id="revenue-trends" style="height: 300px;"></div>
-                  </div>
-                  <div class="col-md-4">
-                    <h6 class="mb-3">Top Performing Regions</h6>
-                    <div class="list-group list-group-flush">
-                      <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <div class="d-flex align-items-center">
-                          <div class="bg-primary rounded-circle me-3" style="width: 8px; height: 8px;"></div>
-                          <span>North America</span>
-                        </div>
-                        <div class="text-end">
-                          <div class="fw-bold">$247,890</div>
-                          <small class="text-success">+24.5%</small>
-                        </div>
-                      </div>
-                      <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <div class="d-flex align-items-center">
-                          <div class="bg-success rounded-circle me-3" style="width: 8px; height: 8px;"></div>
-                          <span>Europe</span>
-                        </div>
-                        <div class="text-end">
-                          <div class="fw-bold">$198,456</div>
-                          <small class="text-success">+18.2%</small>
-                        </div>
-                      </div>
-                      <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <div class="d-flex align-items-center">
-                          <div class="bg-warning rounded-circle me-3" style="width: 8px; height: 8px;"></div>
-                          <span>Asia Pacific</span>
-                        </div>
-                        <div class="text-end">
-                          <div class="fw-bold">$156,789</div>
-                          <small class="text-success">+31.7%</small>
-                        </div>
-                      </div>
-                      <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <div class="d-flex align-items-center">
-                          <div class="bg-info rounded-circle me-3" style="width: 8px; height: 8px;"></div>
-                          <span>Latin America</span>
-                        </div>
-                        <div class="text-end">
-                          <div class="fw-bold">$89,234</div>
-                          <small class="text-danger">-5.3%</small>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div class="mt-4">
-                      <h6 class="mb-3">Goal Progress</h6>
-                      <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                          <span class="f-14">Monthly Target</span>
-                          <span class="f-14 fw-bold">78%</span>
-                        </div>
-                        <div class="progress" style="height: 8px;">
-                          <div class="progress-bar bg-primary" style="width: 78%"></div>
-                        </div>
-                      </div>
-                      <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                          <span class="f-14">Quarterly Target</span>
-                          <span class="f-14 fw-bold">92%</span>
-                        </div>
-                        <div class="progress" style="height: 8px;">
-                          <div class="progress-bar bg-success" style="width: 92%"></div>
-                        </div>
-                      </div>
-                      <div>
-                        <div class="d-flex justify-content-between mb-1">
-                          <span class="f-14">Annual Target</span>
-                          <span class="f-14 fw-bold">65%</span>
-                        </div>
-                        <div class="progress" style="height: 8px;">
-                          <div class="progress-bar bg-warning" style="width: 65%"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+<!-- LEFT: Pending Payments -->
+<div class="col-xl-8">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5>Pending Payments Updates</h5>
+      <div class="btn-group btn-group-sm">
+       
+      </div>
+    </div>
+
+    <div class="card-body table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Client</th>
+            <th>Candidate</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Duration</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr>
+            <td>Apr 28, 2026</td>
+            <td>bEdge Tech</td>
+            <td>Jyothi Swarup</td>
+            <td class="text-success">₹300</td>
+            <td><span class="badge bg-success">Completed</span></td>
+            <td>30 mins</td>
+            <td>
+  <div class="btn-group action-btn-group" role="group">
+
+    <!-- VIEW -->
+    <button class="btn btn-light action-btn view-btn">
+      <i class="ph ph-eye"></i>
+    </button>
+
+    <!-- EDIT -->
+    <button class="btn btn-light action-btn edit-btn">
+      <i class="ph ph-pencil"></i>
+    </button>
+
+    <!-- DELETE -->
+    <button class="btn btn-light action-btn delete-btn">
+      <i class="ph ph-trash"></i>
+    </button>
+
+  </div>
+</td>
+          </tr>
+
+          <tr>
+            <td>Apr 27, 2026</td>
+            <td>Netbounce</td>
+            <td>Tanisha</td>
+            <td class="text-warning">₹0</td>
+            <td><span class="badge bg-danger">Failed</span></td>
+            <td>25 mins</td>
+            <td>
+  <div class="btn-group action-btn-group" role="group">
+
+    <!-- VIEW -->
+    <button class="btn btn-light action-btn view-btn">
+      <i class="ph ph-eye"></i>
+    </button>
+
+    <!-- EDIT -->
+    <button class="btn btn-light action-btn edit-btn">
+      <i class="ph ph-pencil"></i>
+    </button>
+
+    <!-- DELETE -->
+    <button class="btn btn-light action-btn delete-btn">
+      <i class="ph ph-trash"></i>
+    </button>
+
+  </div>
+</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT: Team Workload -->
+<div class="col-xl-4">
+  <div class="card">
+    <div class="card-header">
+      <h5>Team Workload</h5>
+    </div>
+
+    <div class="card-body table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Coordinator</th>
+            <th>Assigned</th>
+            <th>Pending</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr>
+            <td>Har Rajgor</td>
+            <td>5</td>
+            <td class="text-warning">2</td>
+          </tr>
+          <tr>
+            <td>Niyati</td>
+            <td>8</td>
+            <td>3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ROW 3 ===================== -->
+
+<!-- Tasks Overview -->
+<div class="col-xl-8">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between">
+      <h5>Tasks Overview</h5>
+      <div>
+        <button class="btn btn-success btn-sm">Export</button>
+        <button class="btn btn-primary btn-sm">+ Add New</button>
+      </div>
+    </div>
+
+    <div class="card-body table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>SR NO</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Candidate</th>
+            <th>Company</th>
+            <th>Time</th>
+            <th>Assign To</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td><span class="badge bg-success">Completed</span></td>
+            <td>Apr 28, 2026</td>
+            <td>Tanisha</td>
+            <td>bEdge</td>
+            <td>02:30</td>
+            <td>Ganesh</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+    <div class="col-xl-4">
+  <div class="card">
+    
+    <!-- HEADER (UNCHANGED) -->
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <h5>Live Activity Feed</h5>
+      <div class="d-flex align-items-center">
+        <div class="bg-success rounded-circle me-2" style="width: 8px; height: 8px;"></div>
+        <span class="text-muted f-12">Live</span>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="card-body">
+
+      <div class="timeline">
+
+        <!-- ITEM -->
+        <div class="timeline-item">
+          <div class="timeline-marker bg-primary"></div>
+
+          <div class="timeline-content custom-activity">
+            <h6 class="mb-1">
+              Candidate Name <span class="text-muted">|</span> Client Name
+            </h6>
+            <p class="mb-1 text-muted f-12">Task Type</p>
+            <span class="text-muted f-10">Date | Time In/Out</span>
           </div>
-          <!-- [ Advanced Performance Metrics ] end -->
         </div>
-        <!-- [ Main Content ] end -->
+
+        <!-- ITEM -->
+        <div class="timeline-item">
+          <div class="timeline-marker bg-primary"></div>
+
+          <div class="timeline-content custom-activity">
+            <h6 class="mb-1">
+              Candidate Name <span class="text-muted">|</span> Client Name
+            </h6>
+            <p class="mb-1 text-muted f-12">Task Type</p>
+            <span class="text-muted f-10">Date | Time In/Out</span>
+          </div>
+        </div>
+
+        <!-- ITEM -->
+        <div class="timeline-item">
+          <div class="timeline-marker bg-primary"></div>
+
+          <div class="timeline-content custom-activity">
+            <h6 class="mb-1">
+              Candidate Name <span class="text-muted">|</span> Client Name
+            </h6>
+            <p class="mb-1 text-muted f-12">Task Type</p>
+            <span class="text-muted f-10">Date | Time In/Out</span>
+          </div>
+        </div>
+
+      </div>
+
+      <button class="btn btn-outline-primary btn-sm w-100 mt-3">
+        View All Activities
+      </button>
+
+    </div>
+  </div>
+</div>
+
+
+</div>
+    <!-- [ Main Content ] end -->
       </div>
     </div>
     <!-- [ Main Content ] end -->
+
 
     
     <footer class="pc-footer">
