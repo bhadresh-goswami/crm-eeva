@@ -11,16 +11,12 @@ const ReportsTasksPage = () => {
   const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const [assigneeFilter, setAssigneeFilter] = useState('all')
   const { user } = useAuth()
   const role = String(user?.role ?? '').toLowerCase()
   const isExpertRole = ['expert', 'technical expert', 'expertlead', 'technical lead'].includes(role)
 
   const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
-  const totalTasks = tasks.length
-  const startIndex = (currentPage - 1) * pageSize
-  const endIndex = Math.min(currentPage * pageSize, totalTasks)
-  const paginatedTasks = tasks.slice(startIndex, endIndex)
 
   const load = async () => {
     setLoading(true)
@@ -48,7 +44,7 @@ const ReportsTasksPage = () => {
           due_date: row.due_date,
           time_start: row.start_time,
           time_end: row.end_time,
-          duration: 0,
+          duration: Number(row.duration ?? 0),
           total_amount: 0,
           payment_mode: '',
           payment_status: '',
@@ -89,6 +85,33 @@ const ReportsTasksPage = () => {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+
+  const assigneeOptions = useMemo(() => {
+    if (!isExpertRole) return [] as Array<{ id: string; label: string }>
+    const map = new Map<string, string>()
+    tasks.forEach((task) => {
+      if (task.assigned_to_id && task.assigned_to_name) {
+        map.set(String(task.assigned_to_id), task.assigned_to_name)
+      }
+    })
+    return Array.from(map.entries()).map(([id, label]) => ({ id, label }))
+  }, [isExpertRole, tasks])
+
+  const visibleTasks = useMemo(() => {
+    if (!isExpertRole || assigneeFilter === 'all') return tasks
+    if (assigneeFilter === 'mine') {
+      const myId = String(user?.id ?? '')
+      return tasks.filter((task) => String(task.assigned_to_id ?? '') === myId)
+    }
+    return tasks.filter((task) => String(task.assigned_to_id ?? '') === assigneeFilter)
+  }, [assigneeFilter, isExpertRole, tasks, user?.id])
+
+  const pageSize = 10
+  const totalTasks = visibleTasks.length
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = Math.min(currentPage * pageSize, totalTasks)
+  const paginatedTasks = visibleTasks.slice(startIndex, endIndex)
 
   const grouped = useMemo(() => ({
     completed: tasks.filter((task) => task.status === 'completed').length,
@@ -131,6 +154,19 @@ const ReportsTasksPage = () => {
               <label className="form-label fw-semibold">To Date</label>
               <input type="date" className="form-control" value={toDate} onChange={(event) => setToDate(event.target.value)} />
             </div>
+
+            {isExpertRole ? (
+              <div className="col-md-3">
+                <label className="form-label fw-semibold">Assigned Filter</label>
+                <select className="form-select" value={assigneeFilter} onChange={(event) => { setAssigneeFilter(event.target.value); setCurrentPage(1) }}>
+                  <option value="all">All Team Tasks</option>
+                  <option value="mine">My Tasks</option>
+                  {assigneeOptions.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
 
             <div className="col-md-3 d-grid">
               <button className="btn btn-primary fw-semibold" onClick={() => void load()} disabled={loading}>
