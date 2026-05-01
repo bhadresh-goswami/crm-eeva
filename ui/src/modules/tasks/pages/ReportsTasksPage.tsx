@@ -11,7 +11,7 @@ const ReportsTasksPage = () => {
   const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
-  const [assigneeFilter, setAssigneeFilter] = useState('all')
+  const [scopeFilter, setScopeFilter] = useState('all')
   const [taskTypeId, setTaskTypeId] = useState('')
   const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([])
   const { user } = useAuth()
@@ -92,26 +92,13 @@ const ReportsTasksPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-
-  const assigneeOptions = useMemo(() => {
-    if (!isExpertRole) return [] as Array<{ id: string; label: string }>
-    const map = new Map<string, string>()
-    tasks.forEach((task) => {
-      if (task.assigned_to_id && task.assigned_to_name) {
-        map.set(String(task.assigned_to_id), task.assigned_to_name)
-      }
-    })
-    return Array.from(map.entries()).map(([id, label]) => ({ id, label }))
-  }, [isExpertRole, tasks])
-
   const visibleTasks = useMemo(() => {
-    if (!isExpertRole || assigneeFilter === 'all') return tasks
-    if (assigneeFilter === 'mine') {
-      const myId = String(user?.id ?? '')
-      return tasks.filter((task) => String(task.assigned_to_id ?? '') === myId)
-    }
-    return tasks.filter((task) => String(task.assigned_to_id ?? '') === assigneeFilter)
-  }, [assigneeFilter, isExpertRole, tasks, user?.id])
+    if (!isExpertRole || scopeFilter === 'all') return tasks
+    const myId = String(user?.id ?? '')
+    if (scopeFilter === 'mine') return tasks.filter((task) => String(task.assigned_to_id ?? '') === myId)
+    if (scopeFilter === 'team') return tasks.filter((task) => String(task.assigned_to_id ?? '') !== myId)
+    return tasks
+  }, [isExpertRole, scopeFilter, tasks, user?.id])
 
   const pageSize = 10
   const totalTasks = visibleTasks.length
@@ -188,13 +175,11 @@ const ReportsTasksPage = () => {
 
             {isExpertRole ? (
               <div className="col-md-3">
-                <label className="form-label fw-semibold">Assigned Filter</label>
-                <select className="form-select" value={assigneeFilter} onChange={(event) => { setAssigneeFilter(event.target.value); setCurrentPage(1) }}>
-                  <option value="all">All Team Tasks</option>
+                <label className="form-label fw-semibold">Report Scope</label>
+                <select className="form-select" value={scopeFilter} onChange={(event) => { setScopeFilter(event.target.value); setCurrentPage(1) }}>
+                  <option value="all">Own + Team Tasks</option>
                   <option value="mine">My Tasks</option>
-                  {assigneeOptions.map((option) => (
-                    <option key={option.id} value={option.id}>{option.label}</option>
-                  ))}
+                  <option value="team">Team Tasks</option>
                 </select>
               </div>
             ) : null}
