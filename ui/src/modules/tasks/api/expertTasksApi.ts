@@ -9,6 +9,7 @@ export type ExpertTaskItem = {
   due_date: string
   start_time: string
   end_time: string
+  duration: number
   support_type: string
   status_id: number
   status_name: string
@@ -30,6 +31,7 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   due_date: String(item.due_date ?? '').trim(),
   start_time: String(item.start_time ?? '').trim(),
   end_time: String(item.end_time ?? '').trim(),
+  duration: Number(item.duration ?? 0),
   support_type: String(item.support_type ?? '').trim(),
   status_id: Number(item.status_id ?? 0),
   status_name: String(item.status_name ?? '').trim(),
@@ -40,8 +42,23 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   file_url: String(item.file_url ?? '').trim(),
 })
 
-export const getExpertTasks = async ({ activeOnly = false }: { activeOnly?: boolean } = {}) => {
-  const endpoint = activeOnly ? '/expert/tasks?active_only=1' : '/expert/tasks'
+export const getExpertTasks = async ({
+  activeOnly = false,
+  status,
+  fromDate,
+  toDate,
+}: {
+  activeOnly?: boolean
+  status?: string
+  fromDate?: string
+  toDate?: string
+} = {}) => {
+  const params = new URLSearchParams()
+  if (activeOnly) params.set('active_only', '1')
+  if (status) params.set('status', status)
+  if (fromDate) params.set('from_date', fromDate)
+  if (toDate) params.set('to_date', toDate)
+  const endpoint = params.toString() ? `/expert/tasks?${params.toString()}` : '/expert/tasks'
   const response = await apiRequest<{ data?: unknown[] }>(endpoint)
   const list = Array.isArray(response?.data) ? response.data : []
 
