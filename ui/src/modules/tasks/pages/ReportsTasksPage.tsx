@@ -11,7 +11,6 @@ const ReportsTasksPage = () => {
   const [status, setStatus] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
-  const [scopeFilter, setScopeFilter] = useState('all')
   const [taskTypeId, setTaskTypeId] = useState('')
   const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([])
   const { user } = useAuth()
@@ -92,19 +91,11 @@ const ReportsTasksPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const visibleTasks = useMemo(() => {
-    if (!isExpertRole || scopeFilter === 'all') return tasks
-    const myId = String(user?.id ?? '')
-    if (scopeFilter === 'mine') return tasks.filter((task) => String(task.assigned_to_id ?? '') === myId)
-    if (scopeFilter === 'team') return tasks.filter((task) => String(task.assigned_to_id ?? '') !== myId)
-    return tasks
-  }, [isExpertRole, scopeFilter, tasks, user?.id])
-
   const pageSize = 10
-  const totalTasks = visibleTasks.length
+  const totalTasks = tasks.length
   const startIndex = (currentPage - 1) * pageSize
   const endIndex = Math.min(currentPage * pageSize, totalTasks)
-  const paginatedTasks = visibleTasks.slice(startIndex, endIndex)
+  const paginatedTasks = tasks.slice(startIndex, endIndex)
 
   const grouped = useMemo(() => ({
     completed: tasks.filter((task) => task.status === 'completed').length,
@@ -141,7 +132,7 @@ const ReportsTasksPage = () => {
         <div className="card-body">
           <div className="row g-3 align-items-end">
             <div className="col-md-3">
-              <label className="form-label fw-semibold">Status</label>
+              <label className="form-label fw-semibold small text-uppercase">Status</label>
               <select className="form-select" value={status} onChange={(event) => setStatus(event.target.value)}>
                 <option value="">All</option>
                 <option value="assigned">Assigned</option>
@@ -154,7 +145,7 @@ const ReportsTasksPage = () => {
 
 
             <div className="col-md-3">
-              <label className="form-label fw-semibold">Task Type</label>
+              <label className="form-label fw-semibold small text-uppercase">Task Type</label>
               <select className="form-select" value={taskTypeId} onChange={(event) => setTaskTypeId(event.target.value)}>
                 <option value="">All Types</option>
                 {taskTypes.map((type) => (
@@ -164,25 +155,14 @@ const ReportsTasksPage = () => {
             </div>
 
             <div className="col-md-3">
-              <label className="form-label fw-semibold">From Date</label>
+              <label className="form-label fw-semibold small text-uppercase">From Date</label>
               <input type="date" className="form-control" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
             </div>
 
             <div className="col-md-3">
-              <label className="form-label fw-semibold">To Date</label>
+              <label className="form-label fw-semibold small text-uppercase">To Date</label>
               <input type="date" className="form-control" value={toDate} onChange={(event) => setToDate(event.target.value)} />
             </div>
-
-            {isExpertRole ? (
-              <div className="col-md-3">
-                <label className="form-label fw-semibold">Report Scope</label>
-                <select className="form-select" value={scopeFilter} onChange={(event) => { setScopeFilter(event.target.value); setCurrentPage(1) }}>
-                  <option value="all">Own + Team Tasks</option>
-                  <option value="mine">My Tasks</option>
-                  <option value="team">Team Tasks</option>
-                </select>
-              </div>
-            ) : null}
 
             <div className="col-md-3 d-grid">
               <button className="btn btn-primary fw-semibold" onClick={() => void load()} disabled={loading}>
@@ -205,7 +185,7 @@ const ReportsTasksPage = () => {
       <div className="card shadow-sm">
         <div className="card-body">
           <div className="table-responsive">
-            <table className="table table-hover table-bordered align-middle">
+            <table className="table table-hover table-bordered align-middle table-sm">
               <thead className="table-light">
                 <tr>
                   <th>ID</th>

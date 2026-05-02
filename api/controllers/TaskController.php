@@ -23,6 +23,7 @@ class TaskController {
         $fromDate = trim((string)($_GET['from_date'] ?? ''));
         $toDate = trim((string)($_GET['to_date'] ?? ''));
         $taskTypeId = (int)($_GET['task_type_id'] ?? 0);
+        $feedbackOnly = isset($_GET['feedback_only']) && (string)$_GET['feedback_only'] === '1';
 
         $hasValidFromDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromDate) === 1;
         $hasValidToDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $toDate) === 1;
@@ -108,6 +109,10 @@ class TaskController {
         if ($taskTypeId > 0) {
             $query .= " AND t.task_type_id = ?";
             $params[] = $taskTypeId;
+        }
+
+        if ($feedbackOnly) {
+            $query .= " AND EXISTS (SELECT 1 FROM task_feedback tf WHERE tf.task_id = t.id)";
         }
 
         if ($activeOnly) {
