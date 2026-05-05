@@ -112,6 +112,9 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         items: [
           { label: 'Dashboard', to: roleDashboardPath[user.role], icon: 'dashboard' },
           { label: 'Tasks', to: '/tasks', icon: 'tasks' },
+          ...(['expert', 'technical expert', 'expertlead', 'technical lead'].includes(user.role)
+            ? [{ label: 'Task Feedback', to: '/tasks/expert-reports', icon: 'tasks' as const }]
+            : []),
         ],
       },
     ]
