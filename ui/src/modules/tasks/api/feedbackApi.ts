@@ -27,3 +27,8 @@ export const getFeedbackByTaskId = async (taskId: number) => {
   const response = await apiRequest<{ data?: FeedbackRecord }>(`/feedback/${taskId}`)
   return (response?.data ?? null) as FeedbackRecord | null
 }
+
+export const getAllFeedback = async () => {
+  const response = await apiRequest<{ data?: FeedbackRecord[] }>('/feedback')
+  return Array.isArray(response?.data) ? response.data : []
+}

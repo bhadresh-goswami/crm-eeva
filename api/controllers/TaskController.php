@@ -35,6 +35,7 @@ class TaskController {
                 COALESCE(ts.name, '') AS status_name,
                 ta.user_id AS assigned_to_id,
                 COALESCE(assigned_to_user.name, '') AS assigned_to_name,
+                COALESCE(tfb.overall, 0) AS feedback_overall,
                 CASE WHEN tfb.id IS NULL THEN 'ADD' ELSE 'VIEW' END AS feedback_action
             FROM task_assignments ta
             INNER JOIN tasks t ON t.id = ta.task_id

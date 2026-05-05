@@ -12,6 +12,10 @@ import BulkPriceUpdatePage from '../modules/tasks/pages/BulkPriceUpdatePage'
 import ReportsTasksPage from '../modules/tasks/pages/ReportsTasksPage'
 import CandidateReportPage from '../modules/tasks/pages/CandidateReportPage'
 import ExpertTaskReportsPage from '../modules/tasks/pages/ExpertTaskReportsPage'
+<<<<<<< codex/create-api-to-fetch-expert-tasks-bwxbgx
+import FeedbackReportPage from '../modules/tasks/pages/FeedbackReportPage'
+=======
+>>>>>>> sprint-4-feedback-system
 import UsersPage from '../modules/users/pages/UsersPage'
 import InvoiceListPage from '../modules/invoices/pages/InvoiceListPage'
 import InvoiceCreatePage from '../modules/invoices/pages/InvoiceCreatePage'
@@ -71,6 +75,7 @@ const AppRoutes = () => {
           <Route element={<ProtectedRoute allowedRoles={['admin', 'manager', 'coordinator', 'expert', 'expertlead']} />}>
             <Route path="/reports/tasks" element={<ReportsTasksPage />} />
             <Route path="/reports/candidates" element={<CandidateReportPage />} />
+            <Route path="/reports/feedback" element={<FeedbackReportPage />} />
           </Route>
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/pocs" element={<PocsPage />} />

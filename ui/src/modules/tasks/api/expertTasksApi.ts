@@ -22,6 +22,7 @@ export type ExpertTaskItem = {
   is_own_task: number
   file_url: string
   feedback_action: 'ADD' | 'VIEW'
+  feedback_overall: number
 }
 
 export type EndTaskStatus = 'Completed' | 'Cancelled' | 'No Show' | 'Rescheduled'
@@ -48,6 +49,7 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   is_own_task: Number(item.is_own_task ?? 0),
   file_url: String(item.file_url ?? '').trim(),
   feedback_action: String(item.feedback_action ?? '').trim().toUpperCase() === 'VIEW' ? 'VIEW' : 'ADD',
+  feedback_overall: Number(item.feedback_overall ?? 0),
 })
 
 export const getExpertTasks = async ({

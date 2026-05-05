@@ -336,6 +336,12 @@ elseif ($uri === "/feedback" && $method === "POST") {
     $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
     (new FeedbackController())->create($actorUserId);
 }
+elseif ($uri === "/feedback" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    $actorRole = is_array($user) ? (string)($user['role'] ?? '') : (string)($user->role ?? '');
+    (new FeedbackController())->listAll($actorUserId, $actorRole);
+}
 elseif (preg_match('#^/feedback/(\d+)$#', $uri, $matches) === 1 && $method === "GET") {
     authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
     (new FeedbackController())->viewByTaskId((int)$matches[1]);

@@ -189,4 +189,56 @@ class FeedbackController {
             ]);
         }
     }
+
+    public function listAll($requestUserId = null, string $role = ''): void {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $query = "
+                SELECT
+                    tf.*,
+                    t.due_date,
+                    COALESCE(cand.name, '') AS candidate_name,
+                    COALESCE(tt.name, '') AS task_type,
+                    COALESCE(ts.name, '') AS task_status,
+                    COALESCE(u.name, '') AS assigned_to_name
+                FROM task_feedback tf
+                LEFT JOIN tasks t ON t.id = tf.task_id
+                LEFT JOIN candidates cand ON cand.id = t.candidate_id
+                LEFT JOIN task_types tt ON tt.id = t.task_type_id
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
+                LEFT JOIN users u ON u.id = ta.user_id
+            ";
+
+            $params = [];
+            if (in_array(strtolower($role), ['expert', 'technical expert', 'expertlead', 'technical lead'], true)) {
+                $query .= " WHERE ta.user_id = ? ";
+                $params[] = (int)$requestUserId;
+            }
+
+            $query .= " ORDER BY tf.id DESC";
+
+            $stmt = $conn->prepare($query);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode([
+                'success' => true,
+                'data' => $rows,
+            ]);
+        } catch (Throwable $e) {
+            LoggerService::logError('Feedback list failed', [
+                'user_id' => $requestUserId,
+                'role' => $role,
+                'error' => $e->getMessage(),
+            ]);
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Something went wrong. Please try again.'
+            ]);
+        }
+    }
 }
