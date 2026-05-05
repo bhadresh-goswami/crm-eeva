@@ -64,7 +64,7 @@ const normalizeStatus = (value: unknown): PocStatus => {
 const normalizePoc = (raw: Record<string, unknown>): PocItem => ({
   id: Number(raw.id ?? raw.poc_id ?? 0),
   client_id: Number(raw.client_id ?? raw.clientId ?? 0),
-  client_name: String(raw.client_name ?? raw.client ?? raw.clientTitle ?? '').trim(),
+  client_name: String(raw.company_name ?? raw.client ?? raw.clientTitle ?? '').trim(),
   name: String(raw.name ?? '').trim(),
   email: String(raw.email ?? '').trim(),
   mobile: String(raw.mobile ?? raw.phone ?? '').trim(),
@@ -126,7 +126,7 @@ const collectPocRecords = (value: unknown, fallbackClient?: { id?: number; name?
 
 const normalizeClient = (raw: Record<string, unknown>): ClientOption => ({
   id: Number(raw.id ?? raw.client_id ?? 0),
-  name: String(raw.name ?? raw.client_name ?? '').trim(),
+  name: String(raw.company_name ?? raw.client_name ?? '').trim(),
 })
 
 export const getPocs = async () => {

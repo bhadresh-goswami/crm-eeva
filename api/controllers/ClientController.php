@@ -16,7 +16,7 @@ public function getPocsByClient() {
     $conn = $db->connect();
 
     $stmt = $conn->prepare("
-        SELECT id, name, email, phone
+        SELECT id, name, email, mobile
         FROM client_pocs
         WHERE client_id = ? AND status = 'active'
         ORDER BY name ASC

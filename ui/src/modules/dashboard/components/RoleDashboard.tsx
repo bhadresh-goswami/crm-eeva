@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import AssignTaskModal from '../../../shared/components/AssignTaskModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
+import DashboardCard from '../../../shared/components/DashboardCard'
+import ChartCard from '../../../shared/components/ChartCard'
+import PageContainer from '../../../shared/components/PageContainer'
 import {
   assignDashboardTask,
   getDashboardTasksByStatus,
@@ -32,9 +35,9 @@ const defaultSummary: DashboardSummary = {
 }
 
 const taskPathsByMode: Record<DashboardMode, string[]> = {
-  admin: ['/dashboard/tasks'],
-  manager: ['/dashboard/tasks'],
-  coordinator: ['/dashboard/tasks'],
+  admin: ['/tasks/list', '/dashboard/tasks'],
+  manager: ['/tasks/list', '/dashboard/tasks'],
+  coordinator: ['/tasks/list', '/dashboard/tasks'],
   expertlead: ['/dashboard/team-tasks'],
   expert: ['/dashboard/my-tasks'],
 }
@@ -93,6 +96,8 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
   const [selectedExpertId, setSelectedExpertId] = useState('')
   const [isAssigning, setIsAssigning] = useState(false)
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null)
+  const [noteText, setNoteText] = useState('')
+  const [notes, setNotes] = useState<string[]>([])
 
   const allowAssign = mode === 'manager' || mode === 'coordinator'
   const allowStatusUpdate = mode === 'expert' || mode === 'expertlead'
@@ -360,36 +365,103 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
 
   const tableColSpan = mode === 'manager' ? 7 : allowAssign || allowStatusUpdate ? 7 : 5
 
+  const chartData = [
+    { label: 'Pending', value: summary.pendingTasks },
+    { label: 'Assigned', value: summary.assignedTasks },
+    { label: 'Completed', value: summary.completedTasks },
+  ]
+
+  const coordinatorSummary = useMemo(() => {
+    if (mode !== 'coordinator') return null
+    const today = new Date().toISOString().slice(0, 10)
+    const todayTasks = tasks.filter((task) => task.dueDate?.slice(0, 10) === today)
+    const pending = todayTasks.filter((task) => task.status.includes('pending')).length
+    const inProgress = todayTasks.filter((task) => task.status.includes('assign')).length
+    const completed = todayTasks.filter((task) => task.status.includes('complete')).length
+    const overdue = tasks.filter((task) => task.dueDate && task.dueDate.slice(0, 10) < today && !task.status.includes('complete')).length
+    const upcoming = todayTasks
+      .filter((task) => task.startTime)
+      .slice(0, 5)
+    return { today: todayTasks.length, pending, inProgress, completed, overdue, upcoming }
+  }, [mode, tasks])
+
   return (
-    <section>
-      <h2 className="page-title">{roleLabel} Dashboard</h2>
-      <p className="page-description">Live dashboard summary and task assignment workflow.</p>
+    <PageContainer title={`${roleLabel} Dashboard`} description="Live dashboard summary and task assignment workflow.">
       {error ? <p className="dashboard-notice">{error}</p> : null}
 
-      <div className="cards-grid dashboard-cards">
+      <div className="metric-grid dashboard-cards section">
         {loading
           ? Array.from({ length: mode === 'admin' ? 4 : 5 }).map((_, index) => (
               <article key={index} className="card skeleton-card" aria-hidden="true" />
             ))
           : mode === 'manager'
             ? managerCardConfigs.map((card) => (
-                <button
-                  type="button"
-                  className="card dashboard-card-button"
+                <DashboardCard
                   key={card.label}
+                  title={card.label}
+                  value={card.value}
+                  trend={card.label.includes('Pending') ? -3 : 6}
                   onClick={() => void openManagerCardModal(card.label, card.status, card.useAll)}
-                >
-                  <p className="dashboard-card__label">{card.label}</p>
-                  <h3 className="dashboard-card__value">{card.value}</h3>
-                </button>
+                />
               ))
             : visibleCards.map((card) => (
-                <article className="card" key={card.label}>
-                  <p className="dashboard-card__label">{card.label}</p>
-                  <h3 className="dashboard-card__value">{card.value}</h3>
-                </article>
+                <DashboardCard key={card.label} title={card.label} value={card.value} trend={5} />
               ))}
       </div>
+      <div className="charts-grid section">
+        <ChartCard title="Activity Overview">
+          <div style={{ display: 'grid', gap: '0.5rem' }}>
+            {chartData.map((item) => (
+              <div key={item.label}>
+                <p className="card-text">{item.label}</p>
+                <div style={{ height: 8, borderRadius: 999, background: '#e5e7eb' }}>
+                  <div style={{ width: `${Math.min(100, item.value)}%`, height: '100%', borderRadius: 999, background: '#3b82f6' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </ChartCard>
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          <ChartCard title="Tasks Mix (Donut)">
+            <p className="card-text">Pending {summary.pendingTasks} • Assigned {summary.assignedTasks}</p>
+          </ChartCard>
+          <ChartCard title="Completion (Pie)">
+            <p className="card-text">Completed {summary.completedTasks} / Total {summary.totalTasks}</p>
+          </ChartCard>
+        </div>
+      </div>
+
+      {mode === 'coordinator' && coordinatorSummary ? (
+        <>
+          <div className="metric-grid section">
+            <div className="card"><p className="card-text">Tasks Today</p><strong>{coordinatorSummary.today}</strong></div>
+            <div className="card"><p className="card-text">Pending</p><strong>{coordinatorSummary.pending}</strong></div>
+            <div className="card"><p className="card-text">In Progress</p><strong>{coordinatorSummary.inProgress}</strong></div>
+            <div className="card"><p className="card-text">Completed</p><strong>{coordinatorSummary.completed}</strong></div>
+            <div className="card"><p className="card-text">Overdue</p><strong>{coordinatorSummary.overdue}</strong></div>
+          </div>
+          <div className="card section">
+            <h3 className="tasks-activity__title">Today Schedule</h3>
+            {coordinatorSummary.upcoming.length === 0 ? <p className="card-text">No upcoming tasks in next slots.</p> : coordinatorSummary.upcoming.map((task) => (
+              <p key={`upcoming-${task.id}`} className="card-text">{task.title} • {task.scheduleTime}</p>
+            ))}
+          </div>
+          <div className="card section">
+            <h3 className="tasks-activity__title">Notes Panel</h3>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="Add update note" />
+              <button className="button" type="button" onClick={() => {
+                if (!noteText.trim()) return
+                setNotes((prev) => [noteText.trim(), ...prev].slice(0, 6))
+                setNoteText('')
+              }}>Add</button>
+            </div>
+            <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+              {notes.map((note, idx) => <p key={`note-${idx}`} className="card-text">• {note}</p>)}
+            </div>
+          </div>
+        </>
+      ) : null}
 
       {mode !== 'admin' ? (
         <>
@@ -610,7 +682,7 @@ const RoleDashboard = ({ roleLabel, mode }: RoleDashboardProps) => {
         </div>
       </AnimatedModal>
 
-    </section>
+    </PageContainer>
   )
 }
 
