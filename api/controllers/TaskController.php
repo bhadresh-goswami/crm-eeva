@@ -979,6 +979,19 @@ public function downloadFile() {
             $userId = (int)$data->user_id;
 
             $conn->beginTransaction();
+            $taskLockStmt = $conn->prepare("
+                SELECT id
+                FROM tasks
+                WHERE id = ?
+                FOR UPDATE
+            ");
+            $taskLockStmt->execute([$taskId]);
+            if ((int)$taskLockStmt->fetchColumn() <= 0) {
+                $conn->rollBack();
+                http_response_code(404);
+                echo json_encode(["success" => false, "message" => "Task not found"]);
+                return;
+            }
 
             $conn->prepare("
                 UPDATE task_assignments
