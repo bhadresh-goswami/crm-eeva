@@ -18,111 +18,36 @@ class TaskController {
         $db = new Database();
         $conn = $db->connect();
 
-        $activeOnly = isset($_GET['active_only']) && (string)$_GET['active_only'] === '1';
-        $status = strtolower(trim((string)($_GET['status'] ?? '')));
-        $fromDate = trim((string)($_GET['from_date'] ?? ''));
-        $toDate = trim((string)($_GET['to_date'] ?? ''));
-        $taskTypeId = (int)($_GET['task_type_id'] ?? 0);
-        $feedbackOnly = isset($_GET['feedback_only']) && (string)$_GET['feedback_only'] === '1';
-
-        $hasValidFromDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromDate) === 1;
-        $hasValidToDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $toDate) === 1;
-        $applyDateRange = $hasValidFromDate && $hasValidToDate && strtotime($fromDate) <= strtotime($toDate);
-
-        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
-        $assignedByColumn = null;
-        foreach (['assigned_by', 'assigned_by_id'] as $columnName) {
-            if (in_array($columnName, $assignmentColumns, true)) {
-                $assignedByColumn = $columnName;
-                break;
-            }
-        }
-
-        $hasTeamIdColumn = in_array('team_id', $assignmentColumns, true);
-        $teamVisibilityPredicate = $hasTeamIdColumn
-            ? " OR ta.team_id IN (SELECT tm.team_id FROM team_members tm WHERE tm.user_id = ?)"
-            : '';
-
-        $assignedByJoin = $assignedByColumn
-            ? "LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.{$assignedByColumn}"
-            : "";
-        $assignedBySelect = $assignedByColumn
-            ? "COALESCE(assigned_by_user.name, '') AS assigned_by_name,"
-            : "'' AS assigned_by_name,";
-
         $query = "
             SELECT
                 t.id AS task_id,
                 cand.name AS candidate_name,
-                c.name AS company_name,
                 t.title,
                 t.description,
                 t.due_date,
                 t.start_time,
                 t.end_time,
-                t.task_start_time,
-                t.task_end_time,
-                COALESCE(t.duration, 0) AS duration,
-                COALESCE(tt.name, '') AS support_type,
+                COALESCE(tt.name, '') AS task_type,
                 t.status_id,
-                LOWER(REPLACE(COALESCE(ts.name, ''), ' ', '_')) AS status_name,
+                COALESCE(ts.name, '') AS status_name,
                 ta.user_id AS assigned_to_id,
                 COALESCE(assigned_to_user.name, '') AS assigned_to_name,
-                CASE WHEN ta.user_id = ? THEN 1 ELSE 0 END AS is_own_task,
-                {$assignedBySelect}
-                tf.file_url
+                CASE WHEN tfb.id IS NULL THEN 'ADD' ELSE 'VIEW' END AS feedback_action
             FROM task_assignments ta
             INNER JOIN tasks t ON t.id = ta.task_id
             LEFT JOIN candidates cand ON cand.id = t.candidate_id
-            LEFT JOIN clients c ON c.id = t.client_id
             LEFT JOIN task_status_master ts ON ts.id = t.status_id
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN users assigned_to_user ON assigned_to_user.id = ta.user_id
-            {$assignedByJoin}
-            LEFT JOIN task_files tf
-              ON tf.id = (
-                  SELECT id FROM task_files
-                  WHERE task_id = t.id
-                  ORDER BY id DESC LIMIT 1
-              )
-            WHERE (
-                ta.user_id = ?{$teamVisibilityPredicate}
-            )
+            LEFT JOIN task_feedback tfb ON tfb.task_id = t.id
+            WHERE ta.user_id = ?
+              AND LOWER(COALESCE(ts.name, '')) = 'completed'
         ";
 
-        $params = [(int)$user_id, (int)$user_id];
-        if ($hasTeamIdColumn) {
-            $params[] = (int)$user_id;
-        }
-
-        if ($status !== '') {
-            $query .= " AND LOWER(REPLACE(COALESCE(ts.name, ''), ' ', '_')) = ?";
-            $params[] = $status;
-        }
-
-        if ($applyDateRange) {
-            $query .= " AND t.due_date BETWEEN ? AND ?";
-            $params[] = $fromDate;
-            $params[] = $toDate;
-        }
-
-        if ($taskTypeId > 0) {
-            $query .= " AND t.task_type_id = ?";
-            $params[] = $taskTypeId;
-        }
-
-        if ($feedbackOnly) {
-            $query .= " AND EXISTS (SELECT 1 FROM task_feedback tf WHERE tf.task_id = t.id)";
-        }
-
-        if ($activeOnly) {
-            $query .= " AND LOWER(REPLACE(COALESCE(ts.name, ''), ' ', '_')) = 'in_progress' AND ta.is_active = 1";
-        }
-
-        $query .= " ORDER BY t.due_date ASC, t.start_time ASC, t.id DESC";
+        $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
 
         $stmt = $conn->prepare($query);
-        $stmt->execute($params);
+        $stmt->execute([(int)$user_id]);
         $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
