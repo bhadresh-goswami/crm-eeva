@@ -37,6 +37,8 @@ const ExpertTaskReportsPage = () => {
   const [page, setPage] = useState(1)
   const [modalMode, setModalMode] = useState<'ADD' | 'VIEW'>('ADD')
   const [modalTaskId, setModalTaskId] = useState<number | null>(null)
+  const [candidateFilter, setCandidateFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -57,16 +59,24 @@ const ExpertTaskReportsPage = () => {
     void load()
   }, [])
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+  const filteredRows = useMemo(() => rows.filter((r) =>
+    r.candidate_name.toLowerCase().includes(candidateFilter.toLowerCase())
+    && r.task_type.toLowerCase().includes(typeFilter.toLowerCase())), [rows, candidateFilter, typeFilter])
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
   const paginatedRows = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
-    return rows.slice(start, start + PAGE_SIZE)
-  }, [rows, page])
+    return filteredRows.slice(start, start + PAGE_SIZE)
+  }, [filteredRows, page])
 
   return (
     <PageContainer title="Expert Task Reports" description="Completed tasks with feedback action for experts.">
       <div className="card shadow-sm">
         <div className="card-body">
+          <div className="row g-2 mb-3">
+            <div className="col-md-4"><input className="form-control" placeholder="Filter by candidate" value={candidateFilter} onChange={(e) => { setCandidateFilter(e.target.value); setPage(1) }} /></div>
+            <div className="col-md-4"><input className="form-control" placeholder="Filter by type" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1) }} /></div>
+            <div className="col-md-2"><button type="button" className="btn btn-outline-secondary w-100" onClick={() => { setCandidateFilter(''); setTypeFilter(''); }}>Reset</button></div>
+          </div>
           {error ? <div className="alert alert-danger py-2">{error}</div> : null}
 
           <div className="table-responsive">
@@ -92,9 +102,9 @@ const ExpertTaskReportsPage = () => {
                     <tr key={task.task_id}>
                       <td>
                         {task.feedback_action === 'ADD' ? (
-                          <button type="button" className="btn btn-sm btn-primary" onClick={() => { setModalMode('ADD'); setModalTaskId(task.task_id) }}>Add Feedback</button>
+                          <button type="button" className="btn btn-sm btn-primary" onClick={() => { setModalMode('ADD'); setModalTaskId(task.task_id) }}>➕ Add Feedback</button>
                         ) : (
-                          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => { setModalMode('VIEW'); setModalTaskId(task.task_id) }}>View</button>
+                          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => { setModalMode('VIEW'); setModalTaskId(task.task_id) }}>👁 View</button>
                         )}
                       </td>
                       <td>{formatDate(task.due_date)}</td>

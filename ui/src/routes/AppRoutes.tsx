@@ -61,7 +61,7 @@ const AppRoutes = () => {
           </Route>
 
           <Route path="/tasks" element={<TasksEntryPage />} />
-          <Route element={<ProtectedRoute allowedRoles={['expert', 'technical expert', 'expertlead', 'technical lead']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['expert', 'expertlead']} />}>
             <Route path="/tasks/expert-reports" element={<ExpertTaskReportsPage />} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={['admin', 'manager']} />}>
