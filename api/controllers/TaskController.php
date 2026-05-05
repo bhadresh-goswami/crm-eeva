@@ -1,81 +1,57 @@
 <?php
 
 require_once dirname(__DIR__) . "/config/database.php";
+require_once dirname(__DIR__) . "/services/EmailService.php";
+require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class TaskController {
+    private function ensureTaskTimingColumns(PDO $conn): void {
+        $columns = $this->getTableColumns($conn, 'tasks');
+        if (!in_array('task_start_time', $columns, true)) {
+            $conn->exec("ALTER TABLE tasks ADD COLUMN task_start_time DATETIME NULL");
+        }
+        if (!in_array('task_end_time', $columns, true)) {
+            $conn->exec("ALTER TABLE tasks ADD COLUMN task_end_time DATETIME NULL");
+        }
+    }
     public function expertTasks($user_id) {
         $db = new Database();
         $conn = $db->connect();
-        $activeOnly = isset($_GET['active_only']) && (string)$_GET['active_only'] === '1';
-
-        $visibleUserIds = $this->getHierarchyUserIds($conn, (int)$user_id);
-        if (empty($visibleUserIds)) {
-            $visibleUserIds = [(int)$user_id];
-        }
-
-        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
-        $assignedByColumn = null;
-        foreach (['assigned_by', 'assigned_by_id'] as $columnName) {
-            if (in_array($columnName, $assignmentColumns, true)) {
-                $assignedByColumn = $columnName;
-                break;
-            }
-        }
-
-        $placeholders = implode(',', array_fill(0, count($visibleUserIds), '?'));
-        $assignedByJoin = $assignedByColumn
-            ? "LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.{$assignedByColumn}"
-            : "";
-        $assignedBySelect = $assignedByColumn
-            ? "COALESCE(assigned_by_user.name, '') AS assigned_by_name,"
-            : "'' AS assigned_by_name,";
 
         $query = "
             SELECT
                 t.id AS task_id,
                 cand.name AS candidate_name,
-                c.name AS company_name,
                 t.title,
                 t.description,
                 t.due_date,
                 t.start_time,
                 t.end_time,
-                COALESCE(tt.name, '') AS support_type,
+                t.task_start_time,
+                t.task_end_time,
+                COALESCE(t.duration, 0) AS duration,
+                COALESCE(tt.name, '') AS task_type,
                 t.status_id,
                 COALESCE(ts.name, '') AS status_name,
                 ta.user_id AS assigned_to_id,
                 COALESCE(assigned_to_user.name, '') AS assigned_to_name,
-                CASE WHEN ta.user_id = ? THEN 1 ELSE 0 END AS is_own_task,
-                {$assignedBySelect}
-                tf.file_url
+                COALESCE(tfb.overall, 0) AS feedback_overall,
+                CASE WHEN tfb.id IS NULL THEN 'ADD' ELSE 'VIEW' END AS feedback_action
             FROM task_assignments ta
             INNER JOIN tasks t ON t.id = ta.task_id
             LEFT JOIN candidates cand ON cand.id = t.candidate_id
-            LEFT JOIN clients c ON c.id = t.client_id
             LEFT JOIN task_status_master ts ON ts.id = t.status_id
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN users assigned_to_user ON assigned_to_user.id = ta.user_id
-            {$assignedByJoin}
-            LEFT JOIN task_files tf
-              ON tf.id = (
-                  SELECT id FROM task_files
-                  WHERE task_id = t.id
-                  ORDER BY id DESC LIMIT 1
-              )
-            WHERE ta.user_id IN ({$placeholders})
+            LEFT JOIN task_feedback tfb ON tfb.task_id = t.id
+            WHERE ta.user_id = ?
+              AND LOWER(COALESCE(ts.name, '')) = 'completed'
         ";
 
-        $params = array_merge([(int)$user_id], $visibleUserIds);
-        if ($activeOnly) {
-            $query .= " AND ta.is_active = 1";
-        }
-
-        $query .= "
-            ORDER BY t.due_date ASC, t.start_time ASC, t.id DESC
-        ";
+        $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
 
         $stmt = $conn->prepare($query);
-        $stmt->execute($params);
+        $stmt->execute([(int)$user_id]);
         $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
@@ -141,16 +117,46 @@ class TaskController {
     ")->fetchColumn();
 
     foreach ($data->task_ids as $task_id) {
+        $taskId = (int)$task_id;
+        $userId = (int)$data->user_id;
+
+        $conn->prepare("
+            UPDATE task_assignments
+            SET is_active = 0
+            WHERE task_id = ? AND is_active = 1
+        ")->execute([$taskId]);
+
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $insertColumns = ['task_id', 'user_id', 'is_active'];
+        $insertValues = [$taskId, $userId, 1];
+
+        if (in_array('assigned_by', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_by';
+            $insertValues[] = $data->assigned_by ?? null;
+        } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_by_id';
+            $insertValues[] = $data->assigned_by ?? null;
+        }
+
+        if (in_array('assigned_at', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_at';
+        }
+
+        $columnList = implode(', ', $insertColumns);
+        $placeholderList = implode(', ', array_fill(0, count($insertValues), '?'));
+        if (in_array('assigned_at', $assignmentColumns, true)) {
+            $placeholderList .= ', NOW()';
+        }
 
         $stmt = $conn->prepare("
-            INSERT INTO task_assignments (task_id, user_id)
-            VALUES (?, ?)
+            INSERT INTO task_assignments ({$columnList})
+            VALUES ({$placeholderList})
         ");
-        $stmt->execute([$task_id, $data->user_id]);
+        $stmt->execute($insertValues);
 
         $conn->prepare("
             UPDATE tasks SET status_id=? WHERE id=?
-        ")->execute([$status_id, $task_id]);
+        ")->execute([$status_id, $taskId]);
     }
 
     echo json_encode(["message" => "Bulk assign done"]);
@@ -214,7 +220,7 @@ public function downloadFile() {
     exit;
 }
     // ================= CREATE =================
-    public function create($user_id = 1) {
+    public function create($user_id = 1, $user_role = '') {
 
         $db = new Database();
         $conn = $db->connect();
@@ -262,6 +268,10 @@ public function downloadFile() {
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
 
+            $normalizedRole = strtolower(trim((string)$user_role));
+            $canSetPrice = in_array($normalizedRole, ['admin', 'manager'], true);
+            $amount = $canSetPrice ? (float)($_POST['total_amount'] ?? 0) : 0;
+
             $stmt->execute([
                 $_POST['client_id'],
                 $_POST['candidate_id'] ?? null,
@@ -274,7 +284,7 @@ public function downloadFile() {
                 $start_time,
                 $end_time,
                 $duration,
-                $_POST['total_amount'] ?? 0,
+                $amount,
                 $payment_status_id,
                 $_POST['payment_mode'] ?? null
             ]);
@@ -294,7 +304,8 @@ public function downloadFile() {
 
         } catch (Exception $e) {
             $conn->rollback();
-            echo json_encode(["error" => $e->getMessage()]);
+            LoggerService::logError('Task create failed', ['error' => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -343,7 +354,7 @@ public function downloadFile() {
             LEFT JOIN task_status_master ts ON t.status_id = ts.id
             LEFT JOIN task_types tt ON t.task_type_id = tt.id
             LEFT JOIN payment_status_master ps ON t.payment_status_id = ps.id
-            LEFT JOIN task_assignments ta ON ta.task_id = t.id
+            LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
             LEFT JOIN users u ON ta.user_id = u.id
 
             LEFT JOIN task_files tf 
@@ -373,7 +384,7 @@ public function downloadFile() {
             $params[] = $date;
         }
 
-        $query .= " ORDER BY t.id DESC";
+        $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
 
         $stmt = $conn->prepare($query);
         $stmt->execute($params);
@@ -388,6 +399,435 @@ public function downloadFile() {
         ]);
     }
 
+    public function bulkPriceList(): void {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $fromDate = $_GET['from_date'] ?? null;
+            $toDate = $_GET['to_date'] ?? null;
+            $clientId = $_GET['client_id'] ?? null;
+            $search = trim((string)($_GET['search'] ?? ''));
+            $assignmentOrderColumn = in_array('created_at', $this->getTableColumns($conn, 'task_assignments'), true)
+                ? 'created_at'
+                : 'id';
+
+            $query = "
+                SELECT
+                    t.id,
+                    t.title,
+                    t.description,
+                    t.created_at,
+                    t.due_date,
+                    t.start_time,
+                    t.end_time,
+                    t.total_amount,
+                    LOWER(COALESCE(ts.name, 'pending')) AS status,
+                    COALESCE(cand.name, '') AS candidate_name,
+                    COALESCE(cl.company_name, cl.name, '') AS company_name,
+                    COALESCE(cl.name, '') AS client_name,
+                    COALESCE(tt.name, 'Support') AS support_type,
+                    COALESCE(u.name, '') AS assigned_to_name,
+                    LOWER(COALESCE(ps.name, 'pending')) AS payment_status,
+                    LOWER(COALESCE(inv.status, '')) AS invoice_status,
+                    COALESCE(pay.total_paid, 0) AS paid_amount,
+                    GREATEST(t.total_amount - COALESCE(pay.total_paid, 0), 0) AS pending_amount
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                LEFT JOIN payment_status_master ps ON ps.id = t.payment_status_id
+                LEFT JOIN clients cl ON cl.id = t.client_id
+                LEFT JOIN candidates cand ON cand.id = t.candidate_id
+                LEFT JOIN task_types tt ON tt.id = t.task_type_id
+                LEFT JOIN task_assignments ta ON ta.id = (
+                    SELECT ta2.id
+                    FROM task_assignments ta2
+                    WHERE ta2.task_id = t.id
+                    ORDER BY ta2.{$assignmentOrderColumn} DESC
+                    LIMIT 1
+                )
+                LEFT JOIN users u ON u.id = ta.user_id
+                LEFT JOIN (
+                    SELECT task_id, MAX(invoice_id) AS invoice_id
+                    FROM invoice_items
+                    GROUP BY task_id
+                ) task_invoice_map ON task_invoice_map.task_id = t.id
+                LEFT JOIN invoices inv ON inv.id = COALESCE(t.invoice_id, task_invoice_map.invoice_id)
+                LEFT JOIN (
+                    SELECT invoice_id, COALESCE(SUM(amount_paid), 0) AS total_paid
+                    FROM invoice_payments
+                    GROUP BY invoice_id
+                ) pay ON pay.invoice_id = inv.id
+                WHERE LOWER(COALESCE(ts.name, '')) = 'completed'
+            ";
+
+            $params = [];
+            if (!empty($fromDate)) {
+                $query .= " AND DATE(t.created_at) >= ?";
+                $params[] = $fromDate;
+            }
+            if (!empty($toDate)) {
+                $query .= " AND DATE(t.created_at) <= ?";
+                $params[] = $toDate;
+            }
+            if (!empty($clientId)) {
+                $query .= " AND t.client_id = ?";
+                $params[] = $clientId;
+            }
+            if ($search !== '') {
+                $query .= " AND (
+                    LOWER(COALESCE(cand.name, '')) LIKE ?
+                    OR LOWER(COALESCE(cl.company_name, cl.name, '')) LIKE ?
+                    OR LOWER(COALESCE(tt.name, '')) LIKE ?
+                )";
+                $searchTerm = '%' . strtolower($search) . '%';
+                $params[] = $searchTerm;
+                $params[] = $searchTerm;
+                $params[] = $searchTerm;
+            }
+
+            $query .= "
+                GROUP BY t.id
+                HAVING pending_amount > 0 OR t.total_amount = 0
+                ORDER BY t.created_at DESC, t.id DESC
+            ";
+
+            $stmt = $conn->prepare($query);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $summary = [
+                'total_pending_tasks' => count($rows),
+                'total_pending_amount' => array_reduce($rows, static function ($carry, $row) {
+                    return $carry + (float)($row['pending_amount'] ?? 0);
+                }, 0.0),
+            ];
+
+            echo json_encode(["success" => true, "data" => $rows, 'summary' => $summary]);
+        } catch (Throwable $error) {
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => $error->getMessage()]);
+        }
+    }
+
+    public function updatePrices(): void {
+        $payload = json_decode(file_get_contents("php://input"), true);
+        $items = is_array($payload) ? $payload : [];
+
+        if (!$items) {
+            http_response_code(422);
+            echo json_encode(["success" => false, "message" => "Price updates payload is required."]);
+            return;
+        }
+
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $conn->beginTransaction();
+
+            $selectTask = $conn->prepare("
+                SELECT t.id, LOWER(COALESCE(i.status, 'pending')) AS invoice_status
+                FROM tasks t
+                LEFT JOIN invoices i ON i.id = t.invoice_id
+                WHERE t.id = ?
+                LIMIT 1
+            ");
+            $updateStmt = $conn->prepare("UPDATE tasks SET total_amount = ? WHERE id = ?");
+            $statusIdStmt = $conn->prepare("SELECT id FROM task_status_master WHERE LOWER(name) = LOWER(?) LIMIT 1");
+            $updateTaskMetaStmt = $conn->prepare("UPDATE tasks SET status_id = COALESCE(?, status_id), due_date = COALESCE(?, due_date), start_time = COALESCE(?, start_time), end_time = COALESCE(?, end_time) WHERE id = ?");
+            $assigneeStmt = $conn->prepare("SELECT id FROM users WHERE LOWER(name) = LOWER(?) LIMIT 1");
+            $deactivateAssignmentsStmt = $conn->prepare("UPDATE task_assignments SET is_active = 0 WHERE task_id = ? AND is_active = 1");
+            $insertAssignmentStmt = $conn->prepare("INSERT INTO task_assignments (task_id, user_id, is_active) VALUES (?, ?, 1)");
+
+            $updated = 0;
+            foreach ($items as $item) {
+                $taskId = (int)($item['task_id'] ?? 0);
+                $amount = (float)($item['amount'] ?? 0);
+                if ($taskId <= 0 || $amount < 0) {
+                    continue;
+                }
+
+                $selectTask->execute([$taskId]);
+                $task = $selectTask->fetch(PDO::FETCH_ASSOC);
+                if (!$task) {
+                    continue;
+                }
+
+                if (strtolower((string)($task['invoice_status'] ?? 'pending')) === 'paid') {
+                    continue;
+                }
+
+                $updateStmt->execute([$amount, $taskId]);
+                $updated += $updateStmt->rowCount();
+
+                $updatedFields = is_array($item['updated_fields'] ?? null) ? $item['updated_fields'] : [];
+                if ($updatedFields) {
+                    $statusId = null;
+                    if (!empty($updatedFields['status'])) {
+                        $statusIdStmt->execute([trim((string)$updatedFields['status'])]);
+                        $resolvedStatusId = $statusIdStmt->fetchColumn();
+                        $statusId = $resolvedStatusId ? (int)$resolvedStatusId : null;
+                    }
+
+                    $date = !empty($updatedFields['date']) ? (string)$updatedFields['date'] : null;
+                    $timeRaw = trim((string)($updatedFields['time_in_out'] ?? ''));
+                    $startTime = null;
+                    $endTime = null;
+                    if ($timeRaw !== '') {
+                        $parts = array_map('trim', preg_split('/[\\/\\-]/', $timeRaw));
+                        if (count($parts) >= 2) {
+                            $startTime = $parts[0];
+                            $endTime = $parts[1];
+                        }
+                    }
+
+                    $updateTaskMetaStmt->execute([$statusId, $date, $startTime, $endTime, $taskId]);
+
+                    if (!empty($updatedFields['assign_to'])) {
+                        $assigneeStmt->execute([trim((string)$updatedFields['assign_to'])]);
+                        $assigneeId = $assigneeStmt->fetchColumn();
+                        if ($assigneeId) {
+                            $deactivateAssignmentsStmt->execute([$taskId]);
+                            $insertAssignmentStmt->execute([$taskId, (int)$assigneeId]);
+                        }
+                    }
+                }
+            }
+
+            $conn->commit();
+            echo json_encode(["success" => true, "message" => "Task prices updated.", "updated_count" => $updated]);
+        } catch (Throwable $error) {
+            if ($conn->inTransaction()) $conn->rollBack();
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => $error->getMessage()]);
+        }
+    }
+
+    public function reportTasks($user): void {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $this->ensureTaskTimingColumns($conn);
+            $assignmentOrderColumn = in_array('created_at', $this->getTableColumns($conn, 'task_assignments'), true)
+                ? 'created_at'
+                : 'id';
+            $query = "
+                SELECT
+                    t.id,
+                    t.title,
+                    DATE(t.created_at) AS created_at,
+                    t.task_start_time,
+                    t.task_end_time,
+                    t.duration,
+                    t.total_amount,
+                    LOWER(COALESCE(ts.name, 'pending')) AS status,
+                    COALESCE(cl.company_name, cl.name, '') AS company_name,
+                    COALESCE(cand.name, '') AS candidate_name,
+                    COALESCE(u.name, '') AS assigned_to_name
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                LEFT JOIN clients cl ON cl.id = t.client_id
+                LEFT JOIN candidates cand ON cand.id = t.candidate_id
+                LEFT JOIN task_assignments ta ON ta.id = (
+                    SELECT ta2.id
+                    FROM task_assignments ta2
+                    WHERE ta2.task_id = t.id
+                    ORDER BY ta2.{$assignmentOrderColumn} DESC
+                    LIMIT 1
+                )
+                LEFT JOIN users u ON u.id = ta.user_id
+                WHERE 1=1
+            ";
+            $params = [];
+
+            if (!empty($_GET['status'])) {
+                $query .= " AND LOWER(COALESCE(ts.name, '')) = LOWER(?)";
+                $params[] = (string)$_GET['status'];
+            }
+            if (!empty($_GET['from_date'])) {
+                $query .= " AND DATE(t.created_at) >= ?";
+                $params[] = (string)$_GET['from_date'];
+            }
+            if (!empty($_GET['to_date'])) {
+                $query .= " AND DATE(t.created_at) <= ?";
+                $params[] = (string)$_GET['to_date'];
+            }
+            if (!empty($_GET['client_id'])) {
+                $query .= " AND t.client_id = ?";
+                $params[] = (int)$_GET['client_id'];
+            }
+            if (!empty($_GET['candidate_id'])) {
+                $query .= " AND t.candidate_id = ?";
+                $params[] = (int)$_GET['candidate_id'];
+            }
+            if (!empty($_GET['assigned_user_id'])) {
+                $query .= " AND EXISTS (SELECT 1 FROM task_assignments ta_filter WHERE ta_filter.task_id = t.id AND ta_filter.user_id = ?)";
+                $params[] = (int)$_GET['assigned_user_id'];
+            }
+
+            $query .= " ORDER BY t.created_at DESC, t.id DESC";
+
+            $stmt = $conn->prepare($query);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(["success" => true, "data" => $rows]);
+        } catch (Throwable $error) {
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => $error->getMessage()]);
+        }
+    }
+
+    public function reportTaskAssignments(): void {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $assignmentOrderColumn = in_array('created_at', $this->getTableColumns($conn, 'task_assignments'), true)
+                ? 'created_at'
+                : 'id';
+            $query = "
+                SELECT
+                    t.id AS task_id,
+                    COALESCE(u.name, '') AS assigned_to_name,
+                    DATE(t.created_at) AS created_at,
+                    LOWER(COALESCE(ts.name, 'pending')) AS status
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                LEFT JOIN task_assignments ta ON ta.id = (
+                    SELECT ta2.id
+                    FROM task_assignments ta2
+                    WHERE ta2.task_id = t.id
+                    ORDER BY ta2.{$assignmentOrderColumn} DESC
+                    LIMIT 1
+                )
+                LEFT JOIN users u ON u.id = ta.user_id
+                WHERE 1=1
+            ";
+            $params = [];
+
+            if (!empty($_GET['status'])) {
+                $query .= " AND LOWER(COALESCE(ts.name, '')) = LOWER(?)";
+                $params[] = (string)$_GET['status'];
+            }
+            if (!empty($_GET['from_date'])) {
+                $query .= " AND DATE(t.created_at) >= ?";
+                $params[] = (string)$_GET['from_date'];
+            }
+            if (!empty($_GET['to_date'])) {
+                $query .= " AND DATE(t.created_at) <= ?";
+                $params[] = (string)$_GET['to_date'];
+            }
+
+            $query .= " ORDER BY t.created_at DESC, t.id DESC";
+
+            $stmt = $conn->prepare($query);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(["success" => true, "data" => $rows]);
+        } catch (Throwable $error) {
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => $error->getMessage()]);
+        }
+    }
+
+    public function checkUpdates($user_id = null) {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $sinceId = max(0, (int)($_GET['since_id'] ?? 0));
+            $windowMinutes = (int)($_GET['window_minutes'] ?? 30);
+            if ($windowMinutes <= 0) $windowMinutes = 30;
+            if ($windowMinutes > 180) $windowMinutes = 180;
+
+            $newSql = "
+                SELECT t.id, t.title, t.due_date, t.start_time
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON t.status_id = ts.id
+                WHERE t.id > ?
+                  AND LOWER(COALESCE(ts.name, 'pending')) <> 'cancelled'
+                ORDER BY t.id DESC
+                LIMIT 20
+            ";
+
+            $newParams = [$sinceId];
+
+            $upcomingSql = "
+                SELECT t.id, t.title, t.due_date, t.start_time
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON t.status_id = ts.id
+                WHERE LOWER(COALESCE(ts.name, 'pending')) IN ('pending', 'assigned', 'active')
+                  AND TIMESTAMP(t.due_date, t.start_time) BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL ? MINUTE)
+                ORDER BY t.due_date ASC, t.start_time ASC
+                LIMIT 20
+            ";
+
+            $upcomingParams = [$windowMinutes];
+
+            if ($user_id) {
+                $assignmentFilter = " AND EXISTS (
+                    SELECT 1
+                    FROM task_assignments ta
+                    WHERE ta.task_id = t.id
+                      AND ta.user_id = ?
+                      AND ta.is_active = 1
+                )";
+                $newSql = str_replace(" ORDER BY", $assignmentFilter . " ORDER BY", $newSql);
+                $upcomingSql = str_replace(" ORDER BY", $assignmentFilter . " ORDER BY", $upcomingSql);
+                $newParams[] = (int)$user_id;
+                $upcomingParams[] = (int)$user_id;
+            }
+
+            $newStmt = $conn->prepare($newSql);
+            $newStmt->execute($newParams);
+            $newTasks = $newStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $upcomingStmt = $conn->prepare($upcomingSql);
+            $upcomingStmt->execute($upcomingParams);
+            $upcomingTasks = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode([
+                "success" => true,
+                "new_tasks" => $newTasks,
+                "upcoming_tasks" => $upcomingTasks,
+            ]);
+        } catch (Exception $e) {
+            LoggerService::logError('Task check updates failed', [
+                'user_id' => $user_id,
+                'error' => $e->getMessage(),
+            ]);
+            http_response_code(500);
+            echo json_encode([
+                "success" => false,
+                "message" => "Unable to check task updates right now.",
+            ]);
+        }
+    }
+
+    public function lastUpdate(): void {
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $columns = $this->getTableColumns($conn, 'tasks');
+            $updateColumn = in_array('updated_at', $columns, true) ? 'updated_at' : 'created_at';
+
+            $stmt = $conn->query("SELECT COALESCE(MAX({$updateColumn}), MAX(created_at)) AS last_update FROM tasks");
+            $lastUpdate = $stmt->fetchColumn();
+
+            echo json_encode([
+                'success' => true,
+                'last_update' => $lastUpdate ?: null,
+            ]);
+        } catch (Throwable $error) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $error->getMessage()]);
+        }
+    }
+
 
     // ================= UPDATE =================
     public function update($user_id) {
@@ -396,15 +836,42 @@ public function downloadFile() {
         $conn = $db->connect();
 
         try {
+            $rawInput = file_get_contents('php://input');
+            $jsonInput = json_decode($rawInput ?: '', true);
+            $payload = $_POST;
 
-            if (empty($_POST['task_id'])) {
+            if ((!is_array($payload) || count($payload) === 0) && is_array($jsonInput)) {
+                $payload = $jsonInput;
+            }
+
+            LoggerService::logInfo('Task update request payload', [
+                'task_id' => $payload['task_id'] ?? null,
+                'has_description' => array_key_exists('description', $payload),
+                'description_length' => strlen((string)($payload['description'] ?? '')),
+                'keys' => array_keys($payload),
+            ]);
+
+            if (empty($payload['task_id'])) {
                 throw new Exception("task_id required");
             }
 
-            $start_time = $_POST['start_time'];
-            $duration = (int)$_POST['duration'];
+            $start_time = trim((string)($payload['start_time'] ?? ''));
+            $due_date = trim((string)($payload['due_date'] ?? ''));
+            $duration = (int)($payload['duration'] ?? 0);
 
-            $dt = new DateTime($_POST['due_date'] . ' ' . $start_time);
+            if ($start_time === '') {
+                throw new Exception("start_time required");
+            }
+
+            if ($due_date === '') {
+                throw new Exception("due_date required");
+            }
+
+            if ($duration <= 0) {
+                throw new Exception("duration required");
+            }
+
+            $dt = new DateTime($due_date . ' ' . $start_time);
             $dt->modify("+$duration minutes");
             $end_time = $dt->format("H:i:s");
 
@@ -429,31 +896,40 @@ public function downloadFile() {
             ");
 
             $stmt->execute([
-                $_POST['client_id'],
-                $_POST['candidate_id'] ?? null,
-                $_POST['poc_id'] ?? null,
-                $_POST['task_type_id'],
-                $_POST['title'],
-                $_POST['description'] ?? null,
-                $_POST['due_date'],
+                $payload['client_id'] ?? null,
+                $payload['candidate_id'] ?? null,
+                $payload['poc_id'] ?? null,
+                $payload['task_type_id'] ?? null,
+                $payload['title'] ?? null,
+                $payload['description'] ?? null,
+                $due_date,
                 $start_time,
                 $end_time,
                 $duration,
-                $_POST['total_amount'] ?? 0,
-                $_POST['payment_mode'] ?? null,
-                $_POST['task_id']
+                $payload['total_amount'] ?? 0,
+                $payload['payment_mode'] ?? null,
+                $payload['task_id']
             ]);
 
             // FILE
-            $this->handleFileUpload($conn, $_POST['task_id'], $user_id);
+            $this->handleFileUpload($conn, $payload['task_id'], $user_id);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$payload['task_id'], 'updated', null, (int)$user_id);
 
-            echo json_encode(["message" => "Task updated"]);
+            echo json_encode(["success" => true, "message" => "Task updated"]);
 
         } catch (Exception $e) {
-            $conn->rollback();
-            echo json_encode(["error" => $e->getMessage()]);
+            $failedTaskId = $_POST['task_id'] ?? ($payload['task_id'] ?? null);
+            if ($conn->inTransaction()) {
+                $conn->rollback();
+            }
+            LoggerService::logError('Task update failed', [
+                'task_id' => $failedTaskId,
+                'error' => $e->getMessage()
+            ]);
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -492,27 +968,94 @@ public function downloadFile() {
 
 
     // ================= ASSIGN =================
-    public function assign() {
+    public function assign($assignedByUserId = null) {
 
         $data = json_decode(file_get_contents("php://input"));
 
         $db = new Database();
         $conn = $db->connect();
+        try {
+            $status_id = $conn->query("
+                SELECT id FROM task_status_master WHERE name='Assigned'
+            ")->fetchColumn();
 
-        $status_id = $conn->query("
-            SELECT id FROM task_status_master WHERE name='Assigned'
-        ")->fetchColumn();
+            $taskId = (int)$data->task_id;
+            $userId = (int)$data->user_id;
 
-        $conn->prepare("
-            INSERT INTO task_assignments (task_id, user_id)
-            VALUES (?, ?)
-        ")->execute([$data->task_id, $data->user_id]);
+            $conn->beginTransaction();
+            $taskLockStmt = $conn->prepare("
+                SELECT id
+                FROM tasks
+                WHERE id = ?
+                FOR UPDATE
+            ");
+            $taskLockStmt->execute([$taskId]);
+            if ((int)$taskLockStmt->fetchColumn() <= 0) {
+                $conn->rollBack();
+                http_response_code(404);
+                echo json_encode(["success" => false, "message" => "Task not found"]);
+                return;
+            }
 
-        $conn->prepare("
-            UPDATE tasks SET status_id=? WHERE id=?
-        ")->execute([$status_id, $data->task_id]);
+            $conn->prepare("
+                UPDATE task_assignments
+                SET is_active = 0
+                WHERE task_id = ? AND is_active = 1
+            ")->execute([$taskId]);
 
-        echo json_encode(["message" => "Task assigned"]);
+            $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+            $insertColumns = ['task_id', 'user_id', 'is_active'];
+            $insertValues = [$taskId, $userId, 1];
+
+            if (in_array('assigned_by', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_by';
+                $insertValues[] = $assignedByUserId;
+            } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_by_id';
+                $insertValues[] = $assignedByUserId;
+            }
+
+            if (in_array('assigned_at', $assignmentColumns, true)) {
+                $insertColumns[] = 'assigned_at';
+            }
+
+            $columnList = implode(', ', $insertColumns);
+            $placeholderList = implode(', ', array_fill(0, count($insertValues), '?'));
+            if (in_array('assigned_at', $assignmentColumns, true)) {
+                $placeholderList .= ', NOW()';
+            }
+
+            $conn->prepare("
+                INSERT INTO task_assignments ({$columnList})
+                VALUES ({$placeholderList})
+            ")->execute($insertValues);
+
+            $conn->prepare("
+                UPDATE tasks SET status_id=? WHERE id=?
+            ")->execute([$status_id, $taskId]);
+            $conn->commit();
+
+            $emailResult = EmailService::sendTaskNotification($taskId, 'assigned', null, $assignedByUserId);
+
+            echo json_encode([
+                "success" => true,
+                "message" => "Task assigned",
+                "email_status" => $emailResult['email_status'] ?? 'failed',
+                "email_error" => $emailResult['email_error'] ?? null,
+            ]);
+        } catch (Exception $e) {
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
+            LoggerService::logError('Task assign failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $data->user_id ?? null,
+                'assigned_by' => $assignedByUserId,
+                'error' => $e->getMessage()
+            ]);
+            http_response_code(500);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
+        }
     }
 
     public function checkActiveTask($user_id) {
@@ -558,6 +1101,7 @@ public function downloadFile() {
 
         $db = new Database();
         $conn = $db->connect();
+        $this->ensureTaskTimingColumns($conn);
 
         $inProgressStatusId = $this->getStatusIdByName($conn, 'In Progress');
         if (!$inProgressStatusId) {
@@ -607,18 +1151,40 @@ public function downloadFile() {
                 return;
             }
 
-            $conn->prepare("UPDATE tasks SET status_id = ? WHERE id = ?")
+            $taskStateStmt = $conn->prepare("SELECT task_start_time FROM tasks WHERE id = ? LIMIT 1");
+            $taskStateStmt->execute([(int)$data->task_id]);
+            $taskState = $taskStateStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            if (!$taskState) {
+                $conn->rollBack();
+                http_response_code(404);
+                echo json_encode(["error" => "Task not found"]);
+                return;
+            }
+            if (!empty($taskState['task_start_time'])) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode(["error" => "Task already started"]);
+                return;
+            }
+
+            $conn->prepare("UPDATE tasks SET status_id = ?, task_start_time = NOW() WHERE id = ?")
                 ->execute([(int)$inProgressStatusId, (int)$data->task_id]);
 
             $conn->prepare("UPDATE task_assignments SET is_active = 1 WHERE id = ?")
                 ->execute([$assignmentId]);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$data->task_id, 'status_update', 'Status moved to In Progress', (int)$user_id);
             echo json_encode(["success" => true, "message" => "Task started"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
+            LoggerService::logError('Task start failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $user_id,
+                'error' => $e->getMessage()
+            ]);
             http_response_code(500);
-            echo json_encode(["error" => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -647,6 +1213,7 @@ public function downloadFile() {
 
         $db = new Database();
         $conn = $db->connect();
+        $this->ensureTaskTimingColumns($conn);
 
         $statusId = $this->getStatusIdByName($conn, (string)$data->status);
         if (!$statusId) {
@@ -674,8 +1241,29 @@ public function downloadFile() {
                 return;
             }
 
-            $conn->prepare("UPDATE tasks SET status_id = ? WHERE id = ?")
-                ->execute([(int)$statusId, (int)$data->task_id]);
+            $taskStateStmt = $conn->prepare("SELECT task_start_time FROM tasks WHERE id = ? LIMIT 1");
+            $taskStateStmt->execute([(int)$data->task_id]);
+            $taskState = $taskStateStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            if (!$taskState) {
+                $conn->rollBack();
+                http_response_code(404);
+                echo json_encode(["error" => "Task not found"]);
+                return;
+            }
+            if (empty($taskState['task_start_time'])) {
+                $conn->rollBack();
+                http_response_code(409);
+                echo json_encode(["error" => "Task must be started before ending"]);
+                return;
+            }
+
+            $conn->prepare("
+                UPDATE tasks
+                SET status_id = ?,
+                    task_end_time = NOW(),
+                    duration = TIMESTAMPDIFF(MINUTE, task_start_time, NOW())
+                WHERE id = ?
+            ")->execute([(int)$statusId, (int)$data->task_id]);
 
             $conn->prepare("UPDATE task_assignments SET is_active = 0 WHERE id = ?")
                 ->execute([$assignmentId]);
@@ -687,11 +1275,18 @@ public function downloadFile() {
             $commentStmt->execute([(int)$data->task_id, (int)$user_id, $comment]);
 
             $conn->commit();
+            EmailService::sendTaskNotification((int)$data->task_id, 'status_update', $comment, (int)$user_id);
             echo json_encode(["success" => true, "message" => "Task updated"]);
         } catch (Exception $e) {
             if ($conn->inTransaction()) $conn->rollBack();
+            LoggerService::logError('Task end failed', [
+                'task_id' => $data->task_id ?? null,
+                'user_id' => $user_id,
+                'status' => $data->status ?? null,
+                'error' => $e->getMessage()
+            ]);
             http_response_code(500);
-            echo json_encode(["error" => $e->getMessage()]);
+            echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
     }
 
@@ -724,6 +1319,25 @@ public function downloadFile() {
         echo json_encode([
             "success" => true,
             "comments" => $stmt->fetchAll(PDO::FETCH_ASSOC),
+        ]);
+    }
+
+    public function sendDailyReport($user_id) {
+        $result = EmailService::sendDailyReportForUser((int)$user_id, true);
+        if (($result['email_status'] ?? '') === 'skipped' && ($result['email_error'] ?? '') === 'no_tasks_today') {
+            http_response_code(422);
+            echo json_encode([
+                "success" => false,
+                "message" => "No tasks found for today.",
+            ]);
+            return;
+        }
+
+        echo json_encode([
+            "success" => true,
+            "email_status" => $result['email_status'] ?? 'failed',
+            "email_error" => $result['email_error'] ?? null,
+            "message" => "Daily report processed",
         ]);
     }
 

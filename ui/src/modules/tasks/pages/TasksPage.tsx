@@ -2,18 +2,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { useAuth } from '../../../context/AuthContext'
 import { apiFetch } from '../../../api/client'
+import { useAlert } from '../../../shared/alerts/useAlert'
 import AssignTaskModal from '../../../shared/components/AssignTaskModal'
 import {
   assignTask,
   bulkAssignTasks,
   bulkCancelTasks,
   cancelTask,
+  checkTaskUpdates,
   createTask,
   getCandidatesByClient,
   getExperts,
   getPocsByClient,
   getTaskTypes,
   getTasks,
+  getTasksLastUpdate,
   moveTaskToPending,
   updateTask,
   type CandidateOption,
@@ -143,6 +146,10 @@ type TaskFormState = {
   attachment: File | null
 }
 
+type SortDirection = 'asc' | 'desc'
+type SortableTaskKey = 'id' | 'due_date' | 'candidate' | 'client' | 'status' | 'assigned_to_name' | 'time_start' | 'time_end' | 'description'
+type SortConfig = { key: SortableTaskKey; direction: SortDirection }
+
 const defaultForm: TaskFormState = {
   client_id: null,
   poc_id: null,
@@ -166,7 +173,14 @@ const formatDisplayDate = (value: string) => {
 }
 
 const todayString = () => new Date().toISOString().slice(0, 10)
-const formatTime = (value: string) => (value ? value.slice(0, 5) : '—')
+const formatTime = (value: string) => {
+  if (!value) return '—'
+  const normalized = value.length >= 5 ? value.slice(0, 5) : value
+  const date = new Date(`1970-01-01T${normalized}:00`)
+  if (Number.isNaN(date.getTime())) return normalized
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+}
+const normalizeTimeValue = (value: string) => (value ? value.slice(0, 5) : '')
 const toMinutes = (value: string) => {
   if (!value) return null
   const [hour, minute] = value.slice(0, 5).split(':').map(Number)
@@ -202,6 +216,14 @@ const calcEndTime = (start: string, duration: number) => {
   return `${String(nextHour).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`
 }
 
+const SORT_STORAGE_KEY = 'tasks_sort_config'
+
+const toSortTimestamp = (task: TaskRecord) => {
+  const combined = `${task.due_date || ''} ${task.time_start || '00:00'}`
+  const parsed = new Date(combined).getTime()
+  return Number.isFinite(parsed) ? parsed : task.id
+}
+
 const toApiPayload = (state: TaskFormState): TaskPayload => ({
   client_id: state.client_id ?? 0,
   poc_id: state.poc_id ?? 0,
@@ -210,8 +232,8 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
   title: state.title.trim(),
   description: state.description,
   due_date: state.due_date,
-  start_time: state.start_time,
-  end_time: state.end_time,
+  start_time: normalizeTimeValue(state.start_time),
+  end_time: normalizeTimeValue(state.end_time),
   duration: state.duration,
   total_amount: Number(state.total_amount),
   payment_mode: state.payment_mode.trim() || 'UPI',
@@ -220,8 +242,12 @@ const toApiPayload = (state: TaskFormState): TaskPayload => ({
 
 const TasksPage = () => {
   const { user } = useAuth()
+  const normalizedRole = (user?.role ?? '').toLowerCase()
+  const isTechExpert = normalizedRole === 'expert' || normalizedRole === 'technical expert'
+  const { showToast, showAlert } = useAlert()
   const editorRef = useRef<HTMLDivElement | null>(null)
   const canManage = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'coordinator'
+  const canEditPrice = user?.role === 'admin' || user?.role === 'manager'
 
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [cancelledTasks, setCancelledTasks] = useState<TaskRecord[]>([])
@@ -255,6 +281,20 @@ const TasksPage = () => {
   const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const rowsPerPage = 10
+  const [sortConfig, setSortConfig] = useState<SortConfig>(() => {
+    try {
+      const stored = localStorage.getItem(SORT_STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored) as SortConfig
+        if (parsed?.key && (parsed.direction === 'asc' || parsed.direction === 'desc')) {
+          return parsed
+        }
+      }
+    } catch {
+      // noop
+    }
+    return { key: 'due_date', direction: 'desc' }
+  })
   const [isCancelledModalOpen, setIsCancelledModalOpen] = useState(false)
   const [statusActionTaskId, setStatusActionTaskId] = useState<number | null>(null)
 
@@ -265,11 +305,16 @@ const TasksPage = () => {
   const [assignSubmitting, setAssignSubmitting] = useState(false)
   const [selectedExpertId, setSelectedExpertId] = useState<number | null>(null)
   const [isBulkAssign, setIsBulkAssign] = useState(false)
+  const [lastSeenTaskId, setLastSeenTaskId] = useState(0)
+  const [lastKnownTaskUpdate, setLastKnownTaskUpdate] = useState<string | null>(null)
+  const [announcedNewTaskIds, setAnnouncedNewTaskIds] = useState<number[]>([])
+  const [announcedUpcomingTaskIds, setAnnouncedUpcomingTaskIds] = useState<number[]>([])
 
   const showSuccess = useCallback((message: string) => {
     setSuccess(message)
+    showToast({ type: 'success', message })
     setTimeout(() => setSuccess(null), 2500)
-  }, [])
+  }, [showToast])
 
   const loadPage = useCallback(async () => {
     setLoading(true)
@@ -284,6 +329,8 @@ const TasksPage = () => {
       const visibleStatuses = new Set(['active', 'pending', 'assigned'])
       setTasks(tasksData.filter((task) => visibleStatuses.has(task.status)))
       setCancelledTasks(cancelledTasksData.filter((task) => task.status === 'cancelled'))
+      const latestTaskId = tasksData.reduce((max, task) => (task.id > max ? task.id : max), 0)
+      setLastSeenTaskId((prev) => Math.max(prev, latestTaskId))
       setClients(clientsData)
       setTaskTypes(taskTypeData)
     } catch (err) {
@@ -302,6 +349,40 @@ const TasksPage = () => {
     setFormState((prev) => ({ ...prev, end_time: nextEnd }))
   }, [formState.start_time, formState.duration])
 
+  useEffect(() => {
+    if (!isFormOpen || !editorRef.current) return
+    editorRef.current.innerHTML = formState.description || ''
+  }, [isFormOpen, formMode, activeTask?.id])
+
+  useEffect(() => {
+    localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(sortConfig))
+  }, [sortConfig])
+
+  const compareTasks = useCallback((a: TaskRecord, b: TaskRecord, key: SortableTaskKey) => {
+    if (key === 'due_date') {
+      return toSortTimestamp(a) - toSortTimestamp(b)
+    }
+    if (key === 'description') {
+      return (a.description || '').localeCompare(b.description || '')
+    }
+    const left = a[key]
+    const right = b[key]
+    if (typeof left === 'number' && typeof right === 'number') return left - right
+    return String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true, sensitivity: 'base' })
+  }, [])
+
+  const handleSort = useCallback((key: SortableTaskKey) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }))
+  }, [])
+
+  const sortIndicator = useCallback((key: SortableTaskKey) => {
+    if (sortConfig.key !== key) return '↕'
+    return sortConfig.direction === 'asc' ? '↑' : '↓'
+  }, [sortConfig.direction, sortConfig.key])
+
   const filteredTasks = useMemo(
     () =>
       tasks.filter((task) => {
@@ -313,11 +394,18 @@ const TasksPage = () => {
       }),
     [assigneeFilter, candidateFilter, companyFilter, statusFilter, tasks],
   )
-  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / rowsPerPage))
+  const sortedTasks = useMemo(() => {
+    return [...filteredTasks].sort((a, b) => {
+      const result = compareTasks(a, b, sortConfig.key)
+      return sortConfig.direction === 'asc' ? result : -result
+    })
+  }, [compareTasks, filteredTasks, sortConfig.direction, sortConfig.key])
+
+  const totalPages = Math.max(1, Math.ceil(sortedTasks.length / rowsPerPage))
   const paginatedTasks = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage
-    return filteredTasks.slice(start, start + rowsPerPage)
-  }, [currentPage, filteredTasks])
+    return sortedTasks.slice(start, start + rowsPerPage)
+  }, [currentPage, sortedTasks])
   const pageTaskIds = paginatedTasks.map((task) => task.id)
   const isAllPageSelected = pageTaskIds.length > 0 && pageTaskIds.every((id) => selectedTaskIds.includes(id))
 
@@ -334,6 +422,49 @@ const TasksPage = () => {
   useEffect(() => {
     setSelectedTaskIds((prev) => prev.filter((id) => tasks.some((task) => task.id === id)))
   }, [tasks])
+
+  const isUserBusy = isFormOpen || Boolean(descriptionPreview) || Boolean(assignTarget) || Boolean(deleteTarget) || isCancelledModalOpen
+
+  useEffect(() => {
+    if (!isTechExpert) {
+      return
+    }
+
+    const interval = window.setInterval(async () => {
+      if (isUserBusy) return
+      try {
+        const latestStamp = await getTasksLastUpdate()
+        if (!latestStamp || latestStamp === lastKnownTaskUpdate) {
+          return
+        }
+
+        setLastKnownTaskUpdate(latestStamp)
+        await loadPage()
+
+        const updates = await checkTaskUpdates(lastSeenTaskId, 30)
+        if (updates.newTasks.length > 0) {
+          const unseen = updates.newTasks.filter((task) => !announcedNewTaskIds.includes(task.id))
+          if (unseen.length > 0) {
+            showAlert({ title: 'New task assigned', message: `${unseen.length} new task(s) detected.` })
+            setAnnouncedNewTaskIds((prev) => [...new Set([...prev, ...unseen.map((task) => task.id)])])
+            setLastSeenTaskId((prev) => Math.max(prev, ...unseen.map((task) => task.id)))
+          }
+        }
+
+        if (updates.upcomingTasks.length > 0) {
+          const upcomingUnseen = updates.upcomingTasks.filter((task) => !announcedUpcomingTaskIds.includes(task.id))
+          if (upcomingUnseen.length > 0) {
+            showToast({ type: 'warning', title: 'Upcoming task', message: `${upcomingUnseen.length} task(s) are upcoming soon.` })
+            setAnnouncedUpcomingTaskIds((prev) => [...new Set([...prev, ...upcomingUnseen.map((task) => task.id)])])
+          }
+        }
+      } catch {
+        // silent polling failure
+      }
+    }, 20_000)
+
+    return () => window.clearInterval(interval)
+  }, [announcedNewTaskIds, announcedUpcomingTaskIds, getTasksLastUpdate, isTechExpert, isUserBusy, lastKnownTaskUpdate, lastSeenTaskId, loadPage, showAlert, showToast])
 
   const clientOptions = useMemo(
     () => clients.map((client) => ({ id: client.id, label: client.company_name || client.name })).sort((a, b) => a.label.localeCompare(b.label)),
@@ -382,17 +513,21 @@ const TasksPage = () => {
     setFormError(null)
     setFormErrors({})
 
+    const startTime = normalizeTimeValue(task.time_start)
+    const duration = task.duration || 30
+    const endTime = task.time_end ? normalizeTimeValue(task.time_end) : calcEndTime(startTime, duration)
+
     const state: TaskFormState = {
       client_id: task.client_id,
       poc_id: task.poc_id,
       candidate_id: task.candidate_id,
       due_date: task.due_date.slice(0, 10),
-      start_time: task.time_start,
-      end_time: task.time_end,
+      start_time: startTime,
+      end_time: endTime,
       task_type_id: task.task_type_id,
       title: task.title,
-      duration: task.duration || 30,
-      description: task.description,
+      duration,
+      description: task.description || '',
       total_amount: String(task.total_amount || ''),
       payment_mode: task.payment_mode || 'UPI',
       attachment: null,
@@ -400,7 +535,6 @@ const TasksPage = () => {
 
     setFormState(state)
     setIsFormOpen(true)
-    if (editorRef.current) editorRef.current.innerHTML = state.description
 
     if (state.client_id) {
       await loadClientDependentOptions(state.client_id)
@@ -420,9 +554,11 @@ const TasksPage = () => {
     if (!state.start_time) nextErrors.start_time = 'Start time is required.'
     if (state.duration < 1 || state.duration > 500) nextErrors.duration = 'Duration must be between 1 and 500.'
 
-    const amount = Number(state.total_amount)
-    if (!state.total_amount.trim()) nextErrors.total_amount = 'Amount is required.'
-    if (Number.isNaN(amount) || amount < 0) nextErrors.total_amount = 'Amount must be positive.'
+    const amount = Number(state.total_amount || '0')
+    if (canEditPrice) {
+      if (!state.total_amount.trim()) nextErrors.total_amount = 'Amount is required.'
+      if (Number.isNaN(amount) || amount < 0) nextErrors.total_amount = 'Amount must be positive.'
+    }
 
     if (!state.description.trim()) nextErrors.description = 'Description is required.'
 
@@ -523,10 +659,13 @@ const TasksPage = () => {
       if (isBulkAssign) {
         await bulkAssignTasks({ task_ids: selectedTaskIds, user_id: selectedExpertId })
       } else if (assignTarget) {
-        await assignTask({
+        const assignResponse = await assignTask({
           task_id: assignTarget.id,
           user_id: selectedExpertId,
         })
+        if (assignResponse?.email_status === 'failed') {
+          showToast({ type: 'warning', message: 'Task assigned but email failed.' })
+        }
         const selectedExpert = experts.find((expert) => expert.id === selectedExpertId)
         if (selectedExpert) {
           setTasks((previous) =>
@@ -548,7 +687,13 @@ const TasksPage = () => {
       showSuccess(isBulkAssign ? 'Tasks assigned successfully.' : assignTarget?.assigned_to_id ? 'Task reassigned successfully.' : 'Task assigned successfully.')
       await loadPage()
     } catch (err) {
-      setAssignError(normalizeError(err, 'Failed to assign task.'))
+      const message = normalizeError(err, 'Failed to assign task.')
+      setAssignError(message)
+      showAlert({
+        type: 'error',
+        title: 'Assignment failed',
+        message,
+      })
     } finally {
       setAssignSubmitting(false)
       setActionTaskId(null)
@@ -621,7 +766,6 @@ const TasksPage = () => {
         </div>
       </div>
 
-      {error ? <p className="auth-card__error roles-feedback">{error}</p> : null}
       {success ? <p className="roles-success roles-feedback">{success}</p> : null}
 
       <div className="card tasks-filters">
@@ -681,95 +825,101 @@ const TasksPage = () => {
         </button>
       </div>
 
+
+
       <div className="card table-container tasks-table__wrapper">
         {loading ? <p className="users-loader">Loading tasks...</p> : null}
-        {!loading && filteredTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
-        {!loading && filteredTasks.length > 0 ? (
-          <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
-            <thead>
-              <tr>
-                <th>✓</th>
-                <th>SR No</th>
-                <th>Date</th>
-                <th>Candidate</th>
-                <th>Company</th>
-                <th>Status</th>
-                <th>Assign To</th>
-                <th>Time Start</th>
-                <th>Time End</th>
-                <th>File</th>
-                <th>Description</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedTasks.map((task, index) => {
-                const isCancelled = task.status === 'cancelled'
-                return (
-                <tr key={task.id}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedTaskIds.includes(task.id)}
-                      onChange={(event) =>
-                        setSelectedTaskIds((prev) =>
-                          event.target.checked ? [...new Set([...prev, task.id])] : prev.filter((id) => id !== task.id),
-                        )
-                      }
-                    />
-                  </td>
-                  <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
-                  <td>{formatDisplayDate(task.due_date)}</td>
-                  <td>{task.candidate || '—'}</td>
-                  <td>{task.client || '—'}</td>
-                  <td><span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : ''}`}>{task.status}</span></td>
-                  <td>{task.assigned_to_name || '—'}</td>
-                  <td>{formatTime(task.time_start)}</td>
-                  <td>{formatTime(task.time_end)}</td>
-                  <td>
-                    {task.file_url ? (
-                      <button
-                        className="button users-icon-btn"
-                        type="button"
-                        title="Download file"
-                        onClick={() => void handleDownloadFile(task.file_url)}
-                      >
-                        📎
-                      </button>
-                    ) : '—'}
-                  </td>
-                  <td>
-                    {task.description ? (
-                      <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
-                        👁
-                      </button>
-                    ) : '—'}
-                  </td>
-                  <td>
-                    <div className="roles-table__actions users-actions">
-                      <button className="button users-icon-btn" title="View" onClick={() => void openEdit(task)}>👁</button>
-                      <button className="button users-icon-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
-                      <button className="button users-icon-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
-                      <button
-                        className="button users-icon-btn"
-                        title={
-                          task.status === 'assigned'
-                            ? 'Reassign'
-                            : task.status === 'pending'
-                              ? 'Assign'
-                              : 'Assign disabled'
-                        }
-                        disabled={!task.can_assign || !canManage || isCancelled || !['pending', 'assigned'].includes(task.status)}
-                        onClick={() => void openAssign(task)}
-                      >
-                        👤
-                      </button>
-                    </div>
-                  </td>
+        {!loading && sortedTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
+        {!loading && sortedTasks.length > 0 ? (
+          <div className="tasks-table-scroll">
+            <table className="roles-table users-table tasks-table">
+              <thead>
+                <tr>
+                  <th>✓</th>
+                  <th>Actions</th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('description')}>Description {sortIndicator('description')}</button></th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('id')}>SR No {sortIndicator('id')}</button></th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('due_date')}>Date {sortIndicator('due_date')}</button></th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('candidate')}>Candidate {sortIndicator('candidate')}</button></th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('client')}>Company {sortIndicator('client')}</button></th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('status')}>Status {sortIndicator('status')}</button></th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('assigned_to_name')}>Assign To {sortIndicator('assigned_to_name')}</button></th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('time_start')}>Time Start {sortIndicator('time_start')}</button></th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('time_end')}>Time End {sortIndicator('time_end')}</button></th>
+                  <th>File</th>
                 </tr>
-              )})}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedTasks.map((task, index) => {
+                  const isCancelled = task.status === 'cancelled'
+
+                  return (
+                    <tr key={`task-${task.id}`}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedTaskIds.includes(task.id)}
+                          onChange={(event) =>
+                            setSelectedTaskIds((prev) =>
+                              event.target.checked ? [...new Set([...prev, task.id])] : prev.filter((id) => id !== task.id),
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <div className="roles-table__actions users-actions">
+                          <button className="btn btn-sm btn-light users-icon-btn action-btn" title="View" onClick={() => void openEdit(task)}>👁️</button>
+                          <button className="btn btn-sm btn-light users-icon-btn action-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
+                          <button className="button users-icon-btn action-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
+                          <button
+                            className="button users-icon-btn action-btn"
+                            title={
+                              task.status === 'assigned'
+                                ? 'Reassign'
+                                : task.status === 'pending'
+                                  ? 'Assign'
+                                  : 'Assign disabled'
+                            }
+                            disabled={!task.can_assign || !canManage || isCancelled || !['pending', 'assigned'].includes(task.status)}
+                            onClick={() => void openAssign(task)}
+                          >
+                            👤
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        {task.description ? (
+                          <button className="button users-icon-btn action-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
+                            👁
+                          </button>
+                        ) : '—'}
+                      </td>
+                      <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
+                      <td>{formatDisplayDate(task.due_date)}</td>
+                      <td>{task.candidate || '—'}</td>
+                      <td>{task.client || '—'}</td>
+                      <td><span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : ''}`}>{task.status}</span></td>
+                      <td>{task.assigned_to_name || '—'}</td>
+                      <td>{formatTime(task.time_start)}</td>
+                      <td>{formatTime(task.time_end)}</td>
+                      <td>
+                        {task.file_url ? (
+                          <button
+                            className="button users-icon-btn action-btn"
+                            type="button"
+                            title="Download file"
+                            onClick={() => void handleDownloadFile(task.file_url)}
+                          >
+                            📎
+                          </button>
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         ) : null}
       </div>
 
@@ -791,7 +941,7 @@ const TasksPage = () => {
 
       {isFormOpen ? (
         <div className="modal-overlay">
-          <div className="modal-card" style={{ width: 'min(980px, 100%)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-card modal-card--xl" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <h3 className="modal-title" style={{ marginBottom: 0 }}>{formMode === 'create' ? 'Create New Task' : 'Edit Task'}</h3>
               <button className="button" type="button" onClick={() => setIsFormOpen(false)} aria-label="Close task modal">
@@ -896,11 +1046,13 @@ const TasksPage = () => {
                 {formErrors.description ? <small className="auth-card__error">{formErrors.description}</small> : null}
               </div>
 
-              <label className="auth-card__field">
-                Decided Amt INR <span className="auth-card__error">*</span>
-                <input type="number" min={0} className={formErrors.total_amount ? 'field-error' : ''} value={formState.total_amount} onChange={(event) => setFormState((prev) => ({ ...prev, total_amount: event.target.value }))} placeholder="Enter amount" />
-                {formErrors.total_amount ? <small className="auth-card__error">{formErrors.total_amount}</small> : null}
-              </label>
+              {canEditPrice ? (
+                <label className="auth-card__field">
+                  Decided Amt INR <span className="auth-card__error">*</span>
+                  <input type="number" min={0} className={formErrors.total_amount ? 'field-error' : ''} value={formState.total_amount} onChange={(event) => setFormState((prev) => ({ ...prev, total_amount: event.target.value }))} placeholder="Enter amount" />
+                  {formErrors.total_amount ? <small className="auth-card__error">{formErrors.total_amount}</small> : null}
+                </label>
+              ) : null}
               <label className="auth-card__field">
                 Payment Status
                 <input value="Pending" readOnly />
@@ -975,6 +1127,7 @@ const TasksPage = () => {
             </div>
             {cancelledTasks.length === 0 ? <p className="users-empty">No cancelled tasks found.</p> : (
               <div className="tasks-table__wrapper tasks-table__wrapper--modal">
+                <div className="tasks-table-scroll">
                 <table className="roles-table users-table tasks-table" style={{ minWidth: 1650, whiteSpace: 'nowrap' }}>
                   <thead>
                     <tr>
@@ -992,7 +1145,7 @@ const TasksPage = () => {
                   </thead>
                   <tbody>
                     {cancelledTasks.map((task) => (
-                      <tr key={task.id}>
+                      <tr key={`task-${task.id}`}>
                         <td>{formatDisplayDate(task.due_date)}</td>
                         <td>{task.candidate || '—'}</td>
                         <td>{task.client || '—'}</td>
@@ -1002,21 +1155,21 @@ const TasksPage = () => {
                         <td>{formatTime(task.time_end)}</td>
                         <td>
                           {task.file_url ? (
-                            <button className="button users-icon-btn" type="button" title="Download file" onClick={() => void handleDownloadFile(task.file_url)}>
+                            <button className="button users-icon-btn action-btn" type="button" title="Download file" onClick={() => void handleDownloadFile(task.file_url)}>
                               📎
                             </button>
                           ) : '—'}
                         </td>
                         <td>
                           {task.description ? (
-                            <button className="button users-icon-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
+                            <button className="button users-icon-btn action-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
                               👁
                             </button>
                           ) : '—'}
                         </td>
                         <td>
                           <button
-                            className="button button--primary users-icon-btn"
+                            className="button button--primary users-icon-btn action-btn"
                             disabled={statusActionTaskId === task.id}
                             title={statusActionTaskId === task.id ? 'Updating task status' : 'Move task to pending'}
                             aria-label={statusActionTaskId === task.id ? 'Updating task status' : 'Move task to pending'}
@@ -1029,8 +1182,23 @@ const TasksPage = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="modal-overlay" role="alertdialog" aria-modal="true" aria-labelledby="tasks-error-title">
+          <div className="modal-card" style={{ width: 'min(520px, 100%)' }}>
+            <h3 id="tasks-error-title" className="modal-title">Error</h3>
+            <p className="card-text">{error}</p>
+            <div className="modal-actions">
+              <button className="button button--primary" type="button" onClick={() => setError(null)}>
+                OK
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

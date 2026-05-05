@@ -1,7 +1,9 @@
 <?php
 
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 error_reporting(E_ALL);
+date_default_timezone_set('Asia/Kolkata');
 
 // ---------------- HEADERS ----------------
 header("Access-Control-Allow-Origin: *");
@@ -36,6 +38,35 @@ require_once "controllers/RoleController.php";
 require_once "controllers/TaskTypeController.php";
 require_once "controllers/TaskStatusController.php";
 require_once "controllers/PaymentStatusController.php";
+require_once "controllers/InvoiceController.php";
+require_once "controllers/FeedbackController.php";
+require_once "services/EmailService.php";
+require_once "services/LoggerService.php";
+
+set_error_handler(function ($severity, $message, $file, $line) {
+    LoggerService::logError('PHP runtime error', [
+        'severity' => $severity,
+        'message' => $message,
+        'file' => $file,
+        'line' => $line,
+    ]);
+
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+set_exception_handler(function ($exception) {
+    LoggerService::logError('Unhandled exception', [
+        'message' => $exception->getMessage(),
+        'file' => $exception->getFile(),
+        'line' => $exception->getLine(),
+    ]);
+
+    http_response_code(500);
+    echo json_encode([
+        "success" => false,
+        "message" => "Something went wrong. Please try again."
+    ]);
+});
 
 // ---------------- ROUTE PARSER ----------------
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -44,6 +75,7 @@ $method = $_SERVER['REQUEST_METHOD'];
 // BASE PATH
 $basePath = "/api";
 $uri = str_replace($basePath, "", $uri);
+$uri = str_replace('/index.php', '', $uri);
 
 // 🔥 FIX: normalize URI
 $uri = rtrim($uri, '/');
@@ -247,7 +279,8 @@ elseif ($uri === "/dashboard/available-experts") {
 
 elseif ($uri === "/dashboard/assign-task") {
     authorize($user,['admin','manager','coordinator']);
-    (new DashboardController())->assignTask();
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new DashboardController())->assignTask($actorUserId);
 }
 
 
@@ -262,6 +295,15 @@ elseif ($uri === "/tasks/list") {
 elseif ($uri === "/tasks/comments" && $method === "GET") {
     authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert','technical lead']);
     (new TaskController())->comments();
+}
+elseif ($uri === "/tasks/check-updates" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert','technical lead']);
+    $actorUserId = null;
+    $role = is_array($user) ? ($user['role'] ?? null) : ($user->role ?? null);
+    if (in_array($role, ['expert', 'expertlead', 'technical expert', 'technical lead'], true)) {
+        $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    }
+    (new TaskController())->checkUpdates($actorUserId);
 }
 elseif ($uri === "/expert/tasks" && $method === "GET") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
@@ -289,24 +331,53 @@ elseif ($uri === "/expert/tasks/end" && $method === "POST") {
     $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
     (new TaskController())->endTask($expertUserId);
 }
+elseif ($uri === "/feedback" && $method === "POST") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new FeedbackController())->create($actorUserId);
+}
+elseif ($uri === "/feedback" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    $actorRole = is_array($user) ? (string)($user['role'] ?? '') : (string)($user->role ?? '');
+    (new FeedbackController())->listAll($actorUserId, $actorRole);
+}
+elseif (preg_match('#^/feedback/(\d+)$#', $uri, $matches) === 1 && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    (new FeedbackController())->viewByTaskId((int)$matches[1]);
+}
+elseif ($uri === "/expert/send-daily-report" && $method === "POST") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->sendDailyReport($expertUserId);
+}
 elseif ($uri === "/tasks/create" && $method === "POST") {
-    authorize($user,['admin','manager','coordinator']);
-    (new TaskController())->create();
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    $actorRole = is_array($user) ? (string)($user['role'] ?? '') : (string)($user->role ?? '');
+    (new TaskController())->create($actorUserId, $actorRole);
 }
 elseif ($uri === "/tasks/update" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
-    (new TaskController())->update($user->id);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->update($actorUserId);
 }
 elseif ($uri === "/tasks/assign" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
-    (new TaskController())->assign();
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->assign($actorUserId);
 }
 elseif ($uri === "/tasks/upload" && $method === "POST") {
     authorize($user,['admin','manager','coordinator','expert']);
-    (new TaskController())->uploadFile($user->id);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->uploadFile($actorUserId);
 }
 elseif ($uri === "/tasks/file" && $method === "GET") {
     (new TaskController())->downloadFile();
+}
+elseif ($uri === "/tasks/last-update" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
+    (new TaskController())->lastUpdate();
 }
 elseif ($uri === "/tasks/bulk-status" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
@@ -316,9 +387,39 @@ elseif ($uri === "/tasks/bulk-assign" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->bulkAssign();
 }
+elseif ($uri === "/tasks/bulk-price" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new TaskController())->bulkPriceList();
+}
+elseif ($uri === "/reports/tasks" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
+    (new TaskController())->reportTasks($user);
+}
+elseif ($uri === "/reports/task-assignments" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
+    (new TaskController())->reportTaskAssignments();
+}
+elseif ($uri === "/tasks/update-prices" && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new TaskController())->updatePrices();
+}
+elseif ($uri === "/tasks/bulk-price/update" && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new TaskController())->updatePrices();
+}
 elseif ($uri === "/tasks/cancel" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
     (new TaskController())->cancelTask();
+}
+elseif ($uri === "/test-email" && $method === "POST") {
+    authorize($user,['admin','manager','coordinator']);
+    $data = json_decode(file_get_contents("php://input"));
+    $to = is_object($data) && isset($data->to) ? (string)$data->to : 'support@bsquareg-developers.com';
+    $sent = EmailService::sendTestEmail($to);
+    echo json_encode([
+        "success" => $sent,
+        "message" => $sent ? "Test email sent" : "Failed to send test email",
+    ]);
 }
 
 
@@ -326,6 +427,39 @@ elseif ($uri === "/tasks/cancel" && $method === "POST") {
 // ❌ DEFAULT
 // ===================================================
 
+
+elseif ($uri === "/tasks/completed" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->completedTasks();
+}
+elseif ($uri === "/invoices" && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->createInvoice();
+}
+elseif ($uri === "/invoices" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->listInvoices();
+}
+elseif ($uri === "/invoices/stats" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->stats();
+}
+elseif ($uri === "/invoices/next-number" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->nextInvoiceNumber();
+}
+elseif (preg_match('#^/invoices/(\d+)/update-status$#', $uri, $matches) && $method === "PUT") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->updateStatus((int)$matches[1]);
+}
+elseif (preg_match('#^/invoices/(\d+)/recalculate$#', $uri, $matches) && $method === "POST") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->recalculate((int)$matches[1]);
+}
+elseif (preg_match('#^/invoices/(\d+)$#', $uri, $matches) && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new InvoiceController())->getInvoiceById((int)$matches[1]);
+}
 else {
     http_response_code(404);
     echo json_encode([

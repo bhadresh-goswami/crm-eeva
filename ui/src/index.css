@@ -1,8 +1,23 @@
 :root {
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-base: Inter, 'Segoe UI', Arial, sans-serif;
+  --font-h1: 22px;
+  --font-h2: 18px;
+  --font-h3: 16px;
+  --font-body: 14px;
+  --font-small: 12px;
+  --font-table: 13px;
+  --font-button: 13px;
+
+  --color-primary: #2563eb;
+  --color-success: #16a34a;
+  --color-danger: #dc2626;
+  --color-text: #111827;
+  --color-secondary: #6b7280;
+
+  font-family: var(--font-family-base);
   line-height: 1.5;
   font-weight: 400;
-  color: #1f2937;
+  color: var(--color-text);
   background-color: #f4f6f8;
 }
 
@@ -14,6 +29,9 @@ body {
   margin: 0;
   min-height: 100vh;
   background-color: #f4f6f8;
+  font-family: var(--font-family-base);
+  font-size: var(--font-body);
+  color: var(--color-text);
 }
 
 #root {
@@ -25,6 +43,36 @@ h2,
 h3,
 p {
   margin: 0;
+}
+
+
+h1 {
+  font-size: var(--font-h1);
+}
+
+h2 {
+  font-size: var(--font-h2);
+}
+
+h3 {
+  font-size: var(--font-h3);
+}
+
+small {
+  font-size: var(--font-small);
+}
+
+table {
+  font-size: var(--font-table);
+}
+
+table th {
+  font-size: var(--font-table);
+  font-weight: 700;
+}
+
+table td {
+  font-size: var(--font-table);
 }
 
 .app-shell {
@@ -93,21 +141,21 @@ p {
 }
 
 .header__title {
-  font-size: 1.1rem;
+  font-size: var(--font-h2);
   font-weight: 700;
   text-transform: capitalize;
 }
 
 .header__role {
-  color: #4338ca;
+  color: var(--color-primary);
   background: #eef2ff;
   border-radius: 999px;
   padding: 0.1rem 0.45rem;
-  font-size: 0.9rem;
+  font-size: var(--font-small);
 }
 
 .header__meta {
-  color: #6b7280;
+  color: var(--color-secondary);
 }
 
 .header__actions {
@@ -123,13 +171,15 @@ p {
 }
 
 .page-title {
-  font-size: 1.75rem;
+  font-size: var(--font-h1);
   margin-bottom: 0.5rem;
+  font-weight: 700;
 }
 
 .page-description {
-  color: #6b7280;
+  color: var(--color-secondary);
   margin-bottom: 1.5rem;
+  font-size: var(--font-body);
 }
 
 .cards-grid {
@@ -146,12 +196,13 @@ p {
 }
 
 .card h3 {
-  font-size: 1rem;
+  font-size: var(--font-h3);
   margin-bottom: 0.5rem;
 }
 
 .card-text {
-  color: #6b7280;
+  color: var(--color-secondary);
+  font-size: var(--font-body);
 }
 
 .auth-page {
@@ -178,16 +229,18 @@ p {
 .auth-card__field {
   display: grid;
   gap: 0.35rem;
-  font-size: 0.9rem;
+  font-size: var(--font-small);
   color: #374151;
 }
 
 .auth-card__field input,
-.auth-card__field select {
+.auth-card__field select,
+.auth-card__field textarea {
   border: 1px solid #d1d5db;
   border-radius: 0.5rem;
-  padding: 0.625rem 0.7rem;
-  font: inherit;
+  padding: 0.55rem 0.7rem;
+  font-size: var(--font-body);
+  font-family: var(--font-family-base);
   background: #ffffff;
 }
 
@@ -197,18 +250,18 @@ p {
 }
 
 .auth-card__error {
-  color: #b91c1c;
-  font-size: 0.9rem;
+  color: var(--color-danger);
+  font-size: var(--font-small);
 }
 
 .auth-card__success {
-  color: #166534;
-  font-size: 0.9rem;
+  color: var(--color-success);
+  font-size: var(--font-small);
 }
 
 .auth-card__link {
-  color: #3730a3;
-  font-size: 0.9rem;
+  color: var(--color-primary);
+  font-size: var(--font-body);
   text-decoration: none;
   justify-self: start;
 }
@@ -225,9 +278,13 @@ p {
 .button {
   border: 1px solid #d1d5db;
   border-radius: 0.5rem;
-  padding: 0.55rem 0.9rem;
+  padding: 0.45rem 0.8rem;
+  min-height: 34px;
   background: #ffffff;
   cursor: pointer;
+  font-size: var(--font-button);
+  font-family: var(--font-family-base);
+  color: var(--color-text);
 }
 
 .button:disabled {
@@ -236,15 +293,15 @@ p {
 }
 
 .button--primary {
-  background-color: #111827;
+  background-color: var(--color-primary);
   color: #ffffff;
-  border-color: #111827;
+  border-color: var(--color-primary);
 }
 
 .button--danger {
   background-color: #fee2e2;
   border-color: #fecaca;
-  color: #991b1b;
+  color: var(--color-danger);
 }
 
 .dashboard-actions {
@@ -405,14 +462,20 @@ p {
 }
 
 .modal-card {
-  width: min(560px, 100%);
+  width: min(900px, 95vw);
   background: #fff;
   border-radius: 0.75rem;
   border: 1px solid #e5e7eb;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  padding: 1rem;
+  padding: 1.5rem;
+  max-height: 90vh;
+  overflow-y: auto;
   animation: modalScale 0.18s ease;
 }
+
+.modal-card--md { width: min(600px, 95vw); }
+.modal-card--lg { width: min(900px, 95vw); }
+.modal-card--xl { width: 90vw; }
 
 .modal-title {
   font-size: 1.1rem;
@@ -421,15 +484,27 @@ p {
 
 .modal-form {
   display: grid;
-  gap: 0.7rem;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: 0.75rem;
   margin-top: 0.25rem;
   flex-wrap: wrap;
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .modal-card {
+    width: min(95vw, 100%);
+  }
+
+  .modal-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 @keyframes modalFade {
@@ -475,6 +550,26 @@ p {
   color: #991b1b;
 }
 
+.status-pill--pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-pill--assigned {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-pill--completed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-pill--cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .table-sort {
   border: 0;
   background: transparent;
@@ -486,7 +581,10 @@ p {
 }
 
 .users-actions {
+  display: flex;
+  gap: 0.35rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .users-icon-btn {
@@ -495,6 +593,15 @@ p {
   display: inline-grid;
   place-items: center;
   padding: 0;
+}
+
+.action-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .users-more-actions {
@@ -561,6 +668,7 @@ p {
 }
 
 .table-container {
+  width: 100%;
   max-height: min(500px, calc(100vh - 300px));
   overflow-y: auto;
   overflow-x: auto;
@@ -568,9 +676,8 @@ p {
 }
 
 .tasks-table__wrapper {
-  height: 400px;   /* set your required height */
-  width: 1000px;     /* or fixed like 800px */
-
+  height: min(420px, calc(100vh - 340px));
+  width: 100%;
   overflow-y: auto;
   overflow-x: auto;
   border-radius: 1rem;
@@ -586,6 +693,12 @@ p {
   top: 0;
   z-index: 2;
   background: #fff;
+}
+
+.tasks-table {
+  width: 100%;
+  min-width: 900px;
+  white-space: nowrap;
 }
 
 @media (max-width: 960px) {
@@ -716,6 +829,14 @@ p {
 
 .dashboard-cards {
   margin-bottom: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.dashboard-cards .metric-card {
+  padding: 0.8rem;
+  min-height: 88px;
 }
 
 .dashboard-card__label {
@@ -1040,4 +1161,19 @@ p {
 @keyframes dinoBounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --font-h1: 20px;
+    --font-h2: 17px;
+    --font-h3: 15px;
+    --font-body: 13px;
+    --font-table: 12px;
+    --font-button: 12px;
+  }
+
+  .main-content {
+    padding: 1.25rem;
+  }
 }

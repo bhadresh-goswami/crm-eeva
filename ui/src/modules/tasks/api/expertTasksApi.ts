@@ -9,7 +9,11 @@ export type ExpertTaskItem = {
   due_date: string
   start_time: string
   end_time: string
+  task_start_time: string
+  task_end_time: string
+  duration: number
   support_type: string
+  task_type: string
   status_id: number
   status_name: string
   assigned_to_id: number
@@ -17,6 +21,8 @@ export type ExpertTaskItem = {
   assigned_by_name: string
   is_own_task: number
   file_url: string
+  feedback_action: 'ADD' | 'VIEW'
+  feedback_overall: number
 }
 
 export type EndTaskStatus = 'Completed' | 'Cancelled' | 'No Show' | 'Rescheduled'
@@ -30,7 +36,11 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   due_date: String(item.due_date ?? '').trim(),
   start_time: String(item.start_time ?? '').trim(),
   end_time: String(item.end_time ?? '').trim(),
+  task_start_time: String(item.task_start_time ?? '').trim(),
+  task_end_time: String(item.task_end_time ?? '').trim(),
+  duration: Number(item.duration ?? 0),
   support_type: String(item.support_type ?? '').trim(),
+  task_type: String(item.task_type ?? item.support_type ?? '').trim(),
   status_id: Number(item.status_id ?? 0),
   status_name: String(item.status_name ?? '').trim(),
   assigned_to_id: Number(item.assigned_to_id ?? 0),
@@ -38,10 +48,33 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   assigned_by_name: String(item.assigned_by_name ?? '').trim(),
   is_own_task: Number(item.is_own_task ?? 0),
   file_url: String(item.file_url ?? '').trim(),
+  feedback_action: String(item.feedback_action ?? '').trim().toUpperCase() === 'VIEW' ? 'VIEW' : 'ADD',
+  feedback_overall: Number(item.feedback_overall ?? 0),
 })
 
-export const getExpertTasks = async ({ activeOnly = false }: { activeOnly?: boolean } = {}) => {
-  const endpoint = activeOnly ? '/expert/tasks?active_only=1' : '/expert/tasks'
+export const getExpertTasks = async ({
+  activeOnly = false,
+  status,
+  fromDate,
+  toDate,
+  taskTypeId,
+  feedbackOnly,
+}: {
+  activeOnly?: boolean
+  status?: string
+  fromDate?: string
+  toDate?: string
+  taskTypeId?: number
+  feedbackOnly?: boolean
+} = {}) => {
+  const params = new URLSearchParams()
+  if (activeOnly) params.set('active_only', '1')
+  if (status) params.set('status', status)
+  if (fromDate) params.set('from_date', fromDate)
+  if (toDate) params.set('to_date', toDate)
+  if (taskTypeId && taskTypeId > 0) params.set('task_type_id', String(taskTypeId))
+  if (feedbackOnly) params.set('feedback_only', '1')
+  const endpoint = params.toString() ? `/expert/tasks?${params.toString()}` : '/expert/tasks'
   const response = await apiRequest<{ data?: unknown[] }>(endpoint)
   const list = Array.isArray(response?.data) ? response.data : []
 
@@ -69,5 +102,12 @@ export const endExpertTask = async (taskId: number, status: EndTaskStatus, comme
   await apiRequest('/expert/tasks/end', {
     method: 'POST',
     body: JSON.stringify({ task_id: taskId, status, comment }),
+  })
+}
+
+export const sendDailyReportNow = async () => {
+  return apiRequest<{ success?: boolean; email_status?: 'sent' | 'failed' | 'skipped'; email_error?: string; message?: string }>('/expert/send-daily-report', {
+    method: 'POST',
+    body: JSON.stringify({}),
   })
 }
