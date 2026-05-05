@@ -140,4 +140,49 @@ class FeedbackController {
             ]);
         }
     }
+
+    public function viewByTaskId(int $taskId): void {
+        if ($taskId <= 0) {
+            http_response_code(422);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Valid task_id is required'
+            ]);
+            return;
+        }
+
+        $db = new Database();
+        $conn = $db->connect();
+
+        try {
+            $stmt = $conn->prepare("SELECT * FROM task_feedback WHERE task_id = ? LIMIT 1");
+            $stmt->execute([$taskId]);
+            $feedback = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$feedback) {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Feedback not found'
+                ]);
+                return;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'data' => $feedback
+            ]);
+        } catch (Throwable $e) {
+            LoggerService::logError('Feedback fetch failed', [
+                'task_id' => $taskId,
+                'error' => $e->getMessage(),
+            ]);
+
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Something went wrong. Please try again.'
+            ]);
+        }
+    }
 }

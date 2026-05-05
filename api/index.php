@@ -336,6 +336,10 @@ elseif ($uri === "/feedback" && $method === "POST") {
     $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
     (new FeedbackController())->create($actorUserId);
 }
+elseif (preg_match('#^/feedback/(\d+)$#', $uri, $matches) === 1 && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    (new FeedbackController())->viewByTaskId((int)$matches[1]);
+}
 elseif ($uri === "/expert/send-daily-report" && $method === "POST") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
     $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
