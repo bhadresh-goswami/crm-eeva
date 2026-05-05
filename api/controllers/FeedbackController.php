@@ -67,10 +67,14 @@ class FeedbackController {
                 'task_id' => $taskId,
                 'company_name' => $companyName,
                 'interviewer_name' => $interviewerName,
+                'interview_round' => trim((string)($data->interview_round ?? '')),
                 'communication' => $communication,
                 'technical' => $technical,
                 'confidence' => $confidence,
                 'project_explanation' => $projectExplanation,
+                'read_proper' => trim((string)($data->read_proper ?? '')),
+                'area_of_improvements' => trim((string)($data->area_of_improvements ?? '')),
+                'recording_url' => trim((string)($data->recording_url ?? '')),
                 'overall' => $overall,
             ];
 

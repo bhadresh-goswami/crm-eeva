@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
 import { getExpertTasks, type ExpertTaskItem } from '../api/expertTasksApi'
+import FeedbackModal from '../components/FeedbackModal'
 
 const PAGE_SIZE = 10
 
@@ -34,6 +35,8 @@ const ExpertTaskReportsPage = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [modalMode, setModalMode] = useState<'ADD' | 'VIEW'>('ADD')
+  const [modalTaskId, setModalTaskId] = useState<number | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -89,9 +92,9 @@ const ExpertTaskReportsPage = () => {
                     <tr key={task.task_id}>
                       <td>
                         {task.feedback_action === 'ADD' ? (
-                          <button type="button" className="btn btn-sm btn-primary">Add Feedback</button>
+                          <button type="button" className="btn btn-sm btn-primary" onClick={() => { setModalMode('ADD'); setModalTaskId(task.task_id) }}>Add Feedback</button>
                         ) : (
-                          <button type="button" className="btn btn-sm btn-outline-secondary">View</button>
+                          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => { setModalMode('VIEW'); setModalTaskId(task.task_id) }}>View</button>
                         )}
                       </td>
                       <td>{formatDate(task.due_date)}</td>
@@ -116,6 +119,13 @@ const ExpertTaskReportsPage = () => {
           </div>
         </div>
       </div>
+      <FeedbackModal
+        open={modalTaskId !== null}
+        mode={modalMode}
+        taskId={modalTaskId}
+        onClose={() => setModalTaskId(null)}
+        onSubmitted={() => void load()}
+      />
     </PageContainer>
   )
 }
