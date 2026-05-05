@@ -55,7 +55,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         },
         {
           title: 'Reports',
-          items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }],
+          items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }, { label: 'Feedback Report', to: '/reports/feedback', icon: 'reports' }],
         },
         {
           title: 'CRM',
@@ -86,7 +86,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         },
         {
           title: 'Reports',
-          items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }],
+          items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }, { label: 'Feedback Report', to: '/reports/feedback', icon: 'reports' }],
         },
         {
           title: 'CRM',
@@ -112,6 +112,9 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         items: [
           { label: 'Dashboard', to: roleDashboardPath[user.role], icon: 'dashboard' },
           { label: 'Tasks', to: '/tasks', icon: 'tasks' },
+          ...(['expert', 'technical expert', 'expertlead', 'technical lead'].includes(user.role)
+            ? [{ label: 'Task Feedback', to: '/tasks/expert-reports', icon: 'tasks' as const }]
+            : []),
         ],
       },
     ]
@@ -129,7 +132,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
     sections.push({
       title: 'Reports',
-      items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }],
+      items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }, { label: 'Feedback Report', to: '/reports/feedback', icon: 'reports' }],
     })
 
     return sections

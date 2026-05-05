@@ -52,7 +52,7 @@ const ReportsTasksPage = () => {
           total_amount: 0,
           payment_mode: '',
           payment_status: '',
-          status: row.status_name,
+          status: String(row.status_name || '').toLowerCase().replace(/\s+/g, '_'),
           assigned_to_id: row.assigned_to_id,
           assigned_to_name: row.assigned_to_name,
           file_url: row.file_url,

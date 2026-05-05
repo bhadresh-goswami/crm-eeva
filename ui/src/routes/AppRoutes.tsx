@@ -11,6 +11,8 @@ import TasksEntryPage from '../modules/tasks/pages/TasksEntryPage'
 import BulkPriceUpdatePage from '../modules/tasks/pages/BulkPriceUpdatePage'
 import ReportsTasksPage from '../modules/tasks/pages/ReportsTasksPage'
 import CandidateReportPage from '../modules/tasks/pages/CandidateReportPage'
+import ExpertTaskReportsPage from '../modules/tasks/pages/ExpertTaskReportsPage'
+import FeedbackReportPage from '../modules/tasks/pages/FeedbackReportPage'
 import UsersPage from '../modules/users/pages/UsersPage'
 import InvoiceListPage from '../modules/invoices/pages/InvoiceListPage'
 import InvoiceCreatePage from '../modules/invoices/pages/InvoiceCreatePage'
@@ -60,6 +62,9 @@ const AppRoutes = () => {
           </Route>
 
           <Route path="/tasks" element={<TasksEntryPage />} />
+          <Route element={<ProtectedRoute allowedRoles={['expert', 'expertlead']} />}>
+            <Route path="/tasks/expert-reports" element={<ExpertTaskReportsPage />} />
+          </Route>
           <Route element={<ProtectedRoute allowedRoles={['admin', 'manager']} />}>
             <Route path="/tasks/bulk-price" element={<BulkPriceUpdatePage />} />
             <Route path="/tasks/payment-correction" element={<BulkPriceUpdatePage />} />
@@ -67,6 +72,7 @@ const AppRoutes = () => {
           <Route element={<ProtectedRoute allowedRoles={['admin', 'manager', 'coordinator', 'expert', 'expertlead']} />}>
             <Route path="/reports/tasks" element={<ReportsTasksPage />} />
             <Route path="/reports/candidates" element={<CandidateReportPage />} />
+            <Route path="/reports/feedback" element={<FeedbackReportPage />} />
           </Route>
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/pocs" element={<PocsPage />} />
