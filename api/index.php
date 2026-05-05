@@ -39,6 +39,7 @@ require_once "controllers/TaskTypeController.php";
 require_once "controllers/TaskStatusController.php";
 require_once "controllers/PaymentStatusController.php";
 require_once "controllers/InvoiceController.php";
+require_once "controllers/FeedbackController.php";
 require_once "services/EmailService.php";
 require_once "services/LoggerService.php";
 
@@ -329,6 +330,15 @@ elseif ($uri === "/expert/tasks/end" && $method === "POST") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
     $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
     (new TaskController())->endTask($expertUserId);
+}
+elseif ($uri === "/feedback" && $method === "POST") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new FeedbackController())->create($actorUserId);
+}
+elseif (preg_match('#^/feedback/(\d+)$#', $uri, $matches) === 1 && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    (new FeedbackController())->viewByTaskId((int)$matches[1]);
 }
 elseif ($uri === "/expert/send-daily-report" && $method === "POST") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
