@@ -13,6 +13,7 @@ export type ExpertTaskItem = {
   task_end_time: string
   duration: number
   support_type: string
+  task_type: string
   status_id: number
   status_name: string
   assigned_to_id: number
@@ -20,6 +21,7 @@ export type ExpertTaskItem = {
   assigned_by_name: string
   is_own_task: number
   file_url: string
+  feedback_action: 'ADD' | 'VIEW'
 }
 
 export type EndTaskStatus = 'Completed' | 'Cancelled' | 'No Show' | 'Rescheduled'
@@ -37,6 +39,7 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   task_end_time: String(item.task_end_time ?? '').trim(),
   duration: Number(item.duration ?? 0),
   support_type: String(item.support_type ?? '').trim(),
+  task_type: String(item.task_type ?? item.support_type ?? '').trim(),
   status_id: Number(item.status_id ?? 0),
   status_name: String(item.status_name ?? '').trim(),
   assigned_to_id: Number(item.assigned_to_id ?? 0),
@@ -44,6 +47,7 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   assigned_by_name: String(item.assigned_by_name ?? '').trim(),
   is_own_task: Number(item.is_own_task ?? 0),
   file_url: String(item.file_url ?? '').trim(),
+  feedback_action: String(item.feedback_action ?? '').trim().toUpperCase() === 'VIEW' ? 'VIEW' : 'ADD',
 })
 
 export const getExpertTasks = async ({
