@@ -39,6 +39,8 @@ const ExpertTaskReportsPage = () => {
   const [modalTaskId, setModalTaskId] = useState<number | null>(null)
   const [candidateFilter, setCandidateFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [sortBy, setSortBy] = useState<'due_date' | 'candidate_name' | 'task_type'>('due_date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const load = async () => {
     setLoading(true)
@@ -62,11 +64,17 @@ const ExpertTaskReportsPage = () => {
   const filteredRows = useMemo(() => rows.filter((r) =>
     r.candidate_name.toLowerCase().includes(candidateFilter.toLowerCase())
     && r.task_type.toLowerCase().includes(typeFilter.toLowerCase())), [rows, candidateFilter, typeFilter])
+  const sortedRows = useMemo(() => [...filteredRows].sort((a, b) => {
+    const av = String(a[sortBy] ?? '').toLowerCase()
+    const bv = String(b[sortBy] ?? '').toLowerCase()
+    if (av === bv) return 0
+    return sortDir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1)
+  }), [filteredRows, sortBy, sortDir])
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
   const paginatedRows = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
-    return filteredRows.slice(start, start + PAGE_SIZE)
-  }, [filteredRows, page])
+    return sortedRows.slice(start, start + PAGE_SIZE)
+  }, [sortedRows, page])
 
   return (
     <PageContainer title="Expert Task Reports" description="Completed tasks with feedback action for experts.">
@@ -80,13 +88,13 @@ const ExpertTaskReportsPage = () => {
           {error ? <div className="alert alert-danger py-2">{error}</div> : null}
 
           <div className="table-responsive">
-            <table className="table table-bordered table-hover align-middle">
+            <table className="table table-bordered table-hover align-middle table-sm">
               <thead className="table-light">
                 <tr>
                   <th>Action</th>
-                  <th>Date</th>
-                  <th>Candidate</th>
-                  <th>Type</th>
+                  <th role="button" onClick={() => { setSortBy('due_date'); setSortDir((d) => d === 'asc' ? 'desc' : 'asc') }}>Date</th>
+                  <th role="button" onClick={() => { setSortBy('candidate_name'); setSortDir((d) => d === 'asc' ? 'desc' : 'asc') }}>Candidate</th>
+                  <th role="button" onClick={() => { setSortBy('task_type'); setSortDir((d) => d === 'asc' ? 'desc' : 'asc') }}>Type</th>
                   <th>Status</th>
                   <th>Actual Time (from-to)</th>
                   <th>Duration</th>
@@ -102,9 +110,9 @@ const ExpertTaskReportsPage = () => {
                     <tr key={task.task_id}>
                       <td>
                         {task.feedback_action === 'ADD' ? (
-                          <button type="button" className="btn btn-sm btn-primary" onClick={() => { setModalMode('ADD'); setModalTaskId(task.task_id) }}>➕ Add Feedback</button>
+                          <button type="button" className="btn btn-sm btn-primary" title="Add Feedback" onClick={() => { setModalMode('ADD'); setModalTaskId(task.task_id) }}>➕</button>
                         ) : (
-                          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => { setModalMode('VIEW'); setModalTaskId(task.task_id) }}>👁 View</button>
+                          <button type="button" className="btn btn-sm btn-outline-secondary" title="View Feedback" onClick={() => { setModalMode('VIEW'); setModalTaskId(task.task_id) }}>👁</button>
                         )}
                       </td>
                       <td>{formatDate(task.due_date)}</td>
