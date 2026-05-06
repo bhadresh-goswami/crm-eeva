@@ -16,6 +16,7 @@ import {
   getExperts,
   getPocsByClient,
   getTaskTypes,
+  getTaskFilterOptions,
   getTasks,
   getTasksLastUpdate,
   moveTaskToPending,
@@ -260,6 +261,7 @@ const TasksPage = () => {
   const [loadingCandidates, setLoadingCandidates] = useState(false)
 
   const [loading, setLoading] = useState(true)
+  const [loadingFilters, setLoadingFilters] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -267,6 +269,11 @@ const TasksPage = () => {
   const [companyFilter, setCompanyFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [filterOptionsError, setFilterOptionsError] = useState<string | null>(null)
+  const [filterCompanies, setFilterCompanies] = useState<string[]>([])
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([])
+  const [filterAssignees, setFilterAssignees] = useState<string[]>([])
+  const [filterCandidates, setFilterCandidates] = useState<string[]>([])
 
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
@@ -344,6 +351,25 @@ const TasksPage = () => {
   useEffect(() => {
     void loadPage()
   }, [loadPage])
+
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      setLoadingFilters(true)
+      setFilterOptionsError(null)
+      try {
+        const data = await getTaskFilterOptions()
+        setFilterCompanies(data.companies)
+        setFilterStatuses(data.statuses)
+        setFilterAssignees(data.assignees.map((row) => row.name))
+        setFilterCandidates(data.candidates.map((row) => row.name))
+      } catch (err) {
+        setFilterOptionsError(normalizeError(err, 'Failed to load filter options.'))
+      } finally {
+        setLoadingFilters(false)
+      }
+    }
+    void loadFilterOptions()
+  }, [])
 
   useEffect(() => {
     const nextEnd = calcEndTime(formState.start_time, formState.duration)
@@ -476,10 +502,7 @@ const TasksPage = () => {
   const candidateOptions = useMemo(() => candidates.map((item) => ({ id: item.id, label: item.name })), [candidates])
   const taskTypeOptions = useMemo(() => taskTypes.map((item) => ({ id: item.id, label: item.name })), [taskTypes])
 
-  const assigneeOptions = useMemo(
-    () => [...new Set(tasks.map((task) => task.assigned_to_name).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [tasks],
-  )
+  const assigneeOptions = useMemo(() => filterAssignees, [filterAssignees])
 
   const loadClientDependentOptions = useCallback(async (clientId: number) => {
     setLoadingPocs(true)
@@ -770,35 +793,33 @@ const TasksPage = () => {
       {success ? <p className="roles-success roles-feedback">{success}</p> : null}
 
       <div className="card tasks-filters">
+        {filterOptionsError ? <small className="auth-card__error">{filterOptionsError}</small> : null}
         <label className="auth-card__field">
           Candidate
-          <input value={candidateFilter} onChange={(event) => setCandidateFilter(event.target.value)} placeholder="Search" />
+          <select value={candidateFilter} onChange={(event) => setCandidateFilter(event.target.value)} disabled={loadingFilters}>
+            <option value="">All</option>
+            {filterCandidates.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
         </label>
         <label className="auth-card__field">
           Company
-          <select value={companyFilter} onChange={(event) => setCompanyFilter(event.target.value)}>
+          <select value={companyFilter} onChange={(event) => setCompanyFilter(event.target.value)} disabled={loadingFilters}>
             <option value="">All</option>
-            {[...new Set(tasks.map((task) => task.client).filter(Boolean))].map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
+            {filterCompanies.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
         </label>
         <label className="auth-card__field">
           Status
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} disabled={loadingFilters}>
             <option value="">All</option>
-            {['active', 'pending', 'assigned'].map((status) => (
-              <option key={status} value={status}>{status}</option>
-            ))}
+            {filterStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
           </select>
         </label>
         <label className="auth-card__field">
           Assign To
-          <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)}>
+          <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} disabled={loadingFilters}>
             <option value="">All</option>
-            {assigneeOptions.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
+            {assigneeOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
         </label>
       </div>
