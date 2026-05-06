@@ -144,7 +144,10 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   if (!user) return null
   const allItems = sections.flatMap((section) => section.items)
   const reportsItems = allItems.filter((item) => item.to.startsWith('/reports'))
-  const primaryItems = allItems.filter((item) => !item.to.startsWith('/reports'))
+  const orderedLabels = ['Dashboard', 'Tasks', 'Task Feedback', 'Payment Correction', 'Invoices', 'Clients', 'POC', 'Candidates']
+  const primaryItems = orderedLabels
+    .map((label) => allItems.find((item) => item.label === label))
+    .filter((item): item is MenuItem => Boolean(item))
 
   const isReportsActive = reportsItems.some((item) => location.pathname === item.to)
 
@@ -183,9 +186,19 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               {isReportsOpen ? (
                 <div className="top-nav__dropdown-menu">
                   {reportsItems.map((item) => (
-                    <NavLink key={item.to} to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`} onClick={() => setIsReportsOpen(false)}>
-                      {item.label}
-                    </NavLink>
+                    <div key={item.to} className={`top-nav__dropdown-row ${item.label === 'Candidate Report' ? 'top-nav__dropdown-row--nested' : ''}`}>
+                      <NavLink to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`} onClick={() => setIsReportsOpen(false)}>
+                        <span>{item.label}</span>
+                        {item.label === 'Candidate Report' ? <span className="top-nav__submenu-caret">▶</span> : null}
+                      </NavLink>
+                      {item.label === 'Candidate Report' ? (
+                        <div className="top-nav__nested-menu">
+                          <NavLink to={item.to} className="top-nav__dropdown-item" onClick={() => setIsReportsOpen(false)}>Daily</NavLink>
+                          <NavLink to={item.to} className="top-nav__dropdown-item" onClick={() => setIsReportsOpen(false)}>Weekly</NavLink>
+                          <NavLink to={item.to} className="top-nav__dropdown-item" onClick={() => setIsReportsOpen(false)}>Monthly</NavLink>
+                        </div>
+                      ) : null}
+                    </div>
                   ))}
                 </div>
               ) : null}
