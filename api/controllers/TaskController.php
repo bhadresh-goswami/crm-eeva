@@ -45,7 +45,6 @@ class TaskController {
             LEFT JOIN users assigned_to_user ON assigned_to_user.id = ta.user_id
             LEFT JOIN task_feedback tfb ON tfb.task_id = t.id
             WHERE ta.user_id = ?
-              AND LOWER(COALESCE(ts.name, '')) = 'completed'
         ";
 
         $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
