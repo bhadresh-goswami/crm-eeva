@@ -9,6 +9,7 @@ type Row = {
   est_time_range: string
   duration: number
   has_feedback: boolean
+  feedback_id: number | null
 }
 
 type Props = {
@@ -50,7 +51,13 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
                 <td className="text-nowrap"><span className={`badge ${statusBadge(row.status_name)}`}>{row.status_name || '--'}</span></td>
                 <td className="text-nowrap">{row.est_time_range || '--'}</td>
                 <td className="text-nowrap">{row.duration ? `${row.duration} min` : '--'}</td>
-                <td className="text-nowrap">{row.has_feedback ? 'Submitted' : 'Pending'}</td>
+                <td className="text-nowrap align-middle">
+                  {row.feedback_id == null ? (
+                    <span className="badge bg-warning text-dark">Pending</span>
+                  ) : (
+                    <span className="badge bg-success">Submitted</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
