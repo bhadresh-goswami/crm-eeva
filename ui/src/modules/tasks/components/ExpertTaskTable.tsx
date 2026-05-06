@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { BsDownload } from 'react-icons/bs'
 import { apiFetch } from '../../../api/client'
 import { checkExpertActiveTask, endExpertTask, startExpertTask, type EndTaskStatus, type ExpertTaskItem } from '../api/expertTasksApi'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
@@ -77,6 +78,11 @@ const formatDateAndTimeZone = (dateValue: string, startTime: string, endTime: st
   const timeText = formatTimeZone(dateValue, startTime, endTime, timeZone)
   if (dateText === '—' || timeText === '—') return '—'
   return `${dateText} | ${timeText}`
+}
+
+const getResumeUrl = (task: ExpertTaskItem & { displayStatus: string }) => {
+  const value = String(task.resume_url || task.candidate_resume || '').trim()
+  return value || ''
 }
 
 const toIstDate = (dateValue: string) => {
@@ -168,7 +174,10 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
   const statusOptions = Array.from(new Set(mapped.map((item) => item.displayStatus)))
   const cellClampStyle: CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220, fontSize: 13, lineHeight: 1.35 }
 
-  const downloadFile = async (fileName: string) => {
+  const downloadFile = async (fileRef: string) => {
+    if (!fileRef) return
+    const normalized = fileRef.trim()
+    const fileName = normalized.split('/').pop() ?? ''
     if (!fileName) return
     const response = await apiFetch(`/tasks/file?file=${encodeURIComponent(fileName)}`)
     if (!response.ok) return
@@ -278,6 +287,16 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
                 <p style={{ margin: '0.3rem 0', fontSize: 13 }}>{formatDateAndTimeZone(task.due_date, task.start_time, task.end_time, 'Asia/Kolkata')}</p>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <button className="button" title="View" onClick={() => setViewTaskId(task.task_id)} style={{ minWidth: 36 }}>👁</button>
+                  {getResumeUrl(task) ? (
+                    <button
+                      className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                      title="Download Resume"
+                      onClick={() => window.open(getResumeUrl(task), '_blank', 'noopener,noreferrer')}
+                      style={{ minWidth: 36, height: 32, padding: '0 10px' }}
+                    >
+                      <BsDownload size={14} />
+                    </button>
+                  ) : null}
                   {(task.displayStatus === 'Pending' || task.displayStatus === 'Assigned') ? (
                     <button className="button button--primary" title={startDisabled ? 'Another task is already in progress' : 'Start task'} disabled={startDisabled} onClick={() => setStartTaskId(task.task_id)} style={{ whiteSpace: 'nowrap' }}>▶ Start</button>
                   ) : null}
@@ -324,8 +343,18 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
                     <td style={{ padding: '0.55rem 0.75rem', ...cellClampStyle }} title={task.is_own_task === 1 ? 'Me' : (task.assigned_to_name || '—')}>{task.is_own_task === 1 ? 'Me' : (task.assigned_to_name || '—')}</td>
                     <td style={{ padding: '0.55rem 0.75rem', ...cellClampStyle }} title={task.assigned_by_name || '—'}>{task.assigned_by_name || '—'}</td>
                     <td style={{ padding: '0.55rem 0.75rem', textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+                      <div className="d-flex align-items-center gap-2" style={{ display: 'inline-flex', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
                         <button className="button" title="View task details" onClick={() => setViewTaskId(task.task_id)} style={{ width: 32, height: 32, minWidth: 32, padding: 0, cursor: 'pointer' }}>👁</button>
+                        {getResumeUrl(task) ? (
+                          <button
+                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                            title="Download Resume"
+                            onClick={() => window.open(getResumeUrl(task), '_blank', 'noopener,noreferrer')}
+                            style={{ width: 32, height: 32, minWidth: 32, padding: 0, justifyContent: 'center' }}
+                          >
+                            <BsDownload size={14} />
+                          </button>
+                        ) : null}
                         {task.file_url ? <button className="button" title="Download file" onClick={() => void downloadFile(task.file_url)} style={{ width: 32, height: 32, minWidth: 32, padding: 0, cursor: 'pointer' }}>⬇</button> : null}
                         {(task.displayStatus === 'Pending' || task.displayStatus === 'Assigned') ? (
                           <button className="button button--primary" title={disableStartTooltip} disabled={startDisabled} onClick={() => setStartTaskId(task.task_id)} style={{ height: 32, padding: '0 10px', borderRadius: 8 }}>▶ Start</button>

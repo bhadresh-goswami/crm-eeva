@@ -305,6 +305,10 @@ elseif ($uri === "/tasks/check-updates" && $method === "GET") {
     }
     (new TaskController())->checkUpdates($actorUserId);
 }
+elseif ($uri === "/tasks/load-task-for-feedback" && $method === "POST") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    (new TaskController())->LoadTaskForFeedback();
+}
 elseif ($uri === "/expert/tasks" && $method === "GET") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
     $expertUserId = null;
