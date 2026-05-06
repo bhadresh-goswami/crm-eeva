@@ -40,7 +40,7 @@ const ExpertTasksPage = () => {
   return (
     <section style={{ display: 'grid', gap: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <h1 className="page-title" style={{ marginBottom: 0 }}>My Tasks</h1>
+        <h1 className="page-title" style={{ marginBottom: 0 }}>Last 7 Days Tasks</h1>
         <button
           className="button button--primary"
           type="button"
@@ -70,7 +70,7 @@ const ExpertTasksPage = () => {
           {sendingReport ? 'Sending...' : 'Send Report Now'}
         </button>
       </div>
-      <p className="page-description">Task history and current assignments (including visible sub-user tasks).</p>
+      <p className="page-description">Shows assigned and completed tasks for the selected week, including tasks assigned directly to you and to your team.</p>
       <ExpertTaskTable
         tasks={tasks}
         loading={loading}
