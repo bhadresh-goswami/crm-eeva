@@ -276,15 +276,11 @@ class TaskController {
                     CASE WHEN tf.id IS NULL THEN 0 ELSE 1 END ASC,
                     {$sortColumn} {$sortOrder},
                     t.id DESC
-                LIMIT ? OFFSET ?
+                LIMIT {$limit} OFFSET {$offset}
             ";
 
-            $dataParams = $params;
-            $dataParams[] = $limit;
-            $dataParams[] = $offset;
-
             $stmt = $conn->prepare($dataSql);
-            $stmt->execute($dataParams);
+            $stmt->execute($params);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $sourceTz = new DateTimeZone(date_default_timezone_get());
