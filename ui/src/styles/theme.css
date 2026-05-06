@@ -53,8 +53,9 @@ small, .small-text { font-size: 11px; }
   display: flex;
   align-items: center;
   border-bottom: 1px solid rgba(2, 6, 23, 0.45);
+  overflow: visible;
 }
-.top-nav__scroller { display: flex; justify-content: flex-start; align-items: center; gap: 20px; overflow-x: auto; width: 100%; padding: 0 24px; }
+.top-nav__scroller { display: flex; justify-content: flex-start; align-items: center; gap: 20px; overflow-x: auto; overflow-y: visible; width: 100%; padding: 0 24px; position: relative; }
 .top-nav .menu-item { color: #d1d5db; white-space: nowrap; flex-wrap: nowrap; width: auto; display: inline-flex; padding: 10px 16px; font-size: 13px; font-weight: 500; }
 .top-nav .menu-label { white-space: nowrap; display: inline-block; }
 .top-nav__dropdown { position: relative; }
@@ -71,6 +72,7 @@ small, .small-text { font-size: 11px; }
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
   padding: 6px;
   z-index: 70;
+  pointer-events: auto;
 }
 .top-nav__dropdown-item {
   display: block;

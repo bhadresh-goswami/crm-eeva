@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { roleDashboardPath } from '../../routes/roleDashboard'
 
@@ -33,7 +33,9 @@ const Icon = ({ name }: { name: IconName }) => (
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { user } = useAuth()
+  const location = useLocation()
   const [isReportsOpen, setIsReportsOpen] = useState(false)
+  const reportsRef = useRef<HTMLDivElement | null>(null)
 
   const sections = useMemo<MenuSection[]>(() => {
     if (!user) return []
@@ -144,6 +146,23 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const reportsItems = allItems.filter((item) => item.to.startsWith('/reports'))
   const primaryItems = allItems.filter((item) => !item.to.startsWith('/reports'))
 
+  const isReportsActive = reportsItems.some((item) => location.pathname === item.to)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!reportsRef.current) return
+      if (!reportsRef.current.contains(event.target as Node)) {
+        setIsReportsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    setIsReportsOpen(false)
+  }, [location.pathname])
+
   return (
     <>
       <nav className="top-nav" aria-label="Role navigation">
@@ -155,8 +174,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             </NavLink>
           ))}
           {reportsItems.length > 0 ? (
-            <div className="top-nav__dropdown" onMouseEnter={() => setIsReportsOpen(true)} onMouseLeave={() => setIsReportsOpen(false)}>
-              <button type="button" className="menu-item top-nav__dropdown-trigger" onClick={() => setIsReportsOpen((prev) => !prev)} aria-expanded={isReportsOpen}>
+            <div ref={reportsRef} className="top-nav__dropdown" onMouseEnter={() => setIsReportsOpen(true)} onMouseLeave={() => setIsReportsOpen(false)}>
+              <button type="button" className={`menu-item top-nav__dropdown-trigger ${isReportsActive ? 'sidebar__link--active' : ''}`} onClick={() => setIsReportsOpen((prev) => !prev)} aria-expanded={isReportsOpen}>
                 <Icon name="reports" />
                 <span className="menu-label">Reports</span>
                 <span className="top-nav__caret">▾</span>
