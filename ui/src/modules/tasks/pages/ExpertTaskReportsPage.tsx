@@ -47,8 +47,7 @@ const ExpertTaskReportsPage = () => {
 
   return (
     <PageContainer title="Expert Task Reports" description="Track completed tasks and feedback activity.">
-      <div style={{ backgroundColor: '#f8fafc' }} className="p-3 p-md-4">
-        <div className="card shadow-sm mb-4"><div className="card-body p-4"><h4 className="fw-bold mb-1">Expert Task Reports</h4><p className="text-muted mb-0">Track completed tasks and feedback activity.</p></div></div>
+      <div style={{ backgroundColor: '#f8fafc', fontSize: '0.98rem' }} className="px-2 px-md-3 py-3">
         <ExpertReportsFilterCard
           filters={filters}
           loading={loading}
