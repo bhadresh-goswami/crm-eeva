@@ -3,7 +3,10 @@ import { alertBus } from '../shared/alerts/alertBus'
 let unauthorizedHandler: (() => void) | undefined
 
 const AUTH_STORAGE_KEY = 'crm_auth'
-const API_BASE_URL = 'https://support.bsquareg-developers.com/api'
+//testing api url
+const API_BASE_URL = 'https://support.bsquareg-developers.com/api-test'
+//production url
+//const API_BASE_URL = 'https://support.bsquareg-developers.com/api'
 
 const isAbsoluteUrl = (path: string) => path.startsWith('http://') || path.startsWith('https://')
 
