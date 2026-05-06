@@ -312,7 +312,7 @@ class TaskController {
             $stmt->execute($params);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $sourceTz = new DateTimeZone(date_default_timezone_get());
+            $sourceTz = new DateTimeZone('Asia/Kolkata');
             $estTz = new DateTimeZone('America/New_York');
 
             $items = array_map(function ($row) use ($sourceTz, $estTz) {
@@ -325,6 +325,8 @@ class TaskController {
 
                     $dateTime = DateTime::createFromFormat('Y-m-d H:i:s', $raw, $sourceTz)
                         ?: DateTime::createFromFormat('Y-m-d H:i', $raw, $sourceTz)
+                        ?: DateTime::createFromFormat('Y-m-d H:i:s', "{$taskDate} {$raw}", $sourceTz)
+                        ?: DateTime::createFromFormat('Y-m-d H:i', "{$taskDate} {$raw}", $sourceTz)
                         ?: DateTime::createFromFormat('H:i:s', $raw, $sourceTz)
                         ?: DateTime::createFromFormat('H:i', $raw, $sourceTz)
                         ?: DateTime::createFromFormat('Y-m-d', $taskDate, $sourceTz);
@@ -1474,7 +1476,7 @@ public function downloadFile() {
                 return;
             }
 
-            $conn->prepare("UPDATE tasks SET status_id = ?, task_start_time = NOW() WHERE id = ?")
+            $conn->prepare("UPDATE tasks SET status_id = ?, task_start_time = COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()) WHERE id = ?")
                 ->execute([(int)$inProgressStatusId, (int)$data->task_id]);
 
             $conn->prepare("UPDATE task_assignments SET is_active = 1 WHERE id = ?")
@@ -1567,8 +1569,8 @@ public function downloadFile() {
             $conn->prepare("
                 UPDATE tasks
                 SET status_id = ?,
-                    task_end_time = NOW(),
-                    duration = TIMESTAMPDIFF(MINUTE, task_start_time, NOW())
+                    task_end_time = COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()),
+                    duration = TIMESTAMPDIFF(MINUTE, task_start_time, COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()))
                 WHERE id = ?
             ")->execute([(int)$statusId, (int)$data->task_id]);
 
