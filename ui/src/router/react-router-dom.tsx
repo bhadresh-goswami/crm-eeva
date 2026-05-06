@@ -191,3 +191,8 @@ const useRouter = () => {
 
   return context
 }
+
+export const useLocation = () => {
+  const router = useRouter()
+  return { pathname: router.pathname }
+}

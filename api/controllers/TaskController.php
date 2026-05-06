@@ -5,6 +5,32 @@ require_once dirname(__DIR__) . "/services/EmailService.php";
 require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class TaskController {
+    public function loadFilterOptions() {
+        try {
+            $db = new Database();
+            $conn = $db->connect();
+
+            $companies = $conn->query("SELECT DISTINCT TRIM(COALESCE(c.company_name, c.name, t.company_name, '')) AS value FROM tasks t LEFT JOIN clients c ON c.id = t.client_id WHERE TRIM(COALESCE(c.company_name, c.name, t.company_name, '')) <> '' ORDER BY value ASC")->fetchAll(PDO::FETCH_COLUMN);
+            $statuses = $conn->query("SELECT DISTINCT TRIM(COALESCE(ts.name, '')) AS value FROM task_status_master ts WHERE TRIM(COALESCE(ts.name, '')) <> '' ORDER BY value ASC")->fetchAll(PDO::FETCH_COLUMN);
+            $assignees = $conn->query("SELECT DISTINCT u.id, TRIM(u.name) AS name FROM users u INNER JOIN task_assignments ta ON ta.user_id = u.id WHERE TRIM(COALESCE(u.name, '')) <> '' AND (u.status = 1 OR u.status = 'active' OR u.status = '1' OR u.status IS NULL) ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+            $taskTypes = $conn->query("SELECT DISTINCT id, TRIM(name) AS name FROM task_types WHERE TRIM(COALESCE(name, '')) <> '' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+            $candidates = $conn->query("SELECT DISTINCT id, TRIM(name) AS name FROM candidates WHERE TRIM(COALESCE(name, '')) <> '' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'companies' => array_values(array_filter($companies, fn($v) => is_string($v) && trim($v) !== '')),
+                    'statuses' => array_values(array_filter($statuses, fn($v) => is_string($v) && trim($v) !== '')),
+                    'assignees' => $assignees,
+                    'task_types' => $taskTypes,
+                    'candidates' => $candidates,
+                ],
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
     private function ensureTaskTimingColumns(PDO $conn): void {
         $columns = $this->getTableColumns($conn, 'tasks');
         if (!in_array('task_start_time', $columns, true)) {
