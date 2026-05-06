@@ -58,7 +58,8 @@ small, .small-text { font-size: 11px; }
 .top-nav__group { display: inline-flex; align-items: center; gap: 10px; }
 .top-nav__group-title { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #90a0b4; font-weight: 700; }
 .top-nav__group-links { display: inline-flex; align-items: center; gap: 6px; }
-.top-nav .menu-item { color: #d1d5db; }
+.top-nav .menu-item { color: #d1d5db; white-space: nowrap; flex-wrap: nowrap; }
+.top-nav .menu-label { white-space: nowrap; display: inline-block; }
 
 .mobile-nav-drawer {
   position: fixed;
