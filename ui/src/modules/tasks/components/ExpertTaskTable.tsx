@@ -401,7 +401,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
           selectedTask ? (
             <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
               {(selectedTask.displayStatus === 'Pending' || selectedTask.displayStatus === 'Assigned') ? (
-                <button className="button button--primary" title={hasActiveTask && activeTaskId !== selectedTask.task_id ? 'Another task is already in progress' : 'Start task'} disabled={!canStartTask(selectedTask)} onClick={() => setStartTaskId(selectedTask.task_id)} style={{ borderRadius: 8 }}>▶ Start Task</button>
+                <button className="button button--primary" title={hasActiveTask && activeTaskId !== selectedTask.task_id ? 'Another task is already in progress' : 'Start task'} disabled={!canStartTask(selectedTask)} onClick={() => setStartTaskId(selectedTask.task_id)} style={{ borderRadius: 8 }}>▶ Task</button>
               ) : null}
               {canEndTask(selectedTask) ? (
                 <button className="button button--primary" onClick={() => openEndTaskModal(selectedTask.task_id)} style={{ borderRadius: 8 }}>✅ End Task</button>
