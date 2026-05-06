@@ -1476,7 +1476,7 @@ public function downloadFile() {
                 return;
             }
 
-            $conn->prepare("UPDATE tasks SET status_id = ?, task_start_time = CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata') WHERE id = ?")
+            $conn->prepare("UPDATE tasks SET status_id = ?, task_start_time = COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()) WHERE id = ?")
                 ->execute([(int)$inProgressStatusId, (int)$data->task_id]);
 
             $conn->prepare("UPDATE task_assignments SET is_active = 1 WHERE id = ?")
@@ -1569,8 +1569,8 @@ public function downloadFile() {
             $conn->prepare("
                 UPDATE tasks
                 SET status_id = ?,
-                    task_end_time = CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'),
-                    duration = TIMESTAMPDIFF(MINUTE, task_start_time, CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'))
+                    task_end_time = COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()),
+                    duration = TIMESTAMPDIFF(MINUTE, task_start_time, COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()))
                 WHERE id = ?
             ")->execute([(int)$statusId, (int)$data->task_id]);
 
