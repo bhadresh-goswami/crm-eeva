@@ -7,14 +7,12 @@ const MainLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   return (
-    <div className={`app-layout ${isSidebarOpen ? 'app-layout--sidebar-open' : 'app-layout--sidebar-closed'}`}>
+    <div className={`app-layout ${isSidebarOpen ? 'app-layout--nav-open' : 'app-layout--nav-closed'}`}>
+      <Header onMenuToggle={() => setIsSidebarOpen((prev) => !prev)} />
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      <div className={`app-main ${isSidebarOpen ? '' : 'app-main--expanded'}`}>
-        <Header onMenuToggle={() => setIsSidebarOpen((prev) => !prev)} />
-        <main className="main-content">
-          <Outlet />
-        </main>
-      </div>
+      <main className="main-content">
+        <Outlet />
+      </main>
     </div>
   )
 }

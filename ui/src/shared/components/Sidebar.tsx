@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { roleDashboardPath } from '../../routes/roleDashboard'
 
@@ -33,6 +33,9 @@ const Icon = ({ name }: { name: IconName }) => (
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { user } = useAuth()
+  const location = useLocation()
+  const [isReportsOpen, setIsReportsOpen] = useState(false)
+  const reportsRef = useRef<HTMLDivElement | null>(null)
 
   const sections = useMemo<MenuSection[]>(() => {
     if (!user) return []
@@ -139,25 +142,73 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   }, [user])
 
   if (!user) return null
+  const allItems = sections.flatMap((section) => section.items)
+  const reportsItems = allItems.filter((item) => item.to.startsWith('/reports'))
+  const primaryItems = allItems.filter((item) => !item.to.startsWith('/reports'))
+
+  const isReportsActive = reportsItems.some((item) => location.pathname === item.to)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!reportsRef.current) return
+      if (!reportsRef.current.contains(event.target as Node)) {
+        setIsReportsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    setIsReportsOpen(false)
+  }, [location.pathname])
 
   return (
     <>
-      <aside className={`sidebar ${isOpen ? 'sidebar--open' : 'sidebar--closed'}`} aria-label="Role navigation">
-        <h2 className="sidebar__title">CRM Suite</h2>
-
-        {sections.map((section) => (
-          <section key={section.title} className="sidebar__group">
-            <h3 className="sidebar__group-title">{section.title}</h3>
-            <div className="sidebar__group-links">
-              {section.items.map((item) => (
-                <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
-                  <Icon name={item.icon} />
-                  <span className="menu-label">{item.label}</span>
-                </NavLink>
-              ))}
+      <nav className="top-nav" aria-label="Role navigation">
+        <div className="top-nav__scroller">
+          {primaryItems.map((item) => (
+            <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+              <Icon name={item.icon} />
+              <span className="menu-label">{item.label}</span>
+            </NavLink>
+          ))}
+          {reportsItems.length > 0 ? (
+            <div ref={reportsRef} className="top-nav__dropdown" onMouseEnter={() => setIsReportsOpen(true)} onMouseLeave={() => setIsReportsOpen(false)}>
+              <button type="button" className={`menu-item top-nav__dropdown-trigger ${isReportsActive ? 'sidebar__link--active' : ''}`} onClick={() => setIsReportsOpen((prev) => !prev)} aria-expanded={isReportsOpen}>
+                <Icon name="reports" />
+                <span className="menu-label">Reports</span>
+                <span className="top-nav__caret">▾</span>
+              </button>
+              {isReportsOpen ? (
+                <div className="top-nav__dropdown-menu">
+                  {reportsItems.map((item) => (
+                    <NavLink key={item.to} to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`} onClick={() => setIsReportsOpen(false)}>
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              ) : null}
             </div>
-          </section>
-        ))}
+          ) : null}
+        </div>
+      </nav>
+
+      <aside className={`mobile-nav-drawer ${isOpen ? 'mobile-nav-drawer--open' : 'mobile-nav-drawer--closed'}`} aria-label="Mobile role navigation">
+        <div className="sidebar__group-links">
+          {primaryItems.map((item) => (
+            <NavLink key={item.to} to={item.to} onClick={onClose} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+              <Icon name={item.icon} />
+              <span className="menu-label">{item.label}</span>
+            </NavLink>
+          ))}
+          {reportsItems.map((item) => (
+            <NavLink key={item.to} to={item.to} onClick={onClose} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+              <Icon name="reports" />
+              <span className="menu-label">{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
       </aside>
       {isOpen ? <button type="button" className="sidebar-backdrop" onClick={onClose} aria-label="Close navigation" /> : null}
     </>

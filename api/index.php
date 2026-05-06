@@ -256,6 +256,10 @@ elseif ($uri === "/dashboard/tasks-by-status") {
     authorize($user,['admin','manager','coordinator','expert','expertlead']);
     (new DashboardController())->tasksByStatus();
 }
+elseif ($uri === "/tasks/filter-options" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    (new TaskController())->loadFilterOptions();
+}
 
 elseif ($uri === "/dashboard/team-tasks") {
     authorize($user,['expertlead']);
