@@ -56,6 +56,7 @@ const ReportsTasksPage = () => {
           assigned_to_id: row.assigned_to_id,
           assigned_to_name: row.assigned_to_name,
           file_url: row.file_url,
+          resume_url: '',
           can_assign: false,
         }))
 
