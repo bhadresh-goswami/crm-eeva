@@ -28,6 +28,7 @@ class TaskController {
             $taskColumns = $this->getTableColumns($conn, 'tasks');
             $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
             $feedbackColumns = $this->getTableColumns($conn, 'task_feedback');
+            $taskFilesColumns = $this->getTableColumns($conn, 'task_files');
 
             $hasIsActive = in_array('is_active', $assignmentColumns, true);
             $hasAssignedBy = in_array('assigned_by', $assignmentColumns, true);
@@ -40,6 +41,7 @@ class TaskController {
             $hasTaskStartTime = in_array('task_start_time', $taskColumns, true);
             $hasTaskEndTime = in_array('task_end_time', $taskColumns, true);
             $hasFeedbackOverall = in_array('overall', $feedbackColumns, true);
+            $hasTaskFilesFileUrl = in_array('file_url', $taskFilesColumns, true);
 
             $userIds = $this->getHierarchyUserIds($conn, $expertUserId);
             if (count($userIds) === 0) {
@@ -80,6 +82,9 @@ class TaskController {
                 $fileUrlExpr = "COALESCE(t.attachment_url, '')";
             } elseif ($hasUploadedFile) {
                 $fileUrlExpr = "COALESCE(t.uploaded_file, '')";
+            }
+            if ($hasTaskFilesFileUrl) {
+                $fileUrlExpr = "COALESCE(NULLIF({$fileUrlExpr}, ''), COALESCE(tf_latest.file_url, ''))";
             }
             $feedbackOverallExpr = $hasFeedbackOverall ? 'COALESCE(tfb.overall, 0)' : '0';
 
@@ -128,6 +133,15 @@ class TaskController {
                 LEFT JOIN task_types tt ON tt.id = t.task_type_id
                 LEFT JOIN users assigned_to_user ON assigned_to_user.id = ta.user_id
                 {$assignedByJoin}
+                LEFT JOIN (
+                    SELECT tf1.task_id, tf1.file_url
+                    FROM task_files tf1
+                    INNER JOIN (
+                        SELECT task_id, MAX(id) AS max_id
+                        FROM task_files
+                        GROUP BY task_id
+                    ) tf2 ON tf2.max_id = tf1.id
+                ) tf_latest ON tf_latest.task_id = t.id
                 LEFT JOIN task_feedback tfb ON tfb.task_id = t.id
                 WHERE ta.user_id IN ($placeholders)
             ";
