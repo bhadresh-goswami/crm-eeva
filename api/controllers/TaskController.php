@@ -312,7 +312,7 @@ class TaskController {
             $stmt->execute($params);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $sourceTz = new DateTimeZone(date_default_timezone_get());
+            $sourceTz = new DateTimeZone('Asia/Kolkata');
             $estTz = new DateTimeZone('America/New_York');
 
             $items = array_map(function ($row) use ($sourceTz, $estTz) {
@@ -325,6 +325,8 @@ class TaskController {
 
                     $dateTime = DateTime::createFromFormat('Y-m-d H:i:s', $raw, $sourceTz)
                         ?: DateTime::createFromFormat('Y-m-d H:i', $raw, $sourceTz)
+                        ?: DateTime::createFromFormat('Y-m-d H:i:s', "{$taskDate} {$raw}", $sourceTz)
+                        ?: DateTime::createFromFormat('Y-m-d H:i', "{$taskDate} {$raw}", $sourceTz)
                         ?: DateTime::createFromFormat('H:i:s', $raw, $sourceTz)
                         ?: DateTime::createFromFormat('H:i', $raw, $sourceTz)
                         ?: DateTime::createFromFormat('Y-m-d', $taskDate, $sourceTz);
