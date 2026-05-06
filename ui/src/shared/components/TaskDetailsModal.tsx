@@ -78,11 +78,11 @@ const TaskDetailsModal = ({ isOpen, role, task, onClose, headerActions, comments
   return (
     <AnimatedModal isOpen={isOpen} onClose={onClose} title="Task Details" cardClassName="task-details-modal-card task-details-modal-card--fullscreen" size="xl">
       <div className="task-details-modal">
-        <div className="task-details-modal__header row g-3 align-items-start">
-          <div className="col-12 col-lg-10">
+        <div className="task-details-modal__header row g-2 align-items-center flex-nowrap">
+          <div className="col">
             <h3 className="modal-title task-details-modal__title">{task.title || 'Task Details'}</h3>
           </div>
-          <div className="col-12 col-lg-2">
+          <div className="col-auto">
             <div className="task-details-modal__header-actions">
             <span style={{ ...statusBadge, borderRadius: 999, padding: '0.22rem 0.7rem', fontWeight: 600, fontSize: 12 }}>{task.status || '—'}</span>
             {headerActions}
