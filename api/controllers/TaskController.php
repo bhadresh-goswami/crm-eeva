@@ -18,10 +18,37 @@ class TaskController {
         $db = new Database();
         $conn = $db->connect();
 
+        $userIds = $this->getHierarchyUserIds($conn, (int)$user_id);
+        if (count($userIds) === 0) {
+            echo json_encode(["success" => true, "data" => []]);
+            return;
+        }
+
+        $status = isset($_GET['status']) ? trim((string)$_GET['status']) : '';
+        $fromDate = isset($_GET['from_date']) ? trim((string)$_GET['from_date']) : '';
+        $toDate = isset($_GET['to_date']) ? trim((string)$_GET['to_date']) : '';
+        $taskTypeId = isset($_GET['task_type_id']) ? (int)$_GET['task_type_id'] : 0;
+        $activeOnly = !empty($_GET['active_only']) && $_GET['active_only'] !== '0';
+        $feedbackOnly = !empty($_GET['feedback_only']) && $_GET['feedback_only'] !== '0';
+
+        $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $assignedByExpr = "''";
+        $assignedByJoin = '';
+
+        if (in_array('assigned_by', $assignmentColumns, true)) {
+            $assignedByExpr = "COALESCE(assigned_by_user.name, '')";
+            $assignedByJoin = " LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.assigned_by";
+        } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+            $assignedByExpr = "COALESCE(assigned_by_user.name, '')";
+            $assignedByJoin = " LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.assigned_by_id";
+        }
+
         $query = "
             SELECT
                 t.id AS task_id,
-                cand.name AS candidate_name,
+                COALESCE(cand.name, '') AS candidate_name,
+                COALESCE(cl.company_name, cl.name, '') AS company_name,
                 t.title,
                 t.description,
                 t.due_date,
@@ -30,28 +57,65 @@ class TaskController {
                 t.task_start_time,
                 t.task_end_time,
                 COALESCE(t.duration, 0) AS duration,
+                COALESCE(tt.name, '') AS support_type,
                 COALESCE(tt.name, '') AS task_type,
                 t.status_id,
                 COALESCE(ts.name, '') AS status_name,
                 ta.user_id AS assigned_to_id,
                 COALESCE(assigned_to_user.name, '') AS assigned_to_name,
+                {$assignedByExpr} AS assigned_by_name,
+                CASE WHEN ta.user_id = ? THEN 1 ELSE 0 END AS is_own_task,
+                COALESCE(t.file_url, '') AS file_url,
                 COALESCE(tfb.overall, 0) AS feedback_overall,
                 CASE WHEN tfb.id IS NULL THEN 'ADD' ELSE 'VIEW' END AS feedback_action
-            FROM task_assignments ta
-            INNER JOIN tasks t ON t.id = ta.task_id
+            FROM tasks t
+            INNER JOIN task_assignments ta ON ta.id = (
+                SELECT ta2.id
+                FROM task_assignments ta2
+                WHERE ta2.task_id = t.id
+                  AND ta2.is_active = 1
+                ORDER BY ta2.id DESC
+                LIMIT 1
+            )
             LEFT JOIN candidates cand ON cand.id = t.candidate_id
+            LEFT JOIN clients cl ON cl.id = t.client_id
             LEFT JOIN task_status_master ts ON ts.id = t.status_id
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN users assigned_to_user ON assigned_to_user.id = ta.user_id
+            {$assignedByJoin}
             LEFT JOIN task_feedback tfb ON tfb.task_id = t.id
-            WHERE ta.user_id = ?
-              AND LOWER(COALESCE(ts.name, '')) = 'completed'
+            WHERE ta.user_id IN ($placeholders)
         ";
+
+        $params = array_merge([(int)$user_id], array_map('intval', $userIds));
+
+        if ($status !== '' && strtolower($status) !== 'all') {
+            $query .= " AND LOWER(COALESCE(ts.name, '')) = LOWER(?)";
+            $params[] = $status;
+        }
+        if ($fromDate !== '') {
+            $query .= " AND DATE(t.due_date) >= ?";
+            $params[] = $fromDate;
+        }
+        if ($toDate !== '') {
+            $query .= " AND DATE(t.due_date) <= ?";
+            $params[] = $toDate;
+        }
+        if ($taskTypeId > 0) {
+            $query .= " AND t.task_type_id = ?";
+            $params[] = $taskTypeId;
+        }
+        if ($activeOnly) {
+            $query .= " AND LOWER(COALESCE(ts.name, '')) IN ('pending', 'assigned', 'in progress', 'active')";
+        }
+        if ($feedbackOnly) {
+            $query .= " AND LOWER(COALESCE(ts.name, '')) = 'completed'";
+        }
 
         $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
 
         $stmt = $conn->prepare($query);
-        $stmt->execute([(int)$user_id]);
+        $stmt->execute($params);
         $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
