@@ -142,15 +142,31 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   return (
     <>
-      <aside className={`sidebar ${isOpen ? 'sidebar--open' : 'sidebar--closed'}`} aria-label="Role navigation">
-        <h2 className="sidebar__title">CRM Suite</h2>
+      <nav className="top-nav" aria-label="Role navigation">
+        <div className="top-nav__scroller">
+          {sections.map((section) => (
+            <div key={section.title} className="top-nav__group">
+              <span className="top-nav__group-title">{section.title}</span>
+              <div className="top-nav__group-links">
+                {section.items.map((item) => (
+                  <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+                    <Icon name={item.icon} />
+                    <span className="menu-label">{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </nav>
 
+      <aside className={`mobile-nav-drawer ${isOpen ? 'mobile-nav-drawer--open' : 'mobile-nav-drawer--closed'}`} aria-label="Mobile role navigation">
         {sections.map((section) => (
           <section key={section.title} className="sidebar__group">
             <h3 className="sidebar__group-title">{section.title}</h3>
             <div className="sidebar__group-links">
               {section.items.map((item) => (
-                <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+                <NavLink key={item.to} to={item.to} onClick={onClose} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
                   <Icon name={item.icon} />
                   <span className="menu-label">{item.label}</span>
                 </NavLink>
