@@ -185,6 +185,14 @@ class TaskController {
         try {
             $db = new Database();
             $conn = $db->connect();
+            $taskColumns = $this->getTableColumns($conn, 'tasks');
+            $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+            $hasTaskStartTime = in_array('task_start_time', $taskColumns, true);
+            $hasTaskEndTime = in_array('task_end_time', $taskColumns, true);
+            $hasIsActive = in_array('is_active', $assignmentColumns, true);
+            $assignmentJoin = $hasIsActive
+                ? "LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1"
+                : "LEFT JOIN task_assignments ta ON ta.task_id = t.id";
 
             $payload = json_decode(file_get_contents("php://input"), true) ?: [];
 
@@ -235,7 +243,7 @@ class TaskController {
                 LEFT JOIN task_types tt ON tt.id = t.task_type_id
                 LEFT JOIN task_status_master ts ON ts.id = t.status_id
                 LEFT JOIN task_feedback tf ON tf.task_id = t.id
-                LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
+                {$assignmentJoin}
                 LEFT JOIN users u ON u.id = ta.user_id
                 WHERE {$whereClause}
             ";
@@ -253,15 +261,15 @@ class TaskController {
                     COALESCE(tt.name, '') AS task_type,
                     COALESCE(ts.name, '') AS status_name,
                     COALESCE(t.duration, 0) AS duration,
-                    t.task_start_time AS actual_from_time,
-                    t.task_end_time AS actual_to_time,
+                    " . ($hasTaskStartTime ? "t.task_start_time" : "t.start_time") . " AS actual_from_time,
+                    " . ($hasTaskEndTime ? "t.task_end_time" : "t.end_time") . " AS actual_to_time,
                     tf.id AS feedback_id
                 FROM tasks t
                 LEFT JOIN candidates cand ON cand.id = t.candidate_id
                 LEFT JOIN task_types tt ON tt.id = t.task_type_id
                 LEFT JOIN task_status_master ts ON ts.id = t.status_id
                 LEFT JOIN task_feedback tf ON tf.task_id = t.id
-                LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
+                {$assignmentJoin}
                 LEFT JOIN users u ON u.id = ta.user_id
                 WHERE {$whereClause}
                 ORDER BY
@@ -292,10 +300,16 @@ class TaskController {
 
                     $dateTime = DateTime::createFromFormat('Y-m-d H:i:s', $raw, $sourceTz)
                         ?: DateTime::createFromFormat('Y-m-d H:i', $raw, $sourceTz)
+                        ?: DateTime::createFromFormat('H:i:s', $raw, $sourceTz)
+                        ?: DateTime::createFromFormat('H:i', $raw, $sourceTz)
                         ?: DateTime::createFromFormat('Y-m-d', $taskDate, $sourceTz);
 
                     if (!$dateTime) {
-                        $dateTime = new DateTime("{$taskDate} {$raw}", $sourceTz);
+                        try {
+                            $dateTime = new DateTime("{$taskDate} {$raw}", $sourceTz);
+                        } catch (Throwable $e) {
+                            return null;
+                        }
                     }
 
                     $dateTime->setTimezone($estTz);
@@ -339,7 +353,7 @@ class TaskController {
             http_response_code(500);
             echo json_encode([
                 'success' => false,
-                'message' => 'Failed to load task reports for feedback.',
+                'message' => 'Failed to load task reports for feedback: ' . $e->getMessage(),
             ]);
         }
     }
