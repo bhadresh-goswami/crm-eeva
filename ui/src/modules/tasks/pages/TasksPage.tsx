@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BsDownload } from 'react-icons/bs'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { useAuth } from '../../../context/AuthContext'
 import { apiFetch } from '../../../api/client'
@@ -885,6 +886,17 @@ const TasksPage = () => {
                           >
                             👤
                           </button>
+                          {task.resume_url ? (
+                            <button
+                              className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
+                              type="button"
+                              title="Download Resume"
+                              onClick={() => window.open(task.resume_url, '_blank', 'noopener,noreferrer')}
+                            >
+                              <BsDownload />
+                              <span>Download Resume</span>
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                       <td>
