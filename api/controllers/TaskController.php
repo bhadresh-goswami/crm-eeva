@@ -33,6 +33,10 @@ class TaskController {
             $hasAssignedBy = in_array('assigned_by', $assignmentColumns, true);
             $hasAssignedById = in_array('assigned_by_id', $assignmentColumns, true);
             $hasFileUrl = in_array('file_url', $taskColumns, true);
+            $hasFile = in_array('file', $taskColumns, true);
+            $hasAttachment = in_array('attachment', $taskColumns, true);
+            $hasAttachmentUrl = in_array('attachment_url', $taskColumns, true);
+            $hasUploadedFile = in_array('uploaded_file', $taskColumns, true);
             $hasTaskStartTime = in_array('task_start_time', $taskColumns, true);
             $hasTaskEndTime = in_array('task_end_time', $taskColumns, true);
             $hasFeedbackOverall = in_array('overall', $feedbackColumns, true);
@@ -65,7 +69,18 @@ class TaskController {
             $activeWhere = $hasIsActive ? 'AND ta2.is_active = 1' : '';
             $taskStartExpr = $hasTaskStartTime ? 't.task_start_time' : 'NULL';
             $taskEndExpr = $hasTaskEndTime ? 't.task_end_time' : 'NULL';
-            $fileUrlExpr = $hasFileUrl ? "COALESCE(t.file_url, '')" : "''";
+            $fileUrlExpr = "''";
+            if ($hasFileUrl) {
+                $fileUrlExpr = "COALESCE(t.file_url, '')";
+            } elseif ($hasFile) {
+                $fileUrlExpr = "COALESCE(t.file, '')";
+            } elseif ($hasAttachment) {
+                $fileUrlExpr = "COALESCE(t.attachment, '')";
+            } elseif ($hasAttachmentUrl) {
+                $fileUrlExpr = "COALESCE(t.attachment_url, '')";
+            } elseif ($hasUploadedFile) {
+                $fileUrlExpr = "COALESCE(t.uploaded_file, '')";
+            }
             $feedbackOverallExpr = $hasFeedbackOverall ? 'COALESCE(tfb.overall, 0)' : '0';
 
             if ($hasAssignedBy) {
