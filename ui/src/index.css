@@ -935,6 +935,44 @@ table td {
   background: #fff;
 }
 
+
+.task-details-modal-card--fullscreen {
+  width: min(1400px, 96vw);
+  max-height: 96vh;
+}
+
+.task-details-modal {
+  height: 100%;
+}
+
+.task-details-modal__title {
+  margin: 0;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.task-details-modal__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.task-details-modal__section,
+.task-details-modal__grid,
+.task-details-modal__meta,
+.task-details-modal__description-html,
+.task-details-modal__description-text {
+  min-width: 0;
+}
+
+.task-details-modal__description-section {
+  position: sticky;
+  top: 0.6rem;
+  z-index: 1;
+  background: #fafafa;
+}
 .task-details-modal-card {
   width: min(1200px, 80vw);
   max-height: 86vh;
@@ -959,9 +997,10 @@ table td {
 }
 
 .task-details-modal__body {
-  max-height: calc(86vh - 68px);
+  max-height: calc(96vh - 88px);
   overflow-y: auto;
   padding: 1.1rem 1.25rem 1.25rem;
+  overflow-x: hidden;
   display: grid;
   gap: 1rem;
 }
@@ -1011,7 +1050,7 @@ table td {
 }
 
 .task-details-modal__description-scroll {
-  max-height: 200px;
+  max-height: 320px;
   overflow: auto;
   padding-right: 0.2rem;
 }
@@ -1049,8 +1088,17 @@ table td {
 }
 
 @media (max-width: 960px) {
-  .task-details-modal-card {
+  .task-details-modal-card,
+  .task-details-modal-card--fullscreen {
     width: min(96vw, 1200px);
+  }
+
+  .task-details-modal__header-actions {
+    justify-content: flex-start;
+  }
+
+  .task-details-modal__description-section {
+    position: static;
   }
 
   .task-details-modal__grid {
