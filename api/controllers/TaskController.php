@@ -10,7 +10,7 @@ class TaskController {
             $db = new Database();
             $conn = $db->connect();
 
-            $companies = $conn->query("SELECT DISTINCT TRIM(COALESCE(c.company_name, c.name, t.company_name, '')) AS value FROM tasks t LEFT JOIN clients c ON c.id = t.client_id WHERE TRIM(COALESCE(c.company_name, c.name, t.company_name, '')) <> '' ORDER BY value ASC")->fetchAll(PDO::FETCH_COLUMN);
+            $companies = $conn->query("SELECT DISTINCT TRIM(COALESCE(c.company_name, c.name, '')) AS value FROM tasks t LEFT JOIN clients c ON c.id = t.client_id WHERE TRIM(COALESCE(c.company_name, c.name, '')) <> '' ORDER BY value ASC")->fetchAll(PDO::FETCH_COLUMN);
             $statuses = $conn->query("SELECT DISTINCT TRIM(COALESCE(ts.name, '')) AS value FROM task_status_master ts WHERE TRIM(COALESCE(ts.name, '')) <> '' ORDER BY value ASC")->fetchAll(PDO::FETCH_COLUMN);
             $assignees = $conn->query("SELECT DISTINCT u.id, TRIM(u.name) AS name FROM users u INNER JOIN task_assignments ta ON ta.user_id = u.id WHERE TRIM(COALESCE(u.name, '')) <> '' AND (u.status = 1 OR u.status = 'active' OR u.status = '1' OR u.status IS NULL) ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
             $taskTypes = $conn->query("SELECT DISTINCT id, TRIM(name) AS name FROM task_types WHERE TRIM(COALESCE(name, '')) <> '' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
