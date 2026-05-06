@@ -24,6 +24,7 @@ export type TaskRecord = {
   assigned_to_id: number | null
   assigned_to_name: string
   file_url: string
+  resume_url: string
   can_assign: boolean
   task_start_time?: string
   task_end_time?: string
@@ -169,6 +170,12 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   assigned_to_name: String(raw.assigned_to_name ?? raw.assigned_to ?? raw.expert_name ?? '').trim(),
   file_url: (() => {
     const value = String(raw.file ?? raw.file_url ?? raw.attachment ?? raw.attachment_url ?? raw.uploaded_file ?? '').trim()
+    if (!value) return ''
+    if (value.startsWith('http://') || value.startsWith('https://')) return value
+    return `${FILE_BASE_URL}/${value}`
+  })(),
+  resume_url: (() => {
+    const value = String(raw.resume_url ?? raw.resume ?? raw.candidate_resume ?? raw.cv_url ?? '').trim()
     if (!value) return ''
     if (value.startsWith('http://') || value.startsWith('https://')) return value
     return `${FILE_BASE_URL}/${value}`
