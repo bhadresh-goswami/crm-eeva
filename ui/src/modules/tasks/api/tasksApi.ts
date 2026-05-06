@@ -77,10 +77,30 @@ export type TaskUpdateCheck = {
   upcomingTasks: TaskRecord[]
 }
 
+export type TaskFilterOptions = {
+  companies: string[]
+  statuses: string[]
+  assignees: { id: number; name: string }[]
+  task_types: { id: number; name: string }[]
+  candidates: { id: number; name: string }[]
+}
+
 export const getTasksLastUpdate = async (): Promise<string | null> => {
   const response = await apiRequest<Record<string, unknown>>('/tasks/last-update')
   const value = String(response.last_update ?? '').trim()
   return value || null
+}
+
+export const getTaskFilterOptions = async (): Promise<TaskFilterOptions> => {
+  const response = await apiRequest<Record<string, unknown>>('/tasks/filter-options')
+  const data = (response.data && typeof response.data === 'object' ? response.data : {}) as Record<string, unknown>
+  return {
+    companies: Array.isArray(data.companies) ? data.companies.map((v) => String(v).trim()).filter(Boolean) : [],
+    statuses: Array.isArray(data.statuses) ? data.statuses.map((v) => String(v).trim().toLowerCase()).filter(Boolean) : [],
+    assignees: Array.isArray(data.assignees) ? data.assignees.map((row) => ({ id: Number((row as Record<string, unknown>).id ?? 0), name: String((row as Record<string, unknown>).name ?? '').trim() })).filter((row) => row.id > 0 && row.name) : [],
+    task_types: Array.isArray(data.task_types) ? data.task_types.map((row) => ({ id: Number((row as Record<string, unknown>).id ?? 0), name: String((row as Record<string, unknown>).name ?? '').trim() })).filter((row) => row.id > 0 && row.name) : [],
+    candidates: Array.isArray(data.candidates) ? data.candidates.map((row) => ({ id: Number((row as Record<string, unknown>).id ?? 0), name: String((row as Record<string, unknown>).name ?? '').trim() })).filter((row) => row.id > 0 && row.name) : [],
+  }
 }
 
 export type BulkPriceTaskRecord = {
