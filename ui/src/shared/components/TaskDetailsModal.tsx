@@ -76,21 +76,25 @@ const TaskDetailsModal = ({ isOpen, role, task, onClose, headerActions, comments
   const timeEst = task.dueDate && task.startTime && task.endTime ? formatTimeRange(task.dueDate, task.startTime, task.endTime, 'America/New_York') : '—'
 
   return (
-    <AnimatedModal isOpen={isOpen} onClose={onClose} title="Task Details" cardClassName="task-details-modal-card">
+    <AnimatedModal isOpen={isOpen} onClose={onClose} title="Task Details" cardClassName="task-details-modal-card task-details-modal-card--fullscreen" size="xl">
       <div className="task-details-modal">
-        <div className="task-details-modal__header">
-          <h3 className="modal-title" style={{ fontSize: 18 }}>{task.title || 'Task Details'}</h3>
-          <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+        <div className="task-details-modal__header row g-3 align-items-start">
+          <div className="col-12 col-lg-10">
+            <h3 className="modal-title task-details-modal__title">{task.title || 'Task Details'}</h3>
+          </div>
+          <div className="col-12 col-lg-2">
+            <div className="task-details-modal__header-actions">
             <span style={{ ...statusBadge, borderRadius: 999, padding: '0.22rem 0.7rem', fontWeight: 600, fontSize: 12 }}>{task.status || '—'}</span>
             {headerActions}
             <button type="button" className="button users-icon-btn" onClick={onClose} aria-label="Close task details">✕</button>
+            </div>
           </div>
         </div>
 
-        <div className="task-details-modal__body">
-          <section className="task-details-modal__section">
-            <h4 className="task-details-modal__section-title">Candidate</h4>
-            <div className="task-details-modal__grid">
+        <div className="task-details-modal__body container-fluid">
+          <section className="task-details-modal__section row g-3">
+            <div className="col-12"><h4 className="task-details-modal__section-title">Candidate</h4></div>
+            <div className="task-details-modal__grid col-12">
               <div className="task-details-modal__meta">
                 <span className="task-details-modal__label">Candidate Name</span>
                 <span className="task-details-modal__value">{task.candidateName || '—'}</span>
@@ -103,18 +107,18 @@ const TaskDetailsModal = ({ isOpen, role, task, onClose, headerActions, comments
           </section>
 
           {showClientSection ? (
-            <section className="task-details-modal__section">
-              <h4 className="task-details-modal__section-title">Client</h4>
-              <div className="task-details-modal__meta">
+            <section className="task-details-modal__section row g-3">
+              <div className="col-12"><h4 className="task-details-modal__section-title">Client</h4></div>
+              <div className="task-details-modal__meta col-12">
                 <span className="task-details-modal__label">Company Name</span>
                 <span className="task-details-modal__value">{task.companyName || '—'}</span>
               </div>
             </section>
           ) : null}
 
-          <section className="task-details-modal__section">
-            <h4 className="task-details-modal__section-title">Task Details</h4>
-            <div className="task-details-modal__grid">
+          <section className="task-details-modal__section row g-3">
+            <div className="col-12"><h4 className="task-details-modal__section-title">Task Details</h4></div>
+            <div className="task-details-modal__grid col-12">
               <div className="task-details-modal__meta"><span className="task-details-modal__label">Support Type</span><span className="task-details-modal__value">{task.supportType || '—'}</span></div>
               <div className="task-details-modal__meta"><span className="task-details-modal__label">Assigned To</span><span className="task-details-modal__value">{task.assignedTo || '—'}</span></div>
               <div className="task-details-modal__meta"><span className="task-details-modal__label">Assigned By</span><span className="task-details-modal__value">{task.assignedBy || '—'}</span></div>
@@ -124,12 +128,12 @@ const TaskDetailsModal = ({ isOpen, role, task, onClose, headerActions, comments
             </div>
           </section>
 
-          <section className="task-details-modal__section">
-            <h4 className="task-details-modal__section-title">Task Description</h4>
-            {!description ? <p className="task-details-modal__empty">No description available</p> : null}
-            {description && !descriptionLooksLikeHtml ? <p className="task-details-modal__description-text task-details-modal__description-scroll">{description}</p> : null}
+          <section className="task-details-modal__section row g-3 task-details-modal__description-section">
+            <div className="col-12"><h4 className="task-details-modal__section-title">Task Description</h4></div>
+            {!description ? <p className="task-details-modal__empty col-12">No description available</p> : null}
+            {description && !descriptionLooksLikeHtml ? <p className="task-details-modal__description-text task-details-modal__description-scroll col-12">{description}</p> : null}
             {description && descriptionLooksLikeHtml ? (
-              <div className={`task-details-modal__description-html task-details-modal__description-scroll ${descriptionContainsTable ? 'task-details-modal__description-html--table' : ''}`} dangerouslySetInnerHTML={{ __html: description }} />
+              <div className={`task-details-modal__description-html task-details-modal__description-scroll col-12 ${descriptionContainsTable ? 'task-details-modal__description-html--table' : ''}`} dangerouslySetInnerHTML={{ __html: description }} />
             ) : null}
           </section>
 
