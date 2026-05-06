@@ -174,7 +174,10 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
   const statusOptions = Array.from(new Set(mapped.map((item) => item.displayStatus)))
   const cellClampStyle: CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220, fontSize: 13, lineHeight: 1.35 }
 
-  const downloadFile = async (fileName: string) => {
+  const downloadFile = async (fileRef: string) => {
+    if (!fileRef) return
+    const normalized = fileRef.trim()
+    const fileName = normalized.split('/').pop() ?? ''
     if (!fileName) return
     const response = await apiFetch(`/tasks/file?file=${encodeURIComponent(fileName)}`)
     if (!response.ok) return

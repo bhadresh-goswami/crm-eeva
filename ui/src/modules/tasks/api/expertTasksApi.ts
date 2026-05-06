@@ -1,4 +1,5 @@
 import { apiRequest } from '../../../api/client'
+const FILE_BASE_URL = 'https://support.bsquareg-developers.com/supporting-document'
 
 export type ExpertTaskItem = {
   task_id: number
@@ -49,7 +50,12 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   assigned_to_name: String(item.assigned_to_name ?? '').trim(),
   assigned_by_name: String(item.assigned_by_name ?? '').trim(),
   is_own_task: Number(item.is_own_task ?? 0),
-  file_url: String(item.file_url ?? '').trim(),
+  file_url: (() => {
+    const value = String(item.file_url ?? item.file ?? item.attachment ?? item.attachment_url ?? item.uploaded_file ?? '').trim()
+    if (!value) return ''
+    if (value.startsWith('http://') || value.startsWith('https://')) return value
+    return `${FILE_BASE_URL}/${value}`
+  })(),
   resume_url: String(item.resume_url ?? item.candidate_resume ?? item.resume ?? '').trim(),
   candidate_resume: String(item.candidate_resume ?? item.resume_url ?? item.resume ?? '').trim(),
   feedback_action: String(item.feedback_action ?? '').trim().toUpperCase() === 'VIEW' ? 'VIEW' : 'ADD',
