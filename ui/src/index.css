@@ -944,11 +944,17 @@ table td {
 
 .task-details-modal-card--fullscreen {
   width: min(1400px, 96vw);
+  height: min(96vh, 980px);
   max-height: 96vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .task-details-modal {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .task-details-modal__title {
@@ -975,9 +981,6 @@ table td {
 }
 
 .task-details-modal__description-section {
-  position: sticky;
-  top: 0.6rem;
-  z-index: 1;
   background: #fafafa;
 }
 .task-details-modal-card {
@@ -1006,9 +1009,10 @@ table td {
 }
 
 .task-details-modal__body {
-  max-height: calc(96vh - 88px);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 1.1rem 1.25rem 1.25rem;
+  padding: 1.1rem 1.25rem 1.5rem;
   overflow-x: hidden;
   display: grid;
   align-content: start;
@@ -1097,6 +1101,10 @@ table td {
   color: #6b7280;
 }
 
+.task-details-modal__section--comments {
+  margin-bottom: 0.25rem;
+}
+
 @media (max-width: 960px) {
   .task-details-modal__header {
     flex-wrap: wrap;
@@ -1109,10 +1117,6 @@ table td {
 
   .task-details-modal__header-actions {
     justify-content: flex-start;
-  }
-
-  .task-details-modal__description-section {
-    position: static;
   }
 
   .task-details-modal__grid {
