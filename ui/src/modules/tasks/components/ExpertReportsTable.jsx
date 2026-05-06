@@ -10,11 +10,11 @@ const statusBadge = (statusName) => {
 }
 
 const ExpertReportsTable = ({ items, loading, sortBy, sortOrder, onSort, onAddFeedback, onViewFeedback }) => (
-  <div className="card shadow-sm">
-    <div className="card-body p-3">
-      <div className="table-responsive">
-        <table className="table table-hover table-bordered align-middle mb-0">
-          <thead className="table-light">
+  <div className="card border-0 shadow-sm">
+    <div className="card-body p-2 p-md-3">
+      <div className="table-responsive" style={{ maxHeight: '60vh', overflow: 'auto' }}>
+        <table className="table table-hover table-bordered align-middle mb-0" style={{ fontSize: '0.98rem' }}>
+          <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
             <tr>
               <th className="text-center text-nowrap" style={{ minWidth: 160 }}>Action</th>
               {['task_date','candidate_name','task_type','status_name','est_time','duration'].map((col) => <th key={col} className="text-nowrap" role="button" onClick={() => onSort(col === 'est_time' ? 'task_date' : col)}>{col.replaceAll('_',' ').replace(/\b\w/g, c => c.toUpperCase())} <BsArrowDownUp size={12} className={sortBy===col?'text-primary':''} /></th>)}
