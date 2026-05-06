@@ -21,6 +21,8 @@ export type ExpertTaskItem = {
   assigned_by_name: string
   is_own_task: number
   file_url: string
+  resume_url: string
+  candidate_resume: string
   feedback_action: 'ADD' | 'VIEW'
   feedback_overall: number
 }
@@ -48,6 +50,8 @@ const asTask = (item: Record<string, unknown>): ExpertTaskItem => ({
   assigned_by_name: String(item.assigned_by_name ?? '').trim(),
   is_own_task: Number(item.is_own_task ?? 0),
   file_url: String(item.file_url ?? '').trim(),
+  resume_url: String(item.resume_url ?? item.candidate_resume ?? item.resume ?? '').trim(),
+  candidate_resume: String(item.candidate_resume ?? item.resume_url ?? item.resume ?? '').trim(),
   feedback_action: String(item.feedback_action ?? '').trim().toUpperCase() === 'VIEW' ? 'VIEW' : 'ADD',
   feedback_overall: Number(item.feedback_overall ?? 0),
 })
