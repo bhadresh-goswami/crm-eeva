@@ -32,6 +32,17 @@ class TaskController {
         $feedbackOnly = !empty($_GET['feedback_only']) && $_GET['feedback_only'] !== '0';
 
         $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $assignedByExpr = "''";
+        $assignedByJoin = '';
+
+        if (in_array('assigned_by', $assignmentColumns, true)) {
+            $assignedByExpr = "COALESCE(assigned_by_user.name, '')";
+            $assignedByJoin = " LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.assigned_by";
+        } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+            $assignedByExpr = "COALESCE(assigned_by_user.name, '')";
+            $assignedByJoin = " LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.assigned_by_id";
+        }
 
         $query = "
             SELECT
@@ -52,7 +63,7 @@ class TaskController {
                 COALESCE(ts.name, '') AS status_name,
                 ta.user_id AS assigned_to_id,
                 COALESCE(assigned_to_user.name, '') AS assigned_to_name,
-                COALESCE(assigned_by_user.name, '') AS assigned_by_name,
+                {$assignedByExpr} AS assigned_by_name,
                 CASE WHEN ta.user_id = ? THEN 1 ELSE 0 END AS is_own_task,
                 COALESCE(t.file_url, '') AS file_url,
                 COALESCE(tfb.overall, 0) AS feedback_overall,
@@ -71,7 +82,7 @@ class TaskController {
             LEFT JOIN task_status_master ts ON ts.id = t.status_id
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN users assigned_to_user ON assigned_to_user.id = ta.user_id
-            LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.assigned_by
+            {$assignedByJoin}
             LEFT JOIN task_feedback tfb ON tfb.task_id = t.id
             WHERE ta.user_id IN ($placeholders)
         ";
