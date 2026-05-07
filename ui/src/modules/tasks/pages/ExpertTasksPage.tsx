@@ -11,6 +11,7 @@ const ExpertTasksPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sendingReport, setSendingReport] = useState(false)
+  const [dateRangeFilter, setDateRangeFilter] = useState<'7' | '10' | 'all'>('7')
 
   const loadTasks = async () => {
     setLoading(true)
@@ -78,6 +79,8 @@ const ExpertTasksPage = () => {
         emptyText="No active tasks available"
         currentUserId={Number(user?.id ?? 0)}
         onTaskUpdated={loadTasks}
+        dateRangeFilter={dateRangeFilter}
+        onDateRangeFilterChange={setDateRangeFilter}
       />
     </section>
   )
