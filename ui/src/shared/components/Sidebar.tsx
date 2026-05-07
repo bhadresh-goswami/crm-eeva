@@ -164,7 +164,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   useEffect(() => {
     setIsReportsOpen(false)
-  }, [location.pathname])
+    onClose()
+  }, [location.pathname, onClose])
 
   return (
     <>
@@ -187,15 +188,15 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <div className="top-nav__dropdown-menu">
                   {reportsItems.map((item) => (
                     <div key={item.to} className={`top-nav__dropdown-row ${item.label === 'Candidate Report' ? 'top-nav__dropdown-row--nested' : ''}`}>
-                      <NavLink to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`} onClick={() => setIsReportsOpen(false)}>
+                      <NavLink to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`}>
                         <span>{item.label}</span>
                         {item.label === 'Candidate Report' ? <span className="top-nav__submenu-caret">▶</span> : null}
                       </NavLink>
                       {item.label === 'Candidate Report' ? (
                         <div className="top-nav__nested-menu">
-                          <NavLink to={item.to} className="top-nav__dropdown-item" onClick={() => setIsReportsOpen(false)}>Daily</NavLink>
-                          <NavLink to={item.to} className="top-nav__dropdown-item" onClick={() => setIsReportsOpen(false)}>Weekly</NavLink>
-                          <NavLink to={item.to} className="top-nav__dropdown-item" onClick={() => setIsReportsOpen(false)}>Monthly</NavLink>
+                          <NavLink to={item.to} className="top-nav__dropdown-item">Daily</NavLink>
+                          <NavLink to={item.to} className="top-nav__dropdown-item">Weekly</NavLink>
+                          <NavLink to={item.to} className="top-nav__dropdown-item">Monthly</NavLink>
                         </div>
                       ) : null}
                     </div>
@@ -210,13 +211,13 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       <aside className={`mobile-nav-drawer ${isOpen ? 'mobile-nav-drawer--open' : 'mobile-nav-drawer--closed'}`} aria-label="Mobile role navigation">
         <div className="sidebar__group-links">
           {primaryItems.map((item) => (
-            <NavLink key={item.to} to={item.to} onClick={onClose} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+            <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
               <Icon name={item.icon} />
               <span className="menu-label">{item.label}</span>
             </NavLink>
           ))}
           {reportsItems.map((item) => (
-            <NavLink key={item.to} to={item.to} onClick={onClose} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+            <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
               <Icon name="reports" />
               <span className="menu-label">{item.label}</span>
             </NavLink>
