@@ -1086,6 +1086,7 @@ public function downloadFile() {
         }
     }
 
+
     public function checkUpdates($user_id = null) {
         $db = new Database();
         $conn = $db->connect();
