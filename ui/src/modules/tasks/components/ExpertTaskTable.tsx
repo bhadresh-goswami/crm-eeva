@@ -12,6 +12,8 @@ type ExpertTaskTableProps = {
   emptyText: string
   currentUserId: number
   onTaskUpdated: () => Promise<void>
+  dateRangeFilter: '7' | '10' | 'all'
+  onDateRangeFilterChange: (value: '7' | '10' | 'all') => void
 }
 
 const pageSizes = [5, 10, 20]
@@ -91,23 +93,12 @@ const toIstDate = (dateValue: string) => {
   return new Date(Date.UTC(y, m - 1, d))
 }
 
-const getCurrentWeekRangeUtc = () => {
-  const now = new Date()
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-  const day = start.getUTCDay()
-  const diffToMonday = day === 0 ? -6 : 1 - day
-  start.setUTCDate(start.getUTCDate() + diffToMonday)
-  const end = new Date(start)
-  end.setUTCDate(start.getUTCDate() + 6)
-  return { start, end }
-}
 
-const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTaskUpdated }: ExpertTaskTableProps) => {
+const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTaskUpdated, dateRangeFilter, onDateRangeFilterChange }: ExpertTaskTableProps) => {
   const { showToast } = useAlert()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'my' | 'sub'>('all')
-  const [weekFilter, setWeekFilter] = useState<'last7' | 'current_week'>('last7')
   const [pageSize, setPageSize] = useState(10)
   const [page, setPage] = useState(1)
   const [viewTaskId, setViewTaskId] = useState<number | null>(null)
@@ -155,21 +146,27 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
       const taskDate = toIstDate(task.due_date)
       const nowUtc = new Date()
       const today = new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth(), nowUtc.getUTCDate()))
-      const last7Start = new Date(today)
-      last7Start.setUTCDate(today.getUTCDate() - 6)
-      const currentWeek = getCurrentWeekRangeUtc()
-      const matchesWeek = (() => {
+      const matchesDateRange = (() => {
+        if (dateRangeFilter === 'all') return true
         if (!taskDate) return false
-        if (weekFilter === 'current_week') return taskDate >= currentWeek.start && taskDate <= currentWeek.end
-        return taskDate >= last7Start && taskDate <= today
+        const days = Number(dateRangeFilter)
+        const start = new Date(today)
+        start.setUTCDate(today.getUTCDate() - days)
+        return taskDate >= start && taskDate <= today
       })()
-      return matchesSearch && matchesStatus && matchesAssignment && matchesWeek
+      return matchesSearch && matchesStatus && matchesAssignment && matchesDateRange
     })
-  }, [assignmentFilter, currentUserId, mapped, search, statusFilter, weekFilter])
+  }, [assignmentFilter, currentUserId, mapped, search, statusFilter, dateRangeFilter])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const sorted = useMemo(() => [...filtered].sort((a, b) => {
+    const dateCmp = String(b.due_date || '').localeCompare(String(a.due_date || ''))
+    if (dateCmp !== 0) return dateCmp
+    return b.task_id - a.task_id
+  }), [filtered])
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
   const safePage = Math.min(page, totalPages)
-  const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const paged = sorted.slice((safePage - 1) * pageSize, safePage * pageSize)
   const selectedTask = mapped.find((task) => task.task_id === viewTaskId) ?? null
   const statusOptions = Array.from(new Set(mapped.map((item) => item.displayStatus)))
   const cellClampStyle: CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220, fontSize: 13, lineHeight: 1.35 }
@@ -265,9 +262,10 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
             <option value="my">My Tasks</option>
             <option value="sub">Team Tasks</option>
           </select>
-          <select value={weekFilter} onChange={(event) => { setWeekFilter(event.target.value as 'last7' | 'current_week'); setPage(1) }} style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '0.45rem 0.6rem', fontSize: 13 }}>
-            <option value="last7">Last 7 Days</option>
-            <option value="current_week">Current Week</option>
+          <select value={dateRangeFilter} onChange={(event) => { onDateRangeFilterChange(event.target.value as '7' | '10' | 'all'); setPage(1) }} style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '0.45rem 0.6rem', fontSize: 13 }}>
+            <option value="7">Last 7 Days</option>
+            <option value="10">Last 10 Days</option>
+            <option value="all">All Tasks</option>
           </select>
         </div>
       </div>
@@ -374,7 +372,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
 
       <div style={{ borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', alignItems: 'center', padding: '0.85rem 1rem' }}>
         <label>Rows per page<select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }} style={{ marginLeft: 8 }}>{pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
-        <span>{filtered.length === 0 ? '0-0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filtered.length)}`} of {filtered.length}</span>
+        <span>{sorted.length === 0 ? '0-0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, sorted.length)}`} of {sorted.length}</span>
         <button className="button" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={safePage <= 1}>‹</button>
         <button className="button" onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))} disabled={safePage >= totalPages}>›</button>
       </div>
