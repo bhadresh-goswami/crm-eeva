@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { BsArrowDownUp, BsEye } from 'react-icons/bs'
 import { getTaskFilterOptions, getManagerReportList, getManagerReportTaskDetails, type ManagerReportFilters } from '../api/tasksApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
+import { getClients } from '../../clients/api/clientsApi'
 
 export type ReportColumn = { key: string; label: string }
 
 type ReportPageProps = {
   title: string
+  subtitle?: string
   columns: ReportColumn[]
   endpoint: string
 }
@@ -15,17 +17,18 @@ type SortConfig = { key: string; direction: 'asc' | 'desc' }
 
 type Option = { id: number; name: string }
 
-const ManagerReportPageBase = ({ title, columns, endpoint }: ReportPageProps) => {
+const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPageProps) => {
   const { showToast } = useAlert()
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'task_id', direction: 'asc' })
   const [filters, setFilters] = useState<ManagerReportFilters>({ page: 1, limit: 10 })
-  const [options, setOptions] = useState<{ candidates: Option[]; assignees: Option[]; taskTypes: Option[] }>({ candidates: [], assignees: [], taskTypes: [] })
+  const [options, setOptions] = useState<{ candidates: Option[]; assignees: Option[]; taskTypes: Option[]; clients: Option[] }>({ candidates: [], assignees: [], taskTypes: [], clients: [] })
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
   const [details, setDetails] = useState<Record<string, unknown>>({})
   const [loading, setLoading] = useState(false)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const load = async (override?: ManagerReportFilters) => {
     setLoading(true)
@@ -33,7 +36,7 @@ const ManagerReportPageBase = ({ title, columns, endpoint }: ReportPageProps) =>
     try {
       const payload = { ...filters, ...override }
       const list = await getManagerReportList(endpoint, payload)
-      setRows(list.map((r) => (r as Record<string, unknown>)))
+      setRows(list.map((r) => (r as Record<string, unknown>))); setLastUpdated(new Date())
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to load report'
       setError(message)
@@ -44,8 +47,8 @@ const ManagerReportPageBase = ({ title, columns, endpoint }: ReportPageProps) =>
   }
 
   useEffect(() => {
-    void getTaskFilterOptions().then((data) => {
-      setOptions({ candidates: data.candidates, assignees: data.assignees, taskTypes: data.task_types })
+    void Promise.all([getTaskFilterOptions(), getClients()]).then(([data, clients]) => {
+      setOptions({ candidates: data.candidates, assignees: data.assignees, taskTypes: data.task_types, clients: clients.map((c) => ({ id: c.id, name: c.company_name })) })
     })
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,12 +93,17 @@ const ManagerReportPageBase = ({ title, columns, endpoint }: ReportPageProps) =>
 
   return (
     <div className="page-container">
-      <div className="page-container__header"><div><h1 className="page-title mb-1">{title}</h1></div></div>
+      <div className="page-container__header"><div><h1 className="page-title mb-1">{title}</h1><p className="page-description mb-0">{subtitle ?? 'Live manager reporting dashboard.'}</p></div><div className="d-flex gap-2"><button className="btn btn-success btn-sm" onClick={() => {
+        const head = columns.filter((c) => c.key !== 'action').map((c) => c.label).join(',')
+        const body = sortedRows.map((r) => columns.filter((c) => c.key !== 'action').map((c) => `\"${String(mapValue(r, c.key)).replaceAll('\"', '\"\"')}\"`).join(',')).join('\n')
+        const blob = new Blob([`${head}\n${body}`], { type: 'text/csv;charset=utf-8;' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${title.replace(/\s+/g, '_').toLowerCase()}.csv`; a.click()
+      }}>Export Excel</button><button className="btn btn-outline-secondary btn-sm" onClick={() => void load()}>Refresh</button></div></div>
+      <small className="text-muted">{lastUpdated ? `Last updated: ${lastUpdated.toLocaleString()}` : 'Last updated: --'}</small>
       <div className="card"><h3 className="card-title mb-3">Filters</h3><div className="row g-2 g-md-3">
         <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Candidate</label><select className="form-select" value={filters.candidate_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, candidate_id: e.target.value }))}><option value="">All Candidate</option>{options.candidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
         <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Technical Expert</label><select className="form-select" value={filters.expert_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, expert_id: e.target.value }))}><option value="">All Technical Expert</option>{options.assignees.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
         <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Task Type</label><select className="form-select" value={filters.task_type_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, task_type_id: e.target.value }))}><option value="">All Task Type</option>{options.taskTypes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-        <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Client Company</label><input className="form-control" value={filters.client_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, client_id: e.target.value }))} /></div>
+        <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Client Company</label><select className="form-select" value={filters.client_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, client_id: e.target.value }))}><option value="">All Client Company</option>{options.clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
         <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">From Date</label><input type="date" className="form-control" value={filters.from_date ?? ''} onChange={(e) => setFilters((p) => ({ ...p, from_date: e.target.value }))} /></div>
         <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">To Date</label><input type="date" className="form-control" value={filters.to_date ?? ''} onChange={(e) => setFilters((p) => ({ ...p, to_date: e.target.value }))} /></div>
         <div className="col-12 d-flex gap-2 justify-content-end mt-2"><button className="btn btn-primary btn-sm" type="button" onClick={() => void load({ page: 1 })}>Apply Filter</button><button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => { setFilters({ page: 1, limit: 10 }); void load({ page: 1, limit: 10 }) }}>Reset</button></div>

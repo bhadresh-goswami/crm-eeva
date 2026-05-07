@@ -3,6 +3,7 @@ import ManagerReportPageBase from './ManagerReportPageBase'
 const FeedbackReport = () => (
   <ManagerReportPageBase
     title="Feedback Report"
+    subtitle="Completed feedback analysis and expert evaluation insights."
     endpoint="/manager/reports/feedback-report"
     columns={[
       { key: 'taskId', label: 'Task ID' },
