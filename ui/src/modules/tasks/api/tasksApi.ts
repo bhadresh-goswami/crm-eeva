@@ -93,13 +93,40 @@ export const getTasksLastUpdate = async (): Promise<string | null> => {
 
 export const getTaskFilterOptions = async (): Promise<TaskFilterOptions> => {
   const response = await apiRequest<Record<string, unknown>>('/tasks/filter-options')
-  const data = (response.data && typeof response.data === 'object' ? response.data : {}) as Record<string, unknown>
+  const root = response && typeof response === 'object' ? (response as Record<string, unknown>) : {}
+  const data = (root.data && typeof root.data === 'object' ? root.data : root) as Record<string, unknown>
+
+  const companiesRaw = data.companies ?? data.clients ?? data.company_names ?? data.company
+  const statusesRaw = data.statuses ?? data.task_statuses ?? data.taskStatuses ?? data.status
+  const assigneesRaw = data.assignees ?? data.assigned_to ?? data.users ?? data.experts
+  const taskTypesRaw = data.task_types ?? data.taskTypes ?? data.types ?? data.support_types
+  const candidatesRaw = data.candidates ?? data.candidate_list ?? data.candidate
+
   return {
-    companies: Array.isArray(data.companies) ? data.companies.map((v) => String(v).trim()).filter(Boolean) : [],
-    statuses: Array.isArray(data.statuses) ? data.statuses.map((v) => String(v).trim().toLowerCase()).filter(Boolean) : [],
-    assignees: Array.isArray(data.assignees) ? data.assignees.map((row) => ({ id: Number((row as Record<string, unknown>).id ?? 0), name: String((row as Record<string, unknown>).name ?? '').trim() })).filter((row) => row.id > 0 && row.name) : [],
-    task_types: Array.isArray(data.task_types) ? data.task_types.map((row) => ({ id: Number((row as Record<string, unknown>).id ?? 0), name: String((row as Record<string, unknown>).name ?? '').trim() })).filter((row) => row.id > 0 && row.name) : [],
-    candidates: Array.isArray(data.candidates) ? data.candidates.map((row) => ({ id: Number((row as Record<string, unknown>).id ?? 0), name: String((row as Record<string, unknown>).name ?? '').trim() })).filter((row) => row.id > 0 && row.name) : [],
+    companies: Array.isArray(companiesRaw)
+      ? companiesRaw.map((v) => String(v).trim()).filter(Boolean)
+      : [],
+    statuses: Array.isArray(statusesRaw)
+      ? statusesRaw.map((v) => String(v).trim().toLowerCase()).filter(Boolean)
+      : [],
+    assignees: Array.isArray(assigneesRaw)
+      ? assigneesRaw
+          .map((row) => ({
+            id: Number((row as Record<string, unknown>).id ?? (row as Record<string, unknown>).user_id ?? 0),
+            name: String((row as Record<string, unknown>).name ?? (row as Record<string, unknown>).full_name ?? '').trim(),
+          }))
+          .filter((row) => row.id > 0 && row.name)
+      : [],
+    task_types: Array.isArray(taskTypesRaw)
+      ? taskTypesRaw
+          .map((row) => ({ id: Number((row as Record<string, unknown>).id ?? 0), name: String((row as Record<string, unknown>).name ?? '').trim() }))
+          .filter((row) => row.id > 0 && row.name)
+      : [],
+    candidates: Array.isArray(candidatesRaw)
+      ? candidatesRaw
+          .map((row) => ({ id: Number((row as Record<string, unknown>).id ?? 0), name: String((row as Record<string, unknown>).name ?? '').trim() }))
+          .filter((row) => row.id > 0 && row.name)
+      : [],
   }
 }
 
