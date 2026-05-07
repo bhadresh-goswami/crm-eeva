@@ -1,18 +1,35 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BsDownload, BsEye } from 'react-icons/bs'
-import { getTaskFilterOptions, getTechVsTaskDetails, getTechVsTasksSummary } from '../api/tasksApi'
+import { getTaskFilterOptions, getTechVsTaskDetails, getTechVsTasksSummary, type TechVsTaskDetailRow, type TechVsTasksSummaryRow } from '../api/tasksApi'
 import { getClients } from '../../clients/api/clientsApi'
+
+type SelectOption = {
+  id: number | string
+  name: string
+}
+
+type ReportFilters = {
+  candidate_id: string
+  expert_id: string
+  task_type_id: string
+  client_id: string
+  status: string
+  from_date: string
+  to_date: string
+  limit: number
+  page: number
+}
 
 const today = new Date(); const toDateDefault = today.toISOString().slice(0, 10); const from = new Date(today); from.setDate(from.getDate() - 30); const fromDateDefault = from.toISOString().slice(0, 10)
 
 const TechVsTasksReport = () => {
-  const [filters, setFilters] = useState({ candidate_id: '', expert_id: '', task_type_id: '', client_id: '', status: '', from_date: fromDateDefault, to_date: toDateDefault, limit: 10, page: 1 })
-  const [options, setOptions] = useState({ candidates: [], assignees: [], task_types: [], clients: [] })
-  const [rows, setRows] = useState([]); const [loading, setLoading] = useState(false); const [lastUpdated, setLastUpdated] = useState(null)
-  const [selected, setSelected] = useState(null); const [detailRows, setDetailRows] = useState([]); const [detailLoading, setDetailLoading] = useState(false)
+  const [filters, setFilters] = useState<ReportFilters>({ candidate_id: '', expert_id: '', task_type_id: '', client_id: '', status: '', from_date: fromDateDefault, to_date: toDateDefault, limit: 10, page: 1 })
+  const [options, setOptions] = useState<{ candidates: SelectOption[]; assignees: SelectOption[]; task_types: SelectOption[]; clients: SelectOption[] }>({ candidates: [], assignees: [], task_types: [], clients: [] })
+  const [rows, setRows] = useState<TechVsTasksSummaryRow[]>([]); const [loading, setLoading] = useState(false); const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [selected, setSelected] = useState<TechVsTasksSummaryRow | null>(null); const [detailRows, setDetailRows] = useState<TechVsTaskDetailRow[]>([]); const [detailLoading, setDetailLoading] = useState(false)
   const loadSummary = async () => { setLoading(true); try { setRows(await getTechVsTasksSummary(filters)); setLastUpdated(new Date()) } finally { setLoading(false) } }
   useEffect(() => { void Promise.all([getTaskFilterOptions(), getClients()]).then(([d, c]) => setOptions({ ...d, clients: c.map((x) => ({ id: x.id, name: x.company_name })) })).catch(() => {}); void loadSummary() }, [])
-  const openDetails = async (row) => { setSelected(row); setDetailLoading(true); try { setDetailRows(await getTechVsTaskDetails({ expert_id: row.expert_id, from_date: filters.from_date, to_date: filters.to_date, task_type_id: filters.task_type_id, client_id: filters.client_id })) } finally { setDetailLoading(false) } }
+  const openDetails = async (row: TechVsTasksSummaryRow) => { setSelected(row); setDetailLoading(true); try { setDetailRows(await getTechVsTaskDetails({ expert_id: row.expert_id, from_date: filters.from_date, to_date: filters.to_date, task_type_id: filters.task_type_id, client_id: filters.client_id })) } finally { setDetailLoading(false) } }
   const cards = useMemo(() => ({ totalHours: rows.reduce((s, r) => s + Number(r.total_completed_hours || 0), 0), completed: rows.reduce((s, r) => s + Number(r.completed_count || 0), 0), success: rows.reduce((s, r) => s + Number(r.success_count || 0), 0), rejected: rows.reduce((s, r) => s + Number(r.rejected_count || 0), 0), ratio: rows.length ? Math.round(rows.reduce((s, r) => s + Number(r.success_ratio || 0), 0) / rows.length) : 0 }), [rows])
 
   return <div className="page-container">
