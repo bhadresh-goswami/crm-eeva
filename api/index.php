@@ -40,6 +40,7 @@ require_once "controllers/TaskStatusController.php";
 require_once "controllers/PaymentStatusController.php";
 require_once "controllers/InvoiceController.php";
 require_once "controllers/FeedbackController.php";
+require_once "controllers/ManagerReportsController.php";
 require_once "services/EmailService.php";
 require_once "services/LoggerService.php";
 
@@ -407,13 +408,25 @@ elseif ($uri === "/reports/task-assignments" && $method === "GET") {
     authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
     (new TaskController())->reportTaskAssignments();
 }
+elseif ($uri === "/manager/reports/feedback-pending" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new ManagerReportsController())->feedbackPending();
+}
 elseif ($uri === "/manager/reports/tech-vs-tasks" && $method === "GET") {
     authorize($user,['admin','manager']);
-    (new TaskController())->managerTechVsTasksSummary();
+    (new ManagerReportsController())->techVsTasks();
 }
-elseif ($uri === "/manager/reports/tech-vs-task-details" && $method === "GET") {
+elseif ($uri === "/manager/reports/tasks-summary" && $method === "GET") {
     authorize($user,['admin','manager']);
-    (new TaskController())->managerTechVsTaskDetails();
+    (new ManagerReportsController())->tasksSummary();
+}
+elseif ($uri === "/manager/reports/feedback-report" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new ManagerReportsController())->feedbackReport();
+}
+elseif (preg_match('#^/manager/reports/task-details/(\d+)$#', $uri, $matches) && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new ManagerReportsController())->taskDetails((int)$matches[1]);
 }
 elseif ($uri === "/tasks/update-prices" && $method === "POST") {
     authorize($user,['admin','manager']);
