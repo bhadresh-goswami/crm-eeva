@@ -132,6 +132,53 @@ class ManagerReportsController {
         }
     }
 
+    public function techVsTaskDetails(): void {
+        try {
+            $expertId = isset($_GET['expert_id']) ? (int)$_GET['expert_id'] : 0;
+            if ($expertId <= 0) {
+                echo json_encode(['success' => true, 'data' => []]);
+                return;
+            }
+
+            $params = [':expert_id' => $expertId];
+            $where = ["ta.user_id = :expert_id"];
+            if (!empty($_GET['from_date'])) { $where[] = "DATE(t.due_date) >= :from_date"; $params[':from_date'] = (string)$_GET['from_date']; }
+            if (!empty($_GET['to_date'])) { $where[] = "DATE(t.due_date) <= :to_date"; $params[':to_date'] = (string)$_GET['to_date']; }
+            if (!empty($_GET['task_type_id'])) { $where[] = "t.task_type_id = :task_type_id"; $params[':task_type_id'] = (int)$_GET['task_type_id']; }
+            if (!empty($_GET['client_id'])) { $where[] = "t.client_id = :client_id"; $params[':client_id'] = (int)$_GET['client_id']; }
+
+            $sql = "SELECT DISTINCT
+                t.id AS task_id,
+                cd.name AS candidate_name,
+                c.company_name AS client_company,
+                tt.name AS task_type,
+                COALESCE(tsm.name, '') AS status,
+                DATE(t.due_date) AS task_date,
+                CONCAT(
+                  COALESCE(DATE_FORMAT(CONVERT_TZ(CONCAT(DATE(t.due_date), ' ', t.start_time), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), '--'),
+                  ' - ',
+                  COALESCE(DATE_FORMAT(CONVERT_TZ(CONCAT(DATE(t.due_date), ' ', t.end_time), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), '--')
+                ) AS est_time,
+                COALESCE(t.duration, 0) AS duration,
+                CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
+                ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score,
+                COALESCE(assigned_by_user.name, '') AS assigned_by
+                " . $this->baseSelect() . "
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY t.due_date DESC, t.id DESC";
+
+            $stmt = $this->conn->prepare($sql);
+            foreach ($params as $k => $v) {
+                $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+            $stmt->execute();
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
     public function taskDetails(int $id): void {
         try {
             $sql = "SELECT
