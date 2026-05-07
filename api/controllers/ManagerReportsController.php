@@ -8,11 +8,29 @@ class ManagerReportsController {
         $this->conn = $db->connect();
     }
 
+    private function tableExists(string $table): bool {
+        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?");
+        $stmt->execute([$table]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
+    private function hasColumn(string $table, string $column): bool {
+        $stmt = $this->conn->prepare("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?");
+        $stmt->execute([$table, $column]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
     private function baseSelect(): string {
+        $companyTable = $this->tableExists('companies') ? 'companies' : 'clients';
+        $statusTable = $this->tableExists('task_status') ? 'task_status' : 'task_status_master';
+        $assignedByColumn = $this->hasColumn('tasks', 'assigned_by') ? 't.assigned_by' : 'ta.assigned_by';
+
         return "
             FROM tasks t
-            LEFT JOIN clients c ON c.id = t.client_id
             LEFT JOIN candidates cd ON cd.id = t.candidate_id
+            LEFT JOIN {$companyTable} c_task ON c_task.id = t.company_id
+            LEFT JOIN {$companyTable} c_candidate ON c_candidate.id = cd.company_id
+            LEFT JOIN {$companyTable} c_client ON c_client.id = t.client_id
             LEFT JOIN task_assignments ta ON ta.id = (
                 SELECT ta2.id
                 FROM task_assignments ta2
@@ -21,11 +39,11 @@ class ManagerReportsController {
                 LIMIT 1
             )
             LEFT JOIN users u ON u.id = ta.user_id
-            LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.assigned_by
+            LEFT JOIN users assigned_by_user ON assigned_by_user.id = {$assignedByColumn}
             LEFT JOIN task_feedback tf ON tf.task_id = t.id
             LEFT JOIN users feedback_expert ON feedback_expert.id = tf.expert_id
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
-            LEFT JOIN task_status_master tsm ON tsm.id = t.status_id
+            LEFT JOIN {$statusTable} tsm ON tsm.id = t.status_id
             LEFT JOIN (
                 SELECT tc1.*
                 FROM task_comments tc1
@@ -43,6 +61,8 @@ class ManagerReportsController {
         $expertId = isset($_GET['expert_id']) && $_GET['expert_id'] !== '' ? (int)$_GET['expert_id'] : null;
         $taskTypeId = isset($_GET['task_type_id']) && $_GET['task_type_id'] !== '' ? (int)$_GET['task_type_id'] : null;
         $clientId = isset($_GET['client_id']) && $_GET['client_id'] !== '' ? (int)$_GET['client_id'] : null;
+        $companyId = isset($_GET['company_id']) && $_GET['company_id'] !== '' ? (int)$_GET['company_id'] : null;
+        $statusId = isset($_GET['status_id']) && $_GET['status_id'] !== '' ? (int)$_GET['status_id'] : null;
         $fromDate = $_GET['from_date'] ?? null;
         $toDate = $_GET['to_date'] ?? null;
 
@@ -51,6 +71,8 @@ class ManagerReportsController {
         if ($expertId !== null) { $where[] = "ta.user_id = :expert_id"; $params[':expert_id'] = $expertId; }
         if ($taskTypeId !== null) { $where[] = "t.task_type_id = :task_type_id"; $params[':task_type_id'] = $taskTypeId; }
         if ($clientId !== null) { $where[] = "t.client_id = :client_id"; $params[':client_id'] = $clientId; }
+        if ($companyId !== null) { $where[] = "(t.company_id = :company_id OR cd.company_id = :company_id)"; $params[':company_id'] = $companyId; }
+        if ($statusId !== null) { $where[] = "t.status_id = :status_id"; $params[':status_id'] = $statusId; }
         if (!empty($fromDate)) { $where[] = "DATE(t.due_date) >= :from_date"; $params[':from_date'] = $fromDate; }
         if (!empty($toDate)) { $where[] = "DATE(t.due_date) <= :to_date"; $params[':to_date'] = $toDate; }
         return implode(' AND ', $where);
@@ -71,36 +93,44 @@ class ManagerReportsController {
             $where = $this->applyFilters($params);
             if ($extraWhere) $where .= " AND {$extraWhere}";
             $durationExpr = "CASE
-                WHEN t.task_start_time IS NOT NULL AND t.task_end_time IS NOT NULL
-                    THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.task_start_time, t.task_end_time), 0)
-                WHEN t.start_time IS NOT NULL AND t.end_time IS NOT NULL AND t.due_date IS NOT NULL
-                    THEN GREATEST(TIMESTAMPDIFF(MINUTE, CONCAT(t.due_date, ' ', t.start_time), CONCAT(t.due_date, ' ', t.end_time)), 0)
-                ELSE COALESCE(t.duration, 0)
+                WHEN t.duration IS NOT NULL THEN t.duration
+                WHEN t.start_time IS NOT NULL AND t.end_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.start_time, t.end_time), 0)
+                WHEN t.task_start_time IS NOT NULL AND t.task_end_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.task_start_time, t.task_end_time), 0)
+                ELSE 0
             END";
             $sql = "SELECT DISTINCT
                 t.id AS task_id,
-                cd.name AS candidate_name,
-                c.company_name AS company_name,
-                tt.name AS task_type,
-                COALESCE(u.name, feedback_expert.name, '') AS technical_expert,
+                COALESCE(cd.name, 'N/A') AS candidate_name,
+                COALESCE(c_task.company_name, c_candidate.company_name, c_client.company_name, 'N/A') AS company_name,
+                COALESCE(tt.name, 'N/A') AS task_type,
+                COALESCE(u.name, feedback_expert.name, 'N/A') AS technical_expert,
                 DATE(t.due_date) AS due_date,
-                t.duration,
-                CONCAT(
-                  COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_start_time, CONCAT(DATE(t.due_date), ' ', t.start_time)), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), 'N/A'),
-                  ' - ',
-                  COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_end_time, CONCAT(DATE(t.due_date), ' ', t.end_time)), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), 'N/A')
+                {$durationExpr} AS duration,
+                COALESCE(
+                    DATE_FORMAT(
+                        CONVERT_TZ(COALESCE(t.task_start_time, t.start_time), '+00:00', 'America/New_York'),
+                        '%m-%d-%Y %h:%i %p'
+                    ),
+                    'N/A'
                 ) AS est_time,
-                tsm.name AS task_status,
-                COALESCE(assigned_by_user.name, '') AS assigned_by,
+                COALESCE(tsm.name, 'N/A') AS status_name,
+                COALESCE(tsm.name, 'N/A') AS task_status,
+                COALESCE(assigned_by_user.name, 'N/A') AS assigned_by,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
                 DATE(tf.created_at) AS feedback_date,
-                ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score
+                ROUND(((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) /
+                    NULLIF(
+                        (CASE WHEN tf.communication IS NOT NULL THEN 1 ELSE 0 END +
+                         CASE WHEN tf.technical IS NOT NULL THEN 1 ELSE 0 END +
+                         CASE WHEN tf.confidence IS NOT NULL THEN 1 ELSE 0 END +
+                         CASE WHEN tf.project_explanation IS NOT NULL THEN 1 ELSE 0 END),0
+                    )),2) AS average_score
                 " . $this->baseSelect() . "
                 WHERE {$where}
                 ORDER BY t.due_date DESC, t.id DESC" . $this->paginateClause($params);
             $stmt = $this->conn->prepare($sql);
             foreach ($params as $k => $v) {
-                $type = in_array($k, [':offset', ':limit', ':candidate_id', ':expert_id', ':task_type_id', ':client_id'], true) ? PDO::PARAM_INT : PDO::PARAM_STR;
+                $type = in_array($k, [':offset', ':limit', ':candidate_id', ':expert_id', ':task_type_id', ':client_id', ':company_id', ':status_id'], true) ? PDO::PARAM_INT : PDO::PARAM_STR;
                 $stmt->bindValue($k, $v, $type);
             }
             $stmt->execute();
@@ -120,11 +150,10 @@ class ManagerReportsController {
             $params = [];
             $where = $this->applyFilters($params) . ' AND ta.user_id IS NOT NULL';
             $durationExpr = "CASE
-                WHEN t.task_start_time IS NOT NULL AND t.task_end_time IS NOT NULL
-                    THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.task_start_time, t.task_end_time), 0)
-                WHEN t.start_time IS NOT NULL AND t.end_time IS NOT NULL AND t.due_date IS NOT NULL
-                    THEN GREATEST(TIMESTAMPDIFF(MINUTE, CONCAT(t.due_date, ' ', t.start_time), CONCAT(t.due_date, ' ', t.end_time)), 0)
-                ELSE COALESCE(t.duration, 0)
+                WHEN t.duration IS NOT NULL THEN t.duration
+                WHEN t.start_time IS NOT NULL AND t.end_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.start_time, t.end_time), 0)
+                WHEN t.task_start_time IS NOT NULL AND t.task_end_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.task_start_time, t.task_end_time), 0)
+                ELSE 0
             END";
             $sql = "SELECT
                 ta.user_id AS expert_id,
@@ -141,7 +170,7 @@ class ManagerReportsController {
                 ORDER BY success_ratio DESC, completed_count DESC" . $this->paginateClause($params);
             $stmt = $this->conn->prepare($sql);
             foreach ($params as $k => $v) {
-                $type = in_array($k, [':offset', ':limit', ':candidate_id', ':expert_id', ':task_type_id', ':client_id'], true) ? PDO::PARAM_INT : PDO::PARAM_STR;
+                $type = in_array($k, [':offset', ':limit', ':candidate_id', ':expert_id', ':task_type_id', ':client_id', ':company_id', ':status_id'], true) ? PDO::PARAM_INT : PDO::PARAM_STR;
                 $stmt->bindValue($k, $v, $type);
             }
             $stmt->execute();
@@ -169,20 +198,17 @@ class ManagerReportsController {
 
             $sql = "SELECT DISTINCT
                 t.id AS task_id,
-                cd.name AS candidate_name,
-                c.company_name AS client_company,
-                tt.name AS task_type,
-                COALESCE(tsm.name, '') AS status,
+                COALESCE(cd.name, 'N/A') AS candidate_name,
+                COALESCE(c_task.company_name, c_candidate.company_name, c_client.company_name, 'N/A') AS client_company,
+                COALESCE(tt.name, 'N/A') AS task_type,
+                COALESCE(tsm.name, 'N/A') AS status_name,
+                COALESCE(tsm.name, 'N/A') AS task_status,
                 DATE(t.due_date) AS task_date,
-                CONCAT(
-                  COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_start_time, CONCAT(DATE(t.due_date), ' ', t.start_time)), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), 'N/A'),
-                  ' - ',
-                  COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_end_time, CONCAT(DATE(t.due_date), ' ', t.end_time)), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), 'N/A')
-                ) AS est_time,
+                COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_start_time, t.start_time), '+00:00', 'America/New_York'), '%m-%d-%Y %h:%i %p'), 'N/A') AS est_time,
                 {$durationExpr} AS duration,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
                 ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score,
-                COALESCE(assigned_by_user.name, '') AS assigned_by
+                COALESCE(assigned_by_user.name, 'N/A') AS assigned_by
                 " . $this->baseSelect() . "
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY t.due_date DESC, t.id DESC";
@@ -203,11 +229,12 @@ class ManagerReportsController {
         try {
             $sql = "SELECT
                 t.id AS task_id,
-                cd.name AS candidate,
-                c.company_name AS company_name,
-                u.name AS technical_expert,
-                tt.name AS task_type,
-                tsm.name AS task_status,
+                COALESCE(cd.name, 'N/A') AS candidate,
+                COALESCE(c_task.company_name, c_candidate.company_name, c_client.company_name, 'N/A') AS company_name,
+                COALESCE(u.name, 'N/A') AS technical_expert,
+                COALESCE(tt.name, 'N/A') AS task_type,
+                COALESCE(tsm.name, 'N/A') AS status_name,
+                COALESCE(tsm.name, 'N/A') AS task_status,
                 DATE(t.due_date) AS due_date,
                 t.start_time AS task_start_time,
                 t.end_time AS task_end_time,
