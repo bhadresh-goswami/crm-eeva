@@ -681,9 +681,9 @@ export type TechVsTaskDetailRow = {
   assigned_by: string
 }
 
-export const getTechVsTasksSummary = async (query: Record<string, string>) => {
+export const getTechVsTasksSummary = async (query: Record<string, string | number>) => {
   const params = new URLSearchParams()
-  Object.entries(query).forEach(([k, v]) => { if (v) params.set(k, v) })
+  Object.entries(query).forEach(([k, v]) => { if (v !== '' && v !== undefined && v !== null) params.set(k, String(v)) })
   const endpoint = params.toString() ? `/manager/reports/tech-vs-tasks?${params.toString()}` : '/manager/reports/tech-vs-tasks'
   const response = await apiRequest<unknown>(endpoint)
   return getList(response).map((item) => {
@@ -712,7 +712,7 @@ export const getTechVsTaskDetails = async (query: Record<string, string | number
       candidate_name: String(row.candidate_name ?? ''),
       client_company: String(row.client_company ?? ''),
       task_type: String(row.task_type ?? ''),
-      status: String(row.status ?? ''),
+      status: String(row.status ?? row.status_name ?? row.task_status ?? ''),
       task_date: String(row.task_date ?? ''),
       est_time: String(row.est_time ?? ''),
       duration: asNumber(row.duration),
