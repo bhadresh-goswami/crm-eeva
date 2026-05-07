@@ -3,6 +3,7 @@ import ManagerReportPageBase from './ManagerReportPageBase'
 const FeedbackPendingReport = () => (
   <ManagerReportPageBase
     title="Feedback Pending Report"
+    endpoint="/manager/reports/feedback-pending"
     columns={[
       { key: 'taskId', label: 'Task ID' },
       { key: 'candidate', label: 'Candidate' },

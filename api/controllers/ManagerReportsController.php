@@ -65,14 +65,15 @@ class ManagerReportsController {
             if ($extraWhere) $where .= " AND {$extraWhere}";
             $sql = "SELECT DISTINCT
                 t.id AS task_id,
-                cd.name AS candidate,
-                c.company_name AS client_company,
+                cd.name AS candidate_name,
+                c.company_name AS company_name,
                 tt.name AS task_type,
                 u.name AS technical_expert,
                 DATE(t.due_date) AS due_date,
                 t.duration,
-                tsm.name AS status,
+                tsm.name AS task_status,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
+                tf.feedback_date,
                 ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score
                 " . $this->baseSelect() . "
                 WHERE {$where}
@@ -129,16 +130,22 @@ class ManagerReportsController {
             $sql = "SELECT
                 t.id AS task_id,
                 cd.name AS candidate,
-                c.company_name AS client_company,
+                c.company_name AS company_name,
                 u.name AS technical_expert,
                 tt.name AS task_type,
-                tsm.name AS status,
+                tsm.name AS task_status,
                 DATE(t.due_date) AS due_date,
-                t.start_time,
-                t.end_time,
+                t.start_time AS task_start_time,
+                t.end_time AS task_end_time,
                 t.duration,
                 latest_task_comment.comment AS initial_comment,
-                tf.feedback AS detailed_feedback,
+                tf.communication,
+                tf.technical,
+                tf.confidence,
+                tf.project_explanation,
+                tf.overall,
+                tf.area_of_improvements,
+                tf.feedback_date,
                 ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score
                 " . $this->baseSelect() . "
                 WHERE t.id = :task_id

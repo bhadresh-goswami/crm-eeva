@@ -3,6 +3,7 @@ import ManagerReportPageBase from './ManagerReportPageBase'
 const TasksSummaryReport = () => (
   <ManagerReportPageBase
     title="Tasks Summary"
+    endpoint="/manager/reports/tasks-summary"
     columns={[
       { key: 'taskId', label: 'Task ID' },
       { key: 'candidate', label: 'Candidate' },

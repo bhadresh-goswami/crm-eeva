@@ -722,3 +722,29 @@ export const getTechVsTaskDetails = async (query: Record<string, string | number
     } as TechVsTaskDetailRow
   })
 }
+
+export type ManagerReportFilters = {
+  candidate_id?: string
+  expert_id?: string
+  task_type_id?: string
+  client_id?: string
+  from_date?: string
+  to_date?: string
+  page?: number
+  limit?: number
+}
+
+export const getManagerReportList = async (endpoint: string, filters: ManagerReportFilters) => {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v !== '' && v !== undefined && v !== null) params.set(k, String(v))
+  })
+  const response = await apiRequest<Record<string, unknown>>(`${endpoint}?${params.toString()}`)
+  return getList(response)
+}
+
+export const getManagerReportTaskDetails = async (taskId: number) => {
+  const response = await apiRequest<Record<string, unknown>>(`/manager/reports/task-details/${taskId}`)
+  const data = response.data
+  return data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
+}

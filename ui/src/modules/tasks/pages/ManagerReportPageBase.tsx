@@ -1,201 +1,113 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BsArrowDownUp, BsEye } from 'react-icons/bs'
+import { getTaskFilterOptions, getManagerReportList, getManagerReportTaskDetails, type ManagerReportFilters } from '../api/tasksApi'
+import { useAlert } from '../../../shared/alerts/useAlert'
 
 export type ReportColumn = { key: string; label: string }
 
 type ReportPageProps = {
   title: string
   columns: ReportColumn[]
+  endpoint: string
 }
 
 type SortConfig = { key: string; direction: 'asc' | 'desc' }
 
-const seedRows = [
-  {
-    taskId: 'TSK-1044',
-    candidate: 'Ava Thompson',
-    technicalExpert: 'Noah Carter',
-    taskType: 'L1 Interview',
-    clientCompany: 'Apex Systems',
-    status: 'Pending Feedback',
-    dueDate: '2026-05-09',
-    date: '2026-05-06',
-    estTime: '10:00 AM',
-    duration: '45 min',
-    feedbackStatus: 'Pending',
-    averageScore: '—',
-    feedbackSubmittedDate: '—',
-  },
-  {
-    taskId: 'TSK-1045',
-    candidate: 'Liam Patel',
-    technicalExpert: 'Emma Garcia',
-    taskType: 'Technical Screening',
-    clientCompany: 'Nimble Labs',
-    status: 'Completed',
-    dueDate: '2026-05-10',
-    date: '2026-05-05',
-    estTime: '01:30 PM',
-    duration: '60 min',
-    feedbackStatus: 'Submitted',
-    averageScore: '4.3',
-    feedbackSubmittedDate: '2026-05-05',
-  },
-  {
-    taskId: 'TSK-1046',
-    candidate: 'Sophia Nguyen',
-    technicalExpert: 'Ethan Brooks',
-    taskType: 'Final Round',
-    clientCompany: 'Vertex Cloud',
-    status: 'In Review',
-    dueDate: '2026-05-11',
-    date: '2026-05-04',
-    estTime: '04:00 PM',
-    duration: '50 min',
-    feedbackStatus: 'In Progress',
-    averageScore: '3.9',
-    feedbackSubmittedDate: '2026-05-04',
-  },
-]
+type Option = { id: number; name: string }
 
-const ManagerReportPageBase = ({ title, columns }: ReportPageProps) => {
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'taskId', direction: 'asc' })
-  const [selectedRow, setSelectedRow] = useState<(typeof seedRows)[number] | null>(null)
+const ManagerReportPageBase = ({ title, columns, endpoint }: ReportPageProps) => {
+  const { showToast } = useAlert()
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'task_id', direction: 'asc' })
+  const [filters, setFilters] = useState<ManagerReportFilters>({ page: 1, limit: 10 })
+  const [options, setOptions] = useState<{ candidates: Option[]; assignees: Option[]; taskTypes: Option[] }>({ candidates: [], assignees: [], taskTypes: [] })
+  const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
+  const [details, setDetails] = useState<Record<string, unknown>>({})
+  const [loading, setLoading] = useState(false)
+  const [detailsLoading, setDetailsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = async (override?: ManagerReportFilters) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const payload = { ...filters, ...override }
+      const list = await getManagerReportList(endpoint, payload)
+      setRows(list.map((r) => (r as Record<string, unknown>)))
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load report'
+      setError(message)
+      showToast({ type: 'error', message })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void getTaskFilterOptions().then((data) => {
+      setOptions({ candidates: data.candidates, assignees: data.assignees, taskTypes: data.task_types })
+    })
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpoint])
 
   const sortedRows = useMemo(() => {
-    return [...seedRows].sort((a, b) => {
-      const valueA = String((a as Record<string, string>)[sortConfig.key] ?? '')
-      const valueB = String((b as Record<string, string>)[sortConfig.key] ?? '')
+    const rowsCopy = [...rows]
+    return rowsCopy.sort((a, b) => {
+      const valueA = String(a[sortConfig.key] ?? '')
+      const valueB = String(b[sortConfig.key] ?? '')
       const compare = valueA.localeCompare(valueB, undefined, { numeric: true })
       return sortConfig.direction === 'asc' ? compare : -compare
     })
-  }, [sortConfig])
+  }, [rows, sortConfig])
 
-  const onSort = (key: string) => {
-    setSortConfig((prev) => ({
-      key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
-    }))
+  const onSort = (key: string) => setSortConfig((prev) => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }))
+
+  const openDetails = async (taskId: number) => {
+    setSelectedTaskId(taskId)
+    setDetailsLoading(true)
+    try { setDetails(await getManagerReportTaskDetails(taskId)) } catch (e) { showToast({ type: 'error', message: e instanceof Error ? e.message : 'Failed to load task details' }) } finally { setDetailsLoading(false) }
+  }
+
+  const mapValue = (row: Record<string, unknown>, key: string) => {
+    const mapping: Record<string, string[]> = {
+      taskId: ['task_id'],
+      candidate: ['candidate_name', 'candidate'],
+      clientCompany: ['company_name', 'client_company'],
+      technicalExpert: ['technical_expert'],
+      taskType: ['task_type'],
+      status: ['task_status', 'status'],
+      dueDate: ['due_date'],
+      feedbackSubmittedDate: ['feedback_date'],
+      averageScore: ['average_score'],
+      estTime: ['est_time'],
+      duration: ['duration'],
+    }
+    const aliases = mapping[key] ?? [key]
+    for (const alias of aliases) if (row[alias] !== undefined && row[alias] !== null && row[alias] !== '') return row[alias]
+    return '—'
   }
 
   return (
     <div className="page-container">
-      <div className="page-container__header">
-        <div>
-          <h1 className="page-title mb-1">{title}</h1>
-          <p className="page-description mb-0">Manager reporting view for operational tracking (dummy data for UI only).</p>
-        </div>
-      </div>
+      <div className="page-container__header"><div><h1 className="page-title mb-1">{title}</h1></div></div>
+      <div className="card"><h3 className="card-title mb-3">Filters</h3><div className="row g-2 g-md-3">
+        <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Candidate</label><select className="form-select" value={filters.candidate_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, candidate_id: e.target.value }))}><option value="">All Candidate</option>{options.candidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+        <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Technical Expert</label><select className="form-select" value={filters.expert_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, expert_id: e.target.value }))}><option value="">All Technical Expert</option>{options.assignees.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+        <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Task Type</label><select className="form-select" value={filters.task_type_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, task_type_id: e.target.value }))}><option value="">All Task Type</option>{options.taskTypes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+        <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Client Company</label><input className="form-control" value={filters.client_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, client_id: e.target.value }))} /></div>
+        <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">From Date</label><input type="date" className="form-control" value={filters.from_date ?? ''} onChange={(e) => setFilters((p) => ({ ...p, from_date: e.target.value }))} /></div>
+        <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">To Date</label><input type="date" className="form-control" value={filters.to_date ?? ''} onChange={(e) => setFilters((p) => ({ ...p, to_date: e.target.value }))} /></div>
+        <div className="col-12 d-flex gap-2 justify-content-end mt-2"><button className="btn btn-primary btn-sm" type="button" onClick={() => void load({ page: 1 })}>Apply Filter</button><button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => { setFilters({ page: 1, limit: 10 }); void load({ page: 1, limit: 10 }) }}>Reset</button></div>
+      </div></div>
 
-      <div className="card">
-        <h3 className="card-title mb-3">Filters</h3>
-        <div className="row g-2 g-md-3">
-          {['Candidate', 'Technical Expert', 'Task Type', 'Client Company', 'Status'].map((field) => (
-            <div key={field} className="col-12 col-sm-6 col-lg-3">
-              <label className="form-label">{field}</label>
-              <select className="form-select">
-                <option>All {field}</option>
-              </select>
-            </div>
-          ))}
-          <div className="col-12 col-sm-6 col-lg-3">
-            <label className="form-label">From Date</label>
-            <input type="date" className="form-control" />
-          </div>
-          <div className="col-12 col-sm-6 col-lg-3">
-            <label className="form-label">To Date</label>
-            <input type="date" className="form-control" />
-          </div>
-          <div className="col-12 d-flex gap-2 justify-content-end mt-2">
-            <button className="btn btn-primary btn-sm" type="button">Apply Filter</button>
-            <button className="btn btn-outline-secondary btn-sm" type="button">Reset</button>
-          </div>
-        </div>
-      </div>
+      <div className="table-card"><div className="table-wrapper manager-reports-table__wrapper"><table className="table table-hover table-bordered align-middle manager-reports-table mb-0"><thead><tr>{columns.map((column) => <th key={column.key}>{column.key === 'action' ? <span>{column.label}</span> : <button type="button" className="manager-sort" onClick={() => onSort(column.key)}><span>{column.label}</span><BsArrowDownUp size={12} /></button>}</th>)}</tr></thead><tbody>{loading ? <tr>{columns.map((_, i) => <td key={i}><div className="placeholder-glow"><span className="placeholder col-10" /></div></td>)}</tr> : sortedRows.length === 0 ? <tr><td colSpan={columns.length} className="text-center">No data found.</td></tr> : sortedRows.map((row, idx) => <tr key={`${String(mapValue(row, 'taskId'))}-${idx}`}>{columns.map((column) => column.key === 'action' ? <td key={`${idx}-action`} className="text-center"><button className="btn btn-outline-primary btn-sm rounded-pill" title="View Details" onClick={() => void openDetails(Number(row.task_id ?? 0))}><BsEye size={15} className="text-primary" /></button></td> : <td key={`${idx}-${column.key}`} title={String(mapValue(row, column.key))}><span className="manager-cell-ellipsis">{String(mapValue(row, column.key))}</span></td>)}</tr>)}</tbody></table></div></div>
 
-      <div className="table-card">
-        <div className="table-wrapper manager-reports-table__wrapper">
-          <table className="table table-hover table-bordered align-middle manager-reports-table mb-0">
-            <thead>
-              <tr>
-                {columns.map((column) => (
-                  <th key={column.key}>
-                    {column.key === 'action' ? (
-                      <span>{column.label}</span>
-                    ) : (
-                      <button type="button" className="manager-sort" onClick={() => onSort(column.key)}>
-                        <span>{column.label}</span>
-                        <BsArrowDownUp size={12} />
-                      </button>
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRows.map((row) => (
-                <tr key={row.taskId}>
-                  {columns.map((column) => {
-                    if (column.key === 'action') {
-                      return (
-                        <td key={`${row.taskId}-${column.key}`} className="text-center">
-                          <button
-                            className="btn btn-outline-primary btn-sm d-inline-flex align-items-center justify-content-center"
-                            title="View Details"
-                            aria-label="View Details"
-                            onClick={() => setSelectedRow(row)}
-                            style={{ width: 34, height: 30 }}
-                            type="button"
-                          >
-                            <BsEye size={15} className="text-primary" />
-                          </button>
-                        </td>
-                      )
-                    }
-                    return (
-                      <td key={`${row.taskId}-${column.key}`} title={String((row as Record<string, string>)[column.key] ?? '—')}>
-                        <span className="manager-cell-ellipsis">{String((row as Record<string, string>)[column.key] ?? '—')}</span>
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <div className="card py-2 px-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2"><small className="text-muted">Page {filters.page ?? 1}</small><nav><ul className="pagination mb-0"><li className={`page-item ${(filters.page ?? 1) <= 1 ? 'disabled' : ''}`}><button className="page-link" onClick={() => { const page = Math.max(1, (filters.page ?? 1) - 1); setFilters((p) => ({ ...p, page })); void load({ page }) }}>Previous</button></li><li className="page-item active"><button className="page-link">{filters.page ?? 1}</button></li><li className="page-item"><button className="page-link" onClick={() => { const page = (filters.page ?? 1) + 1; setFilters((p) => ({ ...p, page })); void load({ page }) }}>Next</button></li></ul></nav></div>
+      {error ? <div className="alert alert-danger">{error} <button className="btn btn-link btn-sm" onClick={() => void load()}>Retry</button></div> : null}
 
-      <div className="card py-2 px-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
-        <small className="text-muted">Showing 1 to 3 of 3 entries</small>
-        <nav>
-          <ul className="pagination mb-0">
-            <li className="page-item disabled"><button className="page-link">Previous</button></li>
-            <li className="page-item active"><button className="page-link">1</button></li>
-            <li className="page-item disabled"><button className="page-link">Next</button></li>
-          </ul>
-        </nav>
-      </div>
-
-      <div className={`modal fade ${selectedRow ? 'show d-block' : ''}`} tabIndex={-1} role="dialog" aria-modal={selectedRow ? 'true' : 'false'}>
-        <div className="modal-dialog modal-xl modal-dialog-scrollable">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Task Details: {selectedRow?.taskId}</h5>
-              <button type="button" className="btn-close" onClick={() => setSelectedRow(null)} aria-label="Close" />
-            </div>
-            <div className="modal-body">
-              <div className="row g-3">
-                <div className="col-12 col-lg-6"><div className="card h-100"><h6>Candidate Details</h6><p className="mb-1"><strong>Name:</strong> {selectedRow?.candidate}</p><p className="mb-0"><strong>Client:</strong> {selectedRow?.clientCompany}</p></div></div>
-                <div className="col-12 col-lg-6"><div className="card h-100"><h6>Task Details</h6><p className="mb-1"><strong>Type:</strong> {selectedRow?.taskType}</p><p className="mb-0"><strong>Expert:</strong> {selectedRow?.technicalExpert}</p></div></div>
-                <div className="col-12"><div className="card"><h6>Initial Comment</h6><p className="mb-0">Candidate demonstrated strong communication and baseline technical confidence.</p></div></div>
-                <div className="col-12"><div className="card"><h6>Detailed Feedback</h6><p className="mb-0">Dummy placeholder for manager review summary, strengths, concerns, and hiring recommendation notes.</p></div></div>
-              </div>
-            </div>
-            <div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setSelectedRow(null)}>Close</button></div>
-          </div>
-        </div>
-      </div>
-      {selectedRow ? <div className="modal-backdrop fade show" /> : null}
+      <div className={`modal fade ${selectedTaskId ? 'show d-block' : ''}`} tabIndex={-1} role="dialog" aria-modal={selectedTaskId ? 'true' : 'false'}><div className="modal-dialog modal-xl modal-dialog-scrollable"><div className="modal-content"><div className="modal-header"><h5 className="modal-title">Task Details: {String(details.task_id ?? selectedTaskId ?? '')}</h5><button type="button" className="btn-close" onClick={() => setSelectedTaskId(null)} aria-label="Close" /></div><div className="modal-body">{detailsLoading ? <div className="placeholder-glow"><span className="placeholder col-12" /><span className="placeholder col-10" /><span className="placeholder col-8" /></div> : <div className="row g-3"><div className="col-12 col-lg-6"><div className="card h-100"><h6>Candidate Details</h6><p className="mb-1"><strong>Name:</strong> {String(details.candidate_name ?? details.candidate ?? '—')}</p><p className="mb-1"><strong>Email:</strong> {String(details.candidate_email ?? '—')}</p><p className="mb-1"><strong>Contact:</strong> {String(details.contact_number ?? '—')}</p><p className="mb-0"><strong>Company:</strong> {String(details.company_name ?? details.client_company ?? '—')}</p></div></div><div className="col-12 col-lg-6"><div className="card h-100"><h6>Task Details</h6><p className="mb-1"><strong>Task ID:</strong> {String(details.task_id ?? '—')}</p><p className="mb-1"><strong>Type:</strong> {String(details.task_type ?? '—')}</p><p className="mb-1"><strong>Status:</strong> {String(details.task_status ?? details.status ?? '—')}</p><p className="mb-1"><strong>Due Date:</strong> {String(details.due_date ?? '—')}</p><p className="mb-1"><strong>Start:</strong> {String(details.task_start_time ?? details.start_time ?? '—')}</p><p className="mb-1"><strong>End:</strong> {String(details.task_end_time ?? details.end_time ?? '—')}</p><p className="mb-0"><strong>Duration:</strong> {String(details.duration ?? '—')}</p></div></div><div className="col-12"><div className="card"><h6>Initial Comment</h6><p className="mb-0">{String(details.initial_comment ?? '—')}</p></div></div><div className="col-12"><div className="card"><h6>Detailed Feedback</h6><p className="mb-1"><strong>Communication:</strong> {String(details.communication ?? '—')}</p><p className="mb-1"><strong>Technical:</strong> {String(details.technical ?? '—')}</p><p className="mb-1"><strong>Confidence:</strong> {String(details.confidence ?? '—')}</p><p className="mb-1"><strong>Project Explanation:</strong> {String(details.project_explanation ?? '—')}</p><p className="mb-1"><strong>Overall:</strong> {String(details.overall ?? '—')}</p><p className="mb-1"><strong>Area of Improvements:</strong> {String(details.area_of_improvements ?? '—')}</p><p className="mb-1"><strong>Average Score:</strong> {String(details.average_score ?? '—')}</p><p className="mb-0"><strong>Feedback Date:</strong> {String(details.feedback_date ?? '—')}</p></div></div></div>}</div></div></div></div>
+      {selectedTaskId ? <div className="modal-backdrop fade show" /> : null}
     </div>
   )
 }
