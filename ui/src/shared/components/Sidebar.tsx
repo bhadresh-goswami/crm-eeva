@@ -167,6 +167,17 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     onClose()
   }, [location.pathname, onClose])
 
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('.modal-overlay, .modal.d-block, .invoice-modal-backdrop, .alert-modal-backdrop')) {
+        setIsReportsOpen(false)
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <>
       <nav className="top-nav" aria-label="Role navigation">
