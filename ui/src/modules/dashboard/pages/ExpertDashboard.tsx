@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import ExpertTaskTable from '../../tasks/components/ExpertTaskTable'
 import { getExpertTasks, type ExpertTaskItem } from '../../tasks/api/expertTasksApi'
 import { useAuth } from '../../../context/AuthContext'
@@ -14,31 +14,42 @@ const ExpertDashboard = () => {
   const [assignedTasksCount] = useState(42)
   const [completedTasksCount] = useState(29)
   const [pendingFeedbackCount] = useState(6)
+  const [dateRangeFilter, setDateRangeFilter] = useState<'7' | '10' | 'all'>('7')
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async (range: '7' | '10' | 'all' = dateRangeFilter) => {
     setLoading(true)
     setError(null)
     try {
-      const result = await getExpertTasks({ activeOnly: true })
+      const today = new Date()
+      const toDate = today.toISOString().slice(0, 10)
+      const params: { fromDate?: string; toDate?: string } = {}
+      if (range !== 'all') {
+        const days = Number(range)
+        const start = new Date(today)
+        start.setDate(today.getDate() - days)
+        params.fromDate = start.toISOString().slice(0, 10)
+        params.toDate = toDate
+      }
+      const result = await getExpertTasks(params)
       setTasks(result)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to fetch tasks.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [dateRangeFilter])
 
   useEffect(() => {
     let mounted = true
     const load = async () => {
       if (!mounted) return
-      await loadTasks()
+      await loadTasks(dateRangeFilter)
     }
     void load()
     return () => {
       mounted = false
     }
-  }, [])
+  }, [dateRangeFilter, loadTasks])
 
   return (
     <PageContainer title="Technical Expert Dashboard" description="Active assigned tasks only.">
@@ -68,7 +79,9 @@ const ExpertDashboard = () => {
         error={error}
         emptyText="No active tasks assigned"
         currentUserId={Number(user?.id ?? 0)}
-        onTaskUpdated={loadTasks}
+        onTaskUpdated={() => loadTasks(dateRangeFilter)}
+        dateRangeFilter={dateRangeFilter}
+        onDateRangeFilterChange={setDateRangeFilter}
       />
     </PageContainer>
   )
