@@ -73,7 +73,7 @@ class ManagerReportsController {
                 t.duration,
                 tsm.name AS task_status,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
-                tf.feedback_date,
+                DATE(tf.created_at) AS feedback_date,
                 ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score
                 " . $this->baseSelect() . "
                 WHERE {$where}
@@ -145,7 +145,7 @@ class ManagerReportsController {
                 tf.project_explanation,
                 tf.overall,
                 tf.area_of_improvements,
-                tf.feedback_date,
+                DATE(tf.created_at) AS feedback_date,
                 ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score
                 " . $this->baseSelect() . "
                 WHERE t.id = :task_id
