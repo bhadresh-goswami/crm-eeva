@@ -64,6 +64,13 @@ class ManagerReportsController {
             $params = [];
             $where = $this->applyFilters($params);
             if ($extraWhere) $where .= " AND {$extraWhere}";
+            $durationExpr = "CASE
+                WHEN t.task_start_time IS NOT NULL AND t.task_end_time IS NOT NULL
+                    THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.task_start_time, t.task_end_time), 0)
+                WHEN t.start_time IS NOT NULL AND t.end_time IS NOT NULL AND t.due_date IS NOT NULL
+                    THEN GREATEST(TIMESTAMPDIFF(MINUTE, CONCAT(t.due_date, ' ', t.start_time), CONCAT(t.due_date, ' ', t.end_time)), 0)
+                ELSE COALESCE(t.duration, 0)
+            END";
             $sql = "SELECT DISTINCT
                 t.id AS task_id,
                 cd.name AS candidate_name,
@@ -106,15 +113,22 @@ class ManagerReportsController {
         try {
             $params = [];
             $where = $this->applyFilters($params) . ' AND ta.user_id IS NOT NULL';
+            $durationExpr = "CASE
+                WHEN t.task_start_time IS NOT NULL AND t.task_end_time IS NOT NULL
+                    THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.task_start_time, t.task_end_time), 0)
+                WHEN t.start_time IS NOT NULL AND t.end_time IS NOT NULL AND t.due_date IS NOT NULL
+                    THEN GREATEST(TIMESTAMPDIFF(MINUTE, CONCAT(t.due_date, ' ', t.start_time), CONCAT(t.due_date, ' ', t.end_time)), 0)
+                ELSE COALESCE(t.duration, 0)
+            END";
             $sql = "SELECT
                 ta.user_id AS expert_id,
                 MAX(t.id) AS task_id,
                 u.name AS technical_expert,
-                ROUND(SUM(COALESCE(t.duration,0))/60,2) AS total_completed_hours,
-                SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+                ROUND(SUM({$durationExpr})/60,2) AS total_completed_hours,
+                COUNT(DISTINCT t.id) AS completed_count,
                 SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) IN ('completed','success') THEN 1 ELSE 0 END) AS success_count,
                 SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) IN ('rejected','cancelled','failed') THEN 1 ELSE 0 END) AS rejected_count,
-                ROUND((SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) IN ('completed','success') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) = 'completed' THEN 1 ELSE 0 END),0)) * 100,2) AS success_ratio
+                ROUND((SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) IN ('completed','success') THEN 1 ELSE 0 END) / NULLIF(COUNT(DISTINCT t.id),0)) * 100,2) AS success_ratio
                 " . $this->baseSelect() . "
                 WHERE {$where}
                 GROUP BY ta.user_id, u.name
@@ -159,7 +173,7 @@ class ManagerReportsController {
                   ' - ',
                   COALESCE(DATE_FORMAT(CONVERT_TZ(CONCAT(DATE(t.due_date), ' ', t.end_time), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), '--')
                 ) AS est_time,
-                COALESCE(t.duration, 0) AS duration,
+                {$durationExpr} AS duration,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
                 ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score,
                 COALESCE(assigned_by_user.name, '') AS assigned_by
