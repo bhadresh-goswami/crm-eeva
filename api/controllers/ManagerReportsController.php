@@ -13,7 +13,13 @@ class ManagerReportsController {
             FROM tasks t
             LEFT JOIN clients c ON c.id = t.client_id
             LEFT JOIN candidates cd ON cd.id = t.candidate_id
-            LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
+            LEFT JOIN task_assignments ta ON ta.id = (
+                SELECT ta2.id
+                FROM task_assignments ta2
+                WHERE ta2.task_id = t.id
+                ORDER BY ta2.is_active DESC, ta2.assigned_at DESC, ta2.id DESC
+                LIMIT 1
+            )
             LEFT JOIN users u ON u.id = ta.user_id
             LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.assigned_by
             LEFT JOIN task_feedback tf ON tf.task_id = t.id
@@ -80,9 +86,9 @@ class ManagerReportsController {
                 DATE(t.due_date) AS due_date,
                 t.duration,
                 CONCAT(
-                  COALESCE(DATE_FORMAT(CONVERT_TZ(CONCAT(DATE(t.due_date), ' ', t.start_time), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), '--'),
+                  COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_start_time, CONCAT(DATE(t.due_date), ' ', t.start_time)), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), 'N/A'),
                   ' - ',
-                  COALESCE(DATE_FORMAT(CONVERT_TZ(CONCAT(DATE(t.due_date), ' ', t.end_time), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), '--')
+                  COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_end_time, CONCAT(DATE(t.due_date), ' ', t.end_time)), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), 'N/A')
                 ) AS est_time,
                 tsm.name AS task_status,
                 COALESCE(assigned_by_user.name, '') AS assigned_by,
@@ -169,9 +175,9 @@ class ManagerReportsController {
                 COALESCE(tsm.name, '') AS status,
                 DATE(t.due_date) AS task_date,
                 CONCAT(
-                  COALESCE(DATE_FORMAT(CONVERT_TZ(CONCAT(DATE(t.due_date), ' ', t.start_time), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), '--'),
+                  COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_start_time, CONCAT(DATE(t.due_date), ' ', t.start_time)), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), 'N/A'),
                   ' - ',
-                  COALESCE(DATE_FORMAT(CONVERT_TZ(CONCAT(DATE(t.due_date), ' ', t.end_time), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), '--')
+                  COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_end_time, CONCAT(DATE(t.due_date), ' ', t.end_time)), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), 'N/A')
                 ) AS est_time,
                 {$durationExpr} AS duration,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
