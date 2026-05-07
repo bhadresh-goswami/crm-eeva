@@ -12,8 +12,6 @@ const FeedbackPendingReport = () => (
       { key: 'dueDate', label: 'Due Date' },
       { key: 'estTime', label: 'EST Time' },
       { key: 'duration', label: 'Duration' },
-      { key: 'feedbackStatus', label: 'Feedback Status' },
-      { key: 'averageScore', label: 'Average Score' },
       { key: 'action', label: 'Action' },
     ]}
   />

@@ -120,10 +120,14 @@ const ManagerReportPageBase = ({ title, columns }: ReportPageProps) => {
               <tr>
                 {columns.map((column) => (
                   <th key={column.key}>
-                    <button type="button" className="manager-sort" onClick={() => onSort(column.key)}>
+                    {column.key === 'action' ? (
                       <span>{column.label}</span>
-                      <BsArrowDownUp size={12} />
-                    </button>
+                    ) : (
+                      <button type="button" className="manager-sort" onClick={() => onSort(column.key)}>
+                        <span>{column.label}</span>
+                        <BsArrowDownUp size={12} />
+                      </button>
+                    )}
                   </th>
                 ))}
               </tr>
@@ -143,7 +147,7 @@ const ManagerReportPageBase = ({ title, columns }: ReportPageProps) => {
                             style={{ width: 34, height: 30 }}
                             type="button"
                           >
-                            <BsEye size={15} />
+                            <BsEye size={15} className="text-primary" />
                           </button>
                         </td>
                       )
