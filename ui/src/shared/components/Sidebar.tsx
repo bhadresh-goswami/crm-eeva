@@ -35,39 +35,31 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { user } = useAuth()
   const location = useLocation()
   const [isReportsOpen, setIsReportsOpen] = useState(false)
+  const [isManageOpen, setIsManageOpen] = useState(false)
   const reportsRef = useRef<HTMLDivElement | null>(null)
+  const manageRef = useRef<HTMLDivElement | null>(null)
 
   const sections = useMemo<MenuSection[]>(() => {
     if (!user) return []
 
     if (user.role === 'manager') {
       return [
-        {
-          title: 'Main',
-          items: [
-            { label: 'Dashboard', to: roleDashboardPath.manager, icon: 'dashboard' },
-            { label: 'Tasks', to: '/tasks', icon: 'tasks' },
-          ],
-        },
-        {
-          title: 'Finance',
-          items: [
-            { label: 'Payment Correction', to: '/tasks/payment-correction', icon: 'payment' },
-            { label: 'Invoices', to: '/invoices', icon: 'invoices' },
-          ],
-        },
-        {
-          title: 'Reports',
-          items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }, { label: 'Feedback Report', to: '/reports/feedback', icon: 'reports' }],
-        },
-        {
-          title: 'CRM',
-          items: [
-            { label: 'Clients', to: '/clients', icon: 'clients' },
-            { label: 'POC', to: '/pocs', icon: 'poc' },
-            { label: 'Candidates', to: '/candidates', icon: 'candidates' },
-          ],
-        },
+        { title: 'Main', items: [
+          { label: 'Dashboard', to: roleDashboardPath.manager, icon: 'dashboard' },
+          { label: 'Tasks', to: '/tasks', icon: 'tasks' },
+          { label: 'Invoice', to: '/invoices', icon: 'invoices' },
+        ] },
+        { title: 'Manage', items: [
+          { label: 'Client', to: '/clients', icon: 'clients' },
+          { label: 'POC', to: '/pocs', icon: 'poc' },
+          { label: 'Candidates', to: '/candidates', icon: 'candidates' },
+        ] },
+        { title: 'Reports', items: [
+          { label: 'Feedback Pending Report', to: '/reports/feedback-pending', icon: 'reports' },
+          { label: 'Tech Vs Tasks', to: '/reports/tech-vs-tasks', icon: 'reports' },
+          { label: 'Tasks Summary', to: '/reports/tasks-summary', icon: 'reports' },
+          { label: 'Feedback Report', to: '/reports/feedback-report', icon: 'reports' },
+        ] },
       ]
     }
 
@@ -144,19 +136,19 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   if (!user) return null
   const allItems = sections.flatMap((section) => section.items)
   const reportsItems = allItems.filter((item) => item.to.startsWith('/reports'))
-  const orderedLabels = ['Dashboard', 'Tasks', 'Task Feedback', 'Payment Correction', 'Invoices', 'Clients', 'POC', 'Candidates']
+  const orderedLabels = user.role === 'manager' ? ['Dashboard', 'Tasks', 'Invoice'] : ['Dashboard', 'Tasks', 'Task Feedback', 'Payment Correction', 'Invoices', 'Clients', 'POC', 'Candidates']
+  const manageItems = user.role === 'manager' ? allItems.filter((item) => ['Client', 'POC', 'Candidates'].includes(item.label)) : []
   const primaryItems = orderedLabels
     .map((label) => allItems.find((item) => item.label === label))
     .filter((item): item is MenuItem => Boolean(item))
 
   const isReportsActive = reportsItems.some((item) => location.pathname === item.to)
+  const isManageActive = manageItems.some((item) => location.pathname === item.to)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (!reportsRef.current) return
-      if (!reportsRef.current.contains(event.target as Node)) {
-        setIsReportsOpen(false)
-      }
+      if (reportsRef.current && !reportsRef.current.contains(event.target as Node)) setIsReportsOpen(false)
+      if (manageRef.current && !manageRef.current.contains(event.target as Node)) setIsManageOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -164,6 +156,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   useEffect(() => {
     setIsReportsOpen(false)
+    setIsManageOpen(false)
     onClose()
   }, [location.pathname, onClose])
 
@@ -172,6 +165,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     const observer = new MutationObserver(() => {
       if (document.querySelector('.modal-overlay, .modal.d-block, .invoice-modal-backdrop, .alert-modal-backdrop')) {
         setIsReportsOpen(false)
+        setIsManageOpen(false)
       }
     })
     observer.observe(document.body, { childList: true, subtree: true })
@@ -188,6 +182,23 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               <span className="menu-label">{item.label}</span>
             </NavLink>
           ))}
+
+          {manageItems.length > 0 ? (
+            <div ref={manageRef} className="top-nav__dropdown" onMouseEnter={() => setIsManageOpen(true)} onMouseLeave={() => setIsManageOpen(false)}>
+              <button type="button" className={`menu-item top-nav__dropdown-trigger ${isManageActive ? 'sidebar__link--active' : ''}`} onClick={() => setIsManageOpen((prev) => !prev)} aria-expanded={isManageOpen}>
+                <Icon name="clients" />
+                <span className="menu-label">Manage</span>
+                <span className="top-nav__caret">▾</span>
+              </button>
+              {isManageOpen ? (
+                <div className="top-nav__dropdown-menu">
+                  {manageItems.map((item) => (
+                    <NavLink key={item.to} to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`}>{item.label}</NavLink>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {reportsItems.length > 0 ? (
             <div ref={reportsRef} className="top-nav__dropdown" onMouseEnter={() => setIsReportsOpen(true)} onMouseLeave={() => setIsReportsOpen(false)}>
               <button type="button" className={`menu-item top-nav__dropdown-trigger ${isReportsActive ? 'sidebar__link--active' : ''}`} onClick={() => setIsReportsOpen((prev) => !prev)} aria-expanded={isReportsOpen}>
@@ -198,19 +209,9 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               {isReportsOpen ? (
                 <div className="top-nav__dropdown-menu">
                   {reportsItems.map((item) => (
-                    <div key={item.to} className={`top-nav__dropdown-row ${item.label === 'Candidate Report' ? 'top-nav__dropdown-row--nested' : ''}`}>
-                      <NavLink to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`}>
-                        <span>{item.label}</span>
-                        {item.label === 'Candidate Report' ? <span className="top-nav__submenu-caret">▶</span> : null}
-                      </NavLink>
-                      {item.label === 'Candidate Report' ? (
-                        <div className="top-nav__nested-menu">
-                          <NavLink to={item.to} className="top-nav__dropdown-item">Daily</NavLink>
-                          <NavLink to={item.to} className="top-nav__dropdown-item">Weekly</NavLink>
-                          <NavLink to={item.to} className="top-nav__dropdown-item">Monthly</NavLink>
-                        </div>
-                      ) : null}
-                    </div>
+                    <NavLink key={item.to} to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`}>
+                      <span>{item.label}</span>
+                    </NavLink>
                   ))}
                 </div>
               ) : null}

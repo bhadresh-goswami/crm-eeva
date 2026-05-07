@@ -1086,6 +1086,85 @@ public function downloadFile() {
         }
     }
 
+
+    public function managerTechVsTasksSummary(): void {
+        $db = new Database();
+        $conn = $db->connect();
+        try {
+            $fromDate = $_GET['from_date'] ?? date('Y-m-d', strtotime('-30 days'));
+            $toDate = $_GET['to_date'] ?? date('Y-m-d');
+            $expertId = $_GET['expert_id'] ?? null;
+            $taskTypeId = $_GET['task_type_id'] ?? null;
+            $clientId = $_GET['client_id'] ?? null;
+
+            $where = ['DATE(t.due_date) BETWEEN ? AND ?'];
+            $params = [$fromDate, $toDate];
+            if (!empty($expertId)) { $where[] = 'u.id = ?'; $params[] = (int)$expertId; }
+            if (!empty($taskTypeId)) { $where[] = 't.task_type_id = ?'; $params[] = (int)$taskTypeId; }
+            if (!empty($clientId)) { $where[] = 't.client_id = ?'; $params[] = (int)$clientId; }
+
+            $sql = "SELECT
+                u.id AS expert_id,
+                CONCAT('BATCH-', DATE_FORMAT(MAX(t.created_at), '%Y%m%d'), '-', u.id) AS task_id,
+                COALESCE(u.name,'') AS technical_expert,
+                ROUND(SUM(COALESCE(t.duration,0))/60,2) AS total_completed_hours,
+                SUM(CASE WHEN LOWER(COALESCE(ts.name,''))='completed' THEN 1 ELSE 0 END) AS completed_count,
+                SUM(CASE WHEN LOWER(COALESCE(ts.name,'')) IN ('completed','success') THEN 1 ELSE 0 END) AS success_count,
+                SUM(CASE WHEN LOWER(COALESCE(ts.name,'')) IN ('rejected','cancelled','failed') THEN 1 ELSE 0 END) AS rejected_count,
+                ROUND((SUM(CASE WHEN LOWER(COALESCE(ts.name,'')) IN ('completed','success') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN LOWER(COALESCE(ts.name,''))='completed' THEN 1 ELSE 0 END),0))*100,2) AS success_ratio
+            FROM tasks t
+            LEFT JOIN task_status_master ts ON ts.id=t.status_id
+            LEFT JOIN task_assignments ta ON ta.task_id=t.id AND ta.is_active=1
+            LEFT JOIN users u ON u.id=ta.user_id
+            WHERE ".implode(' AND ', $where)."
+            GROUP BY u.id, u.name
+            ORDER BY success_ratio DESC, completed_count DESC";
+            $stmt = $conn->prepare($sql); $stmt->execute($params);
+            echo json_encode(['success'=>true,'data'=>$stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        } catch (Throwable $e) { http_response_code(500); echo json_encode(['success'=>false,'message'=>$e->getMessage()]); }
+    }
+
+    public function managerTechVsTaskDetails(): void {
+        $db = new Database();
+        $conn = $db->connect();
+        try {
+            $expertId = (int)($_GET['expert_id'] ?? 0);
+            if ($expertId <= 0) { throw new Exception('expert_id is required'); }
+            $fromDate = $_GET['from_date'] ?? date('Y-m-d', strtotime('-30 days'));
+            $toDate = $_GET['to_date'] ?? date('Y-m-d');
+            $taskTypeId = $_GET['task_type_id'] ?? null;
+            $clientId = $_GET['client_id'] ?? null;
+
+            $where = ['ta.user_id = ?', 'DATE(t.due_date) BETWEEN ? AND ?'];
+            $params = [$expertId, $fromDate, $toDate];
+            if (!empty($taskTypeId)) { $where[] = 't.task_type_id = ?'; $params[] = (int)$taskTypeId; }
+            if (!empty($clientId)) { $where[] = 't.client_id = ?'; $params[] = (int)$clientId; }
+
+            $sql = "SELECT
+                t.id AS task_id,
+                COALESCE(cand.name,'') AS candidate_name,
+                COALESCE(cl.company_name,cl.name,'') AS client_company,
+                COALESCE(tt.name,'') AS task_type,
+                LOWER(COALESCE(ts.name,'')) AS status,
+                DATE(t.due_date) AS task_date,
+                CONCAT(DATE_FORMAT(CONVERT_TZ(CONCAT(DATE(t.due_date),' ',COALESCE(t.start_time,'00:00:00')), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'),' EST') AS est_time,
+                COALESCE(t.duration,0) AS duration,
+                CASE WHEN tf.id IS NULL THEN 'pending' ELSE 'submitted' END AS feedback_status,
+                tf.overall AS average_score,
+                '' AS assigned_by
+            FROM tasks t
+            LEFT JOIN candidates cand ON cand.id=t.candidate_id
+            LEFT JOIN clients cl ON cl.id=t.client_id
+            LEFT JOIN task_types tt ON tt.id=t.task_type_id
+            LEFT JOIN task_status_master ts ON ts.id=t.status_id
+            LEFT JOIN task_assignments ta ON ta.task_id=t.id AND ta.is_active=1
+            LEFT JOIN task_feedback tf ON tf.task_id=t.id
+            WHERE ".implode(' AND ', $where)."
+            ORDER BY t.due_date DESC, t.id DESC";
+            $stmt=$conn->prepare($sql); $stmt->execute($params);
+            echo json_encode(['success'=>true,'data'=>$stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        } catch (Throwable $e) { http_response_code(500); echo json_encode(['success'=>false,'message'=>$e->getMessage()]); }
+    }
     public function checkUpdates($user_id = null) {
         $db = new Database();
         $conn = $db->connect();
