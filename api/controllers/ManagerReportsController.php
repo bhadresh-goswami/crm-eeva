@@ -21,15 +21,15 @@ class ManagerReportsController {
     }
 
     private function baseSelect(): string {
-        $companyTable = $this->tableExists('companies') ? 'companies' : 'clients';
+        $companyTable = 'clients';
         $statusTable = $this->tableExists('task_status') ? 'task_status' : 'task_status_master';
         $assignedByColumn = $this->hasColumn('tasks', 'assigned_by') ? 't.assigned_by' : 'ta.assigned_by';
 
         return "
             FROM tasks t
             LEFT JOIN candidates cd ON cd.id = t.candidate_id
-            LEFT JOIN {$companyTable} c_task ON c_task.id = t.company_id
-            LEFT JOIN {$companyTable} c_candidate ON c_candidate.id = cd.company_id
+            LEFT JOIN {$companyTable} c_task ON c_task.id = t.client_id
+            LEFT JOIN {$companyTable} c_candidate ON c_candidate.id = cd.client_id
             LEFT JOIN {$companyTable} c_client ON c_client.id = t.client_id
             LEFT JOIN task_assignments ta ON ta.id = (
                 SELECT ta2.id
@@ -71,7 +71,7 @@ class ManagerReportsController {
         if ($expertId !== null) { $where[] = "ta.user_id = :expert_id"; $params[':expert_id'] = $expertId; }
         if ($taskTypeId !== null) { $where[] = "t.task_type_id = :task_type_id"; $params[':task_type_id'] = $taskTypeId; }
         if ($clientId !== null) { $where[] = "t.client_id = :client_id"; $params[':client_id'] = $clientId; }
-        if ($companyId !== null) { $where[] = "(t.company_id = :company_id OR cd.company_id = :company_id)"; $params[':company_id'] = $companyId; }
+        if ($companyId !== null) { $where[] = "(t.client_id = :company_id OR cd.client_id = :company_id)"; $params[':company_id'] = $companyId; }
         if ($statusId !== null) { $where[] = "t.status_id = :status_id"; $params[':status_id'] = $statusId; }
         if (!empty($fromDate)) { $where[] = "DATE(t.due_date) >= :from_date"; $params[':from_date'] = $fromDate; }
         if (!empty($toDate)) { $where[] = "DATE(t.due_date) <= :to_date"; $params[':to_date'] = $toDate; }
