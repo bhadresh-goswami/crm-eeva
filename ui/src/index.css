@@ -460,12 +460,14 @@ table td {
   background: rgba(17, 24, 39, 0.5);
   display: grid;
   place-items: center;
-  z-index: 90;
+  z-index: 3000;
   padding: 1rem;
   animation: modalFade 0.18s ease;
 }
 
 .modal-card {
+  position: relative;
+  z-index: 3010;
   width: min(900px, 95vw);
   background: #fff;
   border-radius: 0.75rem;
@@ -1242,4 +1244,11 @@ table td {
   .main-content {
     padding: 1.25rem;
   }
+}
+
+
+.modal.d-block {
+  position: fixed;
+  inset: 0;
+  z-index: 3010;
 }
