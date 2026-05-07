@@ -233,8 +233,10 @@ input:focus, select:focus, textarea:focus, .form-control:focus, .form-select:foc
 .manager-reports-table__wrapper { overflow: auto; max-width: 100%; }
 .manager-reports-table { min-width: 1180px; table-layout: fixed; }
 .manager-reports-table thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; }
-.manager-reports-table td, .manager-reports-table th { white-space: nowrap; padding-top: 8px; padding-bottom: 8px; }
-.manager-cell-ellipsis { display: inline-block; max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.manager-reports-table td, .manager-reports-table th { padding-top: 8px; padding-bottom: 8px; vertical-align: middle; }
+.manager-cell { max-width: 220px; }
+.manager-cell-ellipsis { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.35; }
+.manager-reports-table tbody tr:nth-child(even) { background: #fcfdff; }
 .manager-sort { border: 0; background: transparent; width: 100%; display: flex; justify-content: space-between; align-items: center; color: inherit; font-size: inherit; font-weight: 600; }
 .top-nav { position: sticky; top: 0; }
 .top-nav__dropdown-menu { min-width: 230px; }
