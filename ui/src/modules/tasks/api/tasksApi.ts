@@ -655,3 +655,70 @@ export const getTaskAssignmentReport = async (query: {
     })
     .filter((item): item is TaskAssignmentReportRow => Boolean(item?.task_id))
 }
+
+export type TechVsTasksSummaryRow = {
+  expert_id: number
+  task_id: string
+  technical_expert: string
+  total_completed_hours: number
+  completed_count: number
+  success_count: number
+  rejected_count: number
+  success_ratio: number
+}
+
+export type TechVsTaskDetailRow = {
+  task_id: number
+  candidate_name: string
+  client_company: string
+  task_type: string
+  status: string
+  task_date: string
+  est_time: string
+  duration: number
+  feedback_status: string
+  average_score: number | null
+  assigned_by: string
+}
+
+export const getTechVsTasksSummary = async (query: Record<string, string>) => {
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([k, v]) => { if (v) params.set(k, v) })
+  const endpoint = params.toString() ? `/manager/reports/tech-vs-tasks?${params.toString()}` : '/manager/reports/tech-vs-tasks'
+  const response = await apiRequest<unknown>(endpoint)
+  return getList(response).map((item) => {
+    const row = item as UnknownMap
+    return {
+      expert_id: asNumber(row.expert_id),
+      task_id: String(row.task_id ?? ''),
+      technical_expert: String(row.technical_expert ?? ''),
+      total_completed_hours: asNumber(row.total_completed_hours),
+      completed_count: asNumber(row.completed_count),
+      success_count: asNumber(row.success_count),
+      rejected_count: asNumber(row.rejected_count),
+      success_ratio: asNumber(row.success_ratio),
+    } as TechVsTasksSummaryRow
+  })
+}
+
+export const getTechVsTaskDetails = async (query: Record<string, string | number>) => {
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([k, v]) => { if (v !== '' && v !== undefined && v !== null) params.set(k, String(v)) })
+  const response = await apiRequest<unknown>(`/manager/reports/tech-vs-task-details?${params.toString()}`)
+  return getList(response).map((item) => {
+    const row = item as UnknownMap
+    return {
+      task_id: asNumber(row.task_id),
+      candidate_name: String(row.candidate_name ?? ''),
+      client_company: String(row.client_company ?? ''),
+      task_type: String(row.task_type ?? ''),
+      status: String(row.status ?? ''),
+      task_date: String(row.task_date ?? ''),
+      est_time: String(row.est_time ?? ''),
+      duration: asNumber(row.duration),
+      feedback_status: String(row.feedback_status ?? ''),
+      average_score: row.average_score === null ? null : asNumber(row.average_score),
+      assigned_by: String(row.assigned_by ?? ''),
+    } as TechVsTaskDetailRow
+  })
+}
