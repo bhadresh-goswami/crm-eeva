@@ -683,7 +683,7 @@ export type TechVsTaskDetailRow = {
 
 export const getTechVsTasksSummary = async (query: Record<string, string | number>) => {
   const params = new URLSearchParams()
-  Object.entries(query).forEach(([k, v]) => { if (v) params.set(k, v) })
+  Object.entries(query).forEach(([k, v]) => { if (v !== '' && v !== undefined && v !== null) params.set(k, String(v)) })
   const endpoint = params.toString() ? `/manager/reports/tech-vs-tasks?${params.toString()}` : '/manager/reports/tech-vs-tasks'
   const response = await apiRequest<unknown>(endpoint)
   return getList(response).map((item) => {
