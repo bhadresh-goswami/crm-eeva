@@ -17,6 +17,7 @@ class ManagerReportsController {
             LEFT JOIN users u ON u.id = ta.user_id
             LEFT JOIN users assigned_by_user ON assigned_by_user.id = ta.assigned_by
             LEFT JOIN task_feedback tf ON tf.task_id = t.id
+            LEFT JOIN users feedback_expert ON feedback_expert.id = tf.expert_id
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN task_status_master tsm ON tsm.id = t.status_id
             LEFT JOIN (
@@ -68,10 +69,16 @@ class ManagerReportsController {
                 cd.name AS candidate_name,
                 c.company_name AS company_name,
                 tt.name AS task_type,
-                u.name AS technical_expert,
+                COALESCE(u.name, feedback_expert.name, '') AS technical_expert,
                 DATE(t.due_date) AS due_date,
                 t.duration,
+                CONCAT(
+                  COALESCE(DATE_FORMAT(CONVERT_TZ(CONCAT(DATE(t.due_date), ' ', t.start_time), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), '--'),
+                  ' - ',
+                  COALESCE(DATE_FORMAT(CONVERT_TZ(CONCAT(DATE(t.due_date), ' ', t.end_time), 'Asia/Kolkata', 'America/New_York'), '%h:%i %p'), '--')
+                ) AS est_time,
                 tsm.name AS task_status,
+                COALESCE(assigned_by_user.name, '') AS assigned_by,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
                 DATE(tf.created_at) AS feedback_date,
                 ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score

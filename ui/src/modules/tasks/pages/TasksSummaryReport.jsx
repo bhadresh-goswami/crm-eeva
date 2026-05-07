@@ -11,6 +11,7 @@ const TasksSummaryReport = () => (
       { key: 'clientCompany', label: 'Client Company' },
       { key: 'taskType', label: 'Task Type' },
       { key: 'technicalExpert', label: 'Technical Expert' },
+      { key: 'assignedBy', label: 'Assigned By' },
       { key: 'status', label: 'Status' },
       { key: 'dueDate', label: 'Due Date' },
       { key: 'estTime', label: 'EST Time' },

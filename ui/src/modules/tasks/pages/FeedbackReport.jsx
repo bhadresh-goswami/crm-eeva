@@ -9,6 +9,7 @@ const FeedbackReport = () => (
       { key: 'taskId', label: 'Task ID' },
       { key: 'candidate', label: 'Candidate' },
       { key: 'technicalExpert', label: 'Technical Expert' },
+      { key: 'assignedBy', label: 'Assigned By' },
       { key: 'clientCompany', label: 'Client Company' },
       { key: 'taskType', label: 'Task Type' },
       { key: 'feedbackSubmittedDate', label: 'Feedback Submitted Date' },
