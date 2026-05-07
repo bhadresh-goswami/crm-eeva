@@ -1,0 +1,69 @@
+import { useEffect, useMemo, useState } from 'react'
+import { BsEye } from 'react-icons/bs'
+import { getTaskFilterOptions, getTechVsTaskDetails, getTechVsTasksSummary } from '../api/tasksApi'
+
+const today = new Date()
+const toDateDefault = today.toISOString().slice(0, 10)
+const from = new Date(today)
+from.setDate(from.getDate() - 30)
+const fromDateDefault = from.toISOString().slice(0, 10)
+
+const TechVsTasksReport = () => {
+  const [filters, setFilters] = useState({ candidate_id: '', expert_id: '', task_type_id: '', client_id: '', status: '', from_date: fromDateDefault, to_date: toDateDefault })
+  const [options, setOptions] = useState({ candidates: [], assignees: [], task_types: [], clients: [] })
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState(null)
+  const [detailRows, setDetailRows] = useState([])
+  const [detailLoading, setDetailLoading] = useState(false)
+
+  const loadSummary = async () => {
+    setLoading(true)
+    try { setRows(await getTechVsTasksSummary(filters)) } finally { setLoading(false) }
+  }
+
+  useEffect(() => {
+    void getTaskFilterOptions().then((d) => setOptions({ ...d, clients: d.companies.map((name, idx) => ({ id: idx + 1, name })) })).catch(() => {})
+    void loadSummary()
+  }, [])
+
+  const openDetails = async (row) => {
+    setSelected(row)
+    setDetailLoading(true)
+    try {
+      const details = await getTechVsTaskDetails({ expert_id: row.expert_id, from_date: filters.from_date, to_date: filters.to_date, task_type_id: filters.task_type_id, client_id: filters.client_id })
+      setDetailRows(details)
+    } finally { setDetailLoading(false) }
+  }
+
+  const summary = useMemo(() => {
+    if (!selected) return null
+    return {
+      total: detailRows.length,
+      completed: detailRows.filter((r) => String(r.status).toLowerCase() === 'completed').length,
+      rejected: detailRows.filter((r) => ['rejected', 'cancelled', 'failed'].includes(String(r.status).toLowerCase())).length,
+      totalHours: detailRows.reduce((s, r) => s + Number(r.duration || 0), 0) / 60,
+    }
+  }, [detailRows, selected])
+
+  const successRatio = summary && summary.completed > 0 ? Math.round(((summary.completed - summary.rejected) / summary.completed) * 100) : 0
+
+  return <div className="page-container">
+    <div className="card"><h3 className="card-title mb-3">Filters</h3><div className="row g-2 g-md-3">
+      <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Candidate</label><select className="form-select" value={filters.candidate_id} onChange={(e) => setFilters((p) => ({ ...p, candidate_id: e.target.value }))}><option value="">All Candidate</option>{options.candidates.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></div>
+      <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Technical Expert</label><select className="form-select" value={filters.expert_id} onChange={(e) => setFilters((p) => ({ ...p, expert_id: e.target.value }))}><option value="">All Technical Expert</option>{options.assignees.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></div>
+      <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Task Type</label><select className="form-select" value={filters.task_type_id} onChange={(e) => setFilters((p) => ({ ...p, task_type_id: e.target.value }))}><option value="">All Task Type</option>{options.task_types.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></div>
+      <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Client Company</label><input className="form-control" value={filters.client_id} onChange={(e) => setFilters((p) => ({ ...p, client_id: e.target.value }))} placeholder="Client Id"/></div>
+      <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Status</label><select className="form-select" value={filters.status} onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}><option value="">All Status</option></select></div>
+      <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">From Date</label><input type="date" className="form-control" value={filters.from_date} onChange={(e) => setFilters((p) => ({ ...p, from_date: e.target.value }))}/></div>
+      <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">To Date</label><input type="date" className="form-control" value={filters.to_date} onChange={(e) => setFilters((p) => ({ ...p, to_date: e.target.value }))}/></div>
+      <div className="col-12 d-flex gap-2 justify-content-end mt-2"><button className="btn btn-primary btn-sm" onClick={loadSummary}>Apply Filter</button><button className="btn btn-outline-secondary btn-sm" onClick={() => setFilters({ candidate_id: '', expert_id: '', task_type_id: '', client_id: '', status: '', from_date: fromDateDefault, to_date: toDateDefault })}>Reset</button></div>
+    </div></div>
+
+    <div className="table-card"><div className="table-wrapper manager-reports-table__wrapper"><table className="table table-hover table-bordered align-middle manager-reports-table mb-0"><thead><tr><th>Task ID</th><th>Technical Expert</th><th className="text-center">Total Completed Hrs</th><th className="text-center">Completed</th><th className="text-center">Success</th><th className="text-center">Rejected</th><th className="text-center">Success %</th><th className="text-center">Action</th></tr></thead><tbody>{loading ? <tr><td colSpan={8} className="text-center">Loading...</td></tr> : rows.map((r) => <tr key={r.expert_id}><td>{r.task_id}</td><td>{r.technical_expert}</td><td className="text-center">{Number(r.total_completed_hours).toFixed(2)}</td><td className="text-center">{r.completed_count}</td><td className="text-center"><span className="badge bg-success-subtle text-success">{r.success_count}</span></td><td className="text-center"><span className="badge bg-danger-subtle text-danger">{r.rejected_count}</span></td><td className="text-center fw-semibold">{Math.round(Number(r.success_ratio))}%</td><td className="text-center"><button className="btn btn-outline-primary btn-sm rounded-pill" title="View Task Details" onClick={() => openDetails(r)}><BsEye/></button></td></tr>)}</tbody></table></div></div>
+
+    <div className={`modal fade ${selected ? 'show d-block' : ''}`} tabIndex={-1}><div className="modal-dialog modal-xl modal-dialog-scrollable"><div className="modal-content"><div className="modal-header"><div><h5 className="modal-title mb-1">{selected?.technical_expert || 'Technical Expert'} - Task Details</h5><div className="d-flex gap-2 flex-wrap"><span className="badge text-bg-primary">Total Tasks: {summary?.total ?? 0}</span><span className="badge text-bg-success">Completed: {summary?.completed ?? 0}</span><span className="badge text-bg-danger">Rejected: {summary?.rejected ?? 0}</span><span className="badge text-bg-info">Success Ratio: {successRatio}%</span><span className="badge text-bg-secondary">Total Hours: {summary ? summary.totalHours.toFixed(2) : '0.00'}</span></div></div><button className="btn-close" onClick={() => setSelected(null)} /></div><div className="modal-body"><div className="table-responsive"><table className="table table-hover table-bordered align-middle table-sm"><thead className="table-light"><tr><th>Task ID</th><th>Candidate Name</th><th>Client Company</th><th>Task Type</th><th>Status</th><th>Task Date</th><th>EST Time</th><th>Duration</th><th>Feedback Status</th><th>Average Score</th><th>Assigned By</th><th>Action/View</th></tr></thead><tbody>{detailLoading ? <tr><td colSpan={12} className="text-center">Loading...</td></tr> : detailRows.map((r) => <tr key={r.task_id}><td>{r.task_id}</td><td>{r.candidate_name}</td><td>{r.client_company}</td><td>{r.task_type}</td><td>{r.status}</td><td>{r.task_date}</td><td>{r.est_time}</td><td>{r.duration}</td><td>{r.feedback_status}</td><td>{r.average_score ?? '--'}</td><td>{r.assigned_by}</td><td><button className="btn btn-outline-primary btn-sm rounded-pill"><BsEye/></button></td></tr>)}</tbody></table></div></div></div></div></div>
+  </div>
+}
+
+export default TechVsTasksReport

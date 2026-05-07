@@ -13,6 +13,10 @@ import ReportsTasksPage from '../modules/tasks/pages/ReportsTasksPage'
 import CandidateReportPage from '../modules/tasks/pages/CandidateReportPage'
 import ExpertTaskReportsPage from '../modules/tasks/pages/ExpertTaskReportsPage'
 import FeedbackReportPage from '../modules/tasks/pages/FeedbackReportPage'
+import FeedbackPendingReport from '../modules/tasks/pages/FeedbackPendingReport'
+import TechVsTasksReport from '../modules/tasks/pages/TechVsTasksReport'
+import TasksSummaryReport from '../modules/tasks/pages/TasksSummaryReport'
+import FeedbackReport from '../modules/tasks/pages/FeedbackReport'
 
 import UsersPage from '../modules/users/pages/UsersPage'
 import InvoiceListPage from '../modules/invoices/pages/InvoiceListPage'
@@ -74,6 +78,10 @@ const AppRoutes = () => {
             <Route path="/reports/tasks" element={<ReportsTasksPage />} />
             <Route path="/reports/candidates" element={<CandidateReportPage />} />
             <Route path="/reports/feedback" element={<FeedbackReportPage />} />
+            <Route path="/reports/feedback-pending" element={<FeedbackPendingReport />} />
+            <Route path="/reports/tech-vs-tasks" element={<TechVsTasksReport />} />
+            <Route path="/reports/tasks-summary" element={<TasksSummaryReport />} />
+            <Route path="/reports/feedback-report" element={<FeedbackReport />} />
           </Route>
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/pocs" element={<PocsPage />} />
