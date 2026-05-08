@@ -2,18 +2,27 @@ import { useCallback, useEffect, useState } from 'react'
 import ExpertTaskTable from '../../tasks/components/ExpertTaskTable'
 import { getExpertTasks, type ExpertTaskItem } from '../../tasks/api/expertTasksApi'
 import { useAuth } from '../../../context/AuthContext'
-import DashboardCard from '../../../shared/components/DashboardCard'
-import ChartCard from '../../../shared/components/ChartCard'
 import PageContainer from '../../../shared/components/PageContainer'
+import { getExpertDashboardAnalytics } from '../../../services/expertDashboardAnalyticsService'
+import StatCard from '../../../components/dashboard/StatCard'
+import WorkingHoursChart from '../../../components/dashboard/WorkingHoursChart'
+import TaskRatioChart from '../../../components/dashboard/TaskRatioChart'
+import TodayDistributionChart from '../../../components/dashboard/TodayDistributionChart'
+
+type AnalyticsPayload = {
+  cards?: Record<string, { count?: number; change_percentage?: number }>
+  working_hours_trend?: Array<{ date: string; worked_hours: number }>
+  task_status_ratio?: Array<{ status_name: string; total: number }>
+  today_distribution?: Array<{ status_name: string; total_hours: number }>
+}
 
 const ExpertDashboard = () => {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<ExpertTaskItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [assignedTasksCount] = useState(42)
-  const [completedTasksCount] = useState(29)
-  const [pendingFeedbackCount] = useState(6)
+  const [analytics, setAnalytics] = useState<AnalyticsPayload>({})
   const [dateRangeFilter, setDateRangeFilter] = useState<'7' | '10' | 'all'>('7')
 
   const loadTasks = useCallback(async (range: '7' | '10' | 'all' = dateRangeFilter) => {
@@ -39,37 +48,47 @@ const ExpertDashboard = () => {
     }
   }, [dateRangeFilter])
 
+  const loadAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true)
+    try {
+      const response = await getExpertDashboardAnalytics()
+      setAnalytics((response?.data ?? {}) as AnalyticsPayload)
+    } catch {
+      setAnalytics({})
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     let mounted = true
     const load = async () => {
       if (!mounted) return
-      await loadTasks(dateRangeFilter)
+      await Promise.all([loadTasks(dateRangeFilter), loadAnalytics()])
     }
     void load()
     return () => {
       mounted = false
     }
-  }, [dateRangeFilter, loadTasks])
+  }, [dateRangeFilter, loadAnalytics, loadTasks])
 
   return (
     <PageContainer title="Technical Expert Dashboard" description="Active assigned tasks only.">
-      <div className="metric-grid section">
-        <DashboardCard title="Tasks Assigned" value={assignedTasksCount} trend={5} />
-        <DashboardCard title="Completed Tasks" value={completedTasksCount} trend={3} />
-        <DashboardCard title="Pending Feedback" value={pendingFeedbackCount} trend={-2} />
+      <style>{`.stat-card-hover{transition:all .2s ease}.stat-card-hover:hover{transform:translateY(-3px)}`}</style>
+      <div className="row g-3 section">
+        <div className="col-12 col-md-6 col-xl-3"><StatCard title="Assigned Tasks" count={analytics.cards?.assigned?.count ?? 0} changePercentage={analytics.cards?.assigned?.change_percentage ?? 0} color="blue" loading={analyticsLoading} /></div>
+        <div className="col-12 col-md-6 col-xl-3"><StatCard title="Completed Tasks" count={analytics.cards?.completed?.count ?? 0} changePercentage={analytics.cards?.completed?.change_percentage ?? 0} color="green" loading={analyticsLoading} /></div>
+        <div className="col-12 col-md-6 col-xl-3"><StatCard title="Success Tasks" count={analytics.cards?.success?.count ?? 0} changePercentage={analytics.cards?.success?.change_percentage ?? 0} color="cyan" loading={analyticsLoading} /></div>
+        <div className="col-12 col-md-6 col-xl-3"><StatCard title="Rejected Tasks" count={analytics.cards?.rejected?.count ?? 0} changePercentage={analytics.cards?.rejected?.change_percentage ?? 0} color="red" loading={analyticsLoading} /></div>
       </div>
 
-      <div className="charts-grid section">
-        <ChartCard title="Activity Trend">
-          <p className="card-text">Jan 70% • Feb 80% • Mar 85%</p>
-        </ChartCard>
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          <ChartCard title="Donut Ratio">
-            <p className="card-text">Completion 85%</p>
-          </ChartCard>
-          <ChartCard title="Pie Mix">
-            <p className="card-text">Pending 15%</p>
-          </ChartCard>
+      <div className="row g-3 section">
+        <div className="col-12 col-lg-8">
+          <div className="card border-0 shadow-sm rounded-4 h-100"><div className="card-body p-4"><h5 className="mb-3">Monthly Working Hours Trend</h5><WorkingHoursChart data={analytics.working_hours_trend ?? []} loading={analyticsLoading} /></div></div>
+        </div>
+        <div className="col-12 col-lg-4 d-grid gap-3">
+          <div className="card border-0 shadow-sm rounded-4"><div className="card-body p-4"><h6 className="mb-3">Task Status Ratio</h6><TaskRatioChart data={analytics.task_status_ratio ?? []} loading={analyticsLoading} /></div></div>
+          <div className="card border-0 shadow-sm rounded-4"><div className="card-body p-4"><h6 className="mb-3">Today's Work Distribution</h6><TodayDistributionChart data={analytics.today_distribution ?? []} loading={analyticsLoading} /></div></div>
         </div>
       </div>
 
