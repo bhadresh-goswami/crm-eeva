@@ -35,14 +35,14 @@ class CandidatePerformanceReportService {
 
         $sql = "SELECT
             c.id AS candidate_id,
-            c.name AS candidate_name,
-            cl.company_name,
+            COALESCE(c.name, '-') AS candidate_name,
+            COALESCE(cl.company_name, '-') AS company_name,
             COUNT(DISTINCT t.id) AS total_interviews,
             COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'completed' THEN t.id END) AS completed_count,
             COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'success' THEN t.id END) AS success_count,
             COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'rejected' THEN t.id END) AS rejected_count,
             ROUND(AVG(CASE WHEN tf.overall IS NOT NULL THEN tf.overall END), 2) AS overall_score,
-            ROUND((COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'success' THEN t.id END) / NULLIF(COUNT(DISTINCT t.id), 0)) * 100, 0) AS success_percentage
+            COALESCE(ROUND((COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'success' THEN t.id END) / NULLIF(COUNT(DISTINCT t.id), 0)) * 100, 0), 0) AS success_percentage
             {$base}
             GROUP BY c.id, c.name, cl.company_name
             ORDER BY total_interviews DESC
@@ -103,7 +103,17 @@ class CandidatePerformanceReportService {
         $where = ['1=1'];
         if (!empty($query['candidate_id'])) { $where[] = 't.candidate_id = :candidate_id'; $params[':candidate_id'] = (int)$query['candidate_id']; }
         if (!empty($query['client_id'])) { $where[] = 't.client_id = :client_id'; $params[':client_id'] = (int)$query['client_id']; }
-        if (!empty($query['from_date']) && !empty($query['to_date'])) { $where[] = 'DATE(t.created_at) BETWEEN :from_date AND :to_date'; $params[':from_date'] = (string)$query['from_date']; $params[':to_date'] = (string)$query['to_date']; }
+        $hasFromDate = !empty($query['from_date']);
+        $hasToDate = !empty($query['to_date']);
+
+        if ($hasFromDate && $hasToDate) {
+            $where[] = 'DATE(t.created_at) BETWEEN :from_date AND :to_date';
+            $params[':from_date'] = (string)$query['from_date'];
+            $params[':to_date'] = (string)$query['to_date'];
+        } else {
+            $where[] = 'DATE(t.created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 10 DAY)';
+        }
+
         return $where;
     }
 }
