@@ -23,6 +23,7 @@ class ExpertDashboardAnalyticsController {
                         'working_hours_trend' => [],
                         'task_status_ratio' => [],
                         'today_distribution' => [],
+                        'daily_working_analytics' => ['summary' => [], 'rows' => []],
                     ],
                 ]);
                 return;
@@ -35,9 +36,10 @@ class ExpertDashboardAnalyticsController {
                 'message' => 'Dashboard analytics loaded successfully',
                 'data' => [
                     'cards' => $analytics['cards'] ?? [],
-                    'working_hours_trend' => $analytics['working_hours_trend'] ?? [],
-                    'task_status_ratio' => $analytics['task_status_ratio'] ?? [],
-                    'today_distribution' => $analytics['today_distribution'] ?? [],
+                    'working_hours_trend' => [],
+                    'task_status_ratio' => [],
+                    'today_distribution' => [],
+                    'daily_working_analytics' => $analytics['daily_working_analytics'] ?? ['summary' => [], 'rows' => []],
                 ],
             ]);
         } catch (Throwable $e) {
@@ -54,6 +56,7 @@ class ExpertDashboardAnalyticsController {
                     'working_hours_trend' => [],
                     'task_status_ratio' => [],
                     'today_distribution' => [],
+                    'daily_working_analytics' => ['summary' => [], 'rows' => []],
                 ],
             ]);
         }

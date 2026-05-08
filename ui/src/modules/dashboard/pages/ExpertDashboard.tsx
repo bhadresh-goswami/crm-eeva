@@ -5,15 +5,14 @@ import { useAuth } from '../../../context/AuthContext'
 import PageContainer from '../../../shared/components/PageContainer'
 import { getExpertDashboardAnalytics } from '../../../services/expertDashboardAnalyticsService'
 import StatCard from '../../../components/dashboard/StatCard'
-import WorkingHoursChart from '../../../components/dashboard/WorkingHoursChart'
-import TaskRatioChart from '../../../components/dashboard/TaskRatioChart'
-import TodayDistributionChart from '../../../components/dashboard/TodayDistributionChart'
+import DailyWorkingAnalyticsTable from '../../../components/dashboard/DailyWorkingAnalyticsTable'
 
 type AnalyticsPayload = {
   cards?: Record<string, { count?: number; change_percentage?: number }>
-  working_hours_trend?: Array<{ date: string; worked_hours: number }>
-  task_status_ratio?: Array<{ status_name: string; total: number }>
-  today_distribution?: Array<{ status_name: string; total_hours: number }>
+  daily_working_analytics?: {
+    summary?: { average_hours?: number; total_hours?: number; total_tasks?: number; productivity?: number }
+    rows?: Array<Record<string, string | number>>
+  }
 }
 
 const ExpertDashboard = () => {
@@ -83,12 +82,11 @@ const ExpertDashboard = () => {
       </div>
 
       <div className="row g-3 section">
-        <div className="col-12 col-lg-8">
-          <div className="card border-0 shadow-sm rounded-4 h-100"><div className="card-body p-4"><h5 className="mb-3">Monthly Working Hours Trend</h5><WorkingHoursChart data={analytics.working_hours_trend ?? []} loading={analyticsLoading} /></div></div>
-        </div>
-        <div className="col-12 col-lg-4 d-grid gap-3">
-          <div className="card border-0 shadow-sm rounded-4"><div className="card-body p-4"><h6 className="mb-3">Task Status Ratio</h6><TaskRatioChart data={analytics.task_status_ratio ?? []} loading={analyticsLoading} /></div></div>
-          <div className="card border-0 shadow-sm rounded-4"><div className="card-body p-4"><h6 className="mb-3">Today's Work Distribution</h6><TodayDistributionChart data={analytics.today_distribution ?? []} loading={analyticsLoading} /></div></div>
+        <div className="col-12">
+          <DailyWorkingAnalyticsTable
+            data={analytics.daily_working_analytics ?? { summary: {}, rows: [] }}
+            loading={analyticsLoading}
+          />
         </div>
       </div>
 

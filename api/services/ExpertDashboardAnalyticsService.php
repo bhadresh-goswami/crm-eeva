@@ -15,9 +15,7 @@ class ExpertDashboardAnalyticsService {
 
         $analyticsData = [
             'cards' => $cards,
-            'working_hours_trend' => $this->getWorkingHoursTrend($userId),
-            'task_status_ratio' => $this->getTaskStatusRatio($userId),
-            'today_distribution' => $this->getTodayDistribution($userId),
+            'daily_working_analytics' => $this->getDailyWorkingAnalytics($userId),
         ];
 
         error_log(print_r($analyticsData, true));
@@ -125,7 +123,7 @@ class ExpertDashboardAnalyticsService {
         return $counts;
     }
 
-    private function getWorkingHoursTrend(int $userId): array {
+    private function getDailyWorkingAnalytics(int $userId): array {
         $query = "
             SELECT
                 DATE(t.task_start_time) AS work_date,
@@ -138,95 +136,75 @@ class ExpertDashboardAnalyticsService {
                         )
                     ) / 60,
                     2
-                ) AS worked_hours
+                ) AS worked_hours,
+                COUNT(DISTINCT t.id) AS total_tasks,
+                COUNT(DISTINCT CASE WHEN LOWER(tt.name) LIKE '%interview%' THEN t.id END) AS interview_support,
+                COUNT(DISTINCT CASE WHEN LOWER(tt.name) LIKE '%mock%' THEN t.id END) AS mock_interview,
+                COUNT(DISTINCT CASE WHEN LOWER(tt.name) LIKE '%resume%' THEN t.id END) AS resume_support,
+                COUNT(DISTINCT CASE WHEN LOWER(tt.name) LIKE '%linkedin%' THEN t.id END) AS linkedin_support,
+                COUNT(DISTINCT CASE
+                    WHEN LOWER(tt.name) NOT LIKE '%interview%'
+                     AND LOWER(tt.name) NOT LIKE '%mock%'
+                     AND LOWER(tt.name) NOT LIKE '%resume%'
+                     AND LOWER(tt.name) NOT LIKE '%linkedin%'
+                    THEN t.id
+                END) AS other_tasks,
+                COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'completed' THEN t.id END) AS completed_tasks,
+                COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'success' THEN t.id END) AS success_tasks,
+                COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'rejected' THEN t.id END) AS rejected_tasks
             FROM task_assignments ta
-            INNER JOIN tasks t
-                ON t.id = ta.task_id
+            INNER JOIN tasks t ON t.id = ta.task_id
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
+            LEFT JOIN task_status_master tsm ON tsm.id = t.status_id
             WHERE ta.user_id = :user_id
               AND ta.is_active = 1
               AND t.task_start_time IS NOT NULL
               AND t.task_end_time IS NOT NULL
               AND DATE(t.task_start_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
             GROUP BY DATE(t.task_start_time)
-            ORDER BY work_date ASC
+            ORDER BY work_date DESC
         ";
 
         $stmt = $this->conn->prepare($query);
         $stmt->execute([':user_id' => $userId]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        return array_map(static function (array $row): array {
+        $mappedRows = array_map(static function (array $row): array {
+            $workedHours = (float)($row['worked_hours'] ?? 0);
+            $productivity = min(100, round(($workedHours / 8) * 100, 2));
+            $status = $workedHours >= 8 ? 'Excellent' : ($workedHours >= 5 ? 'Good' : 'Low');
+
             return [
-                'date' => (string)($row['work_date'] ?? ''),
-                'worked_hours' => (float)($row['worked_hours'] ?? 0),
+                'work_date' => (string)($row['work_date'] ?? ''),
+                'worked_hours' => $workedHours,
+                'total_tasks' => (int)($row['total_tasks'] ?? 0),
+                'interview_support' => (int)($row['interview_support'] ?? 0),
+                'mock_interview' => (int)($row['mock_interview'] ?? 0),
+                'resume_support' => (int)($row['resume_support'] ?? 0),
+                'linkedin_support' => (int)($row['linkedin_support'] ?? 0),
+                'other_tasks' => (int)($row['other_tasks'] ?? 0),
+                'completed_tasks' => (int)($row['completed_tasks'] ?? 0),
+                'success_tasks' => (int)($row['success_tasks'] ?? 0),
+                'rejected_tasks' => (int)($row['rejected_tasks'] ?? 0),
+                'productivity' => $productivity,
+                'status' => $status,
             ];
         }, $rows);
-    }
 
-    private function getTaskStatusRatio(int $userId): array {
-        $query = "
-            SELECT
-                LOWER(tsm.name) AS status_name,
-                COUNT(DISTINCT t.id) AS total
-            FROM task_assignments ta
-            INNER JOIN tasks t
-                ON t.id = ta.task_id
-            INNER JOIN task_status_master tsm
-                ON tsm.id = t.status_id
-            WHERE ta.user_id = :user_id
-              AND ta.is_active = 1
-              AND DATE(t.created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-            GROUP BY LOWER(tsm.name)
-        ";
+        $daysCount = count($mappedRows);
+        $totalHours = array_sum(array_column($mappedRows, 'worked_hours'));
+        $totalTasks = array_sum(array_column($mappedRows, 'total_tasks'));
+        $averageHours = $daysCount > 0 ? round($totalHours / $daysCount, 2) : 0;
+        $avgProductivity = $daysCount > 0 ? round(array_sum(array_column($mappedRows, 'productivity')) / $daysCount, 2) : 0;
 
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute([':user_id' => $userId]);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-        return array_map(static function (array $row): array {
-            return [
-                'status_name' => (string)($row['status_name'] ?? ''),
-                'total' => (int)($row['total'] ?? 0),
-            ];
-        }, $rows);
-    }
-
-    private function getTodayDistribution(int $userId): array {
-        $query = "
-            SELECT
-                LOWER(tsm.name) AS status_name,
-                ROUND(
-                    SUM(
-                        TIMESTAMPDIFF(
-                            MINUTE,
-                            t.task_start_time,
-                            t.task_end_time
-                        )
-                    ) / 60,
-                    2
-                ) AS total_hours
-            FROM task_assignments ta
-            INNER JOIN tasks t
-                ON t.id = ta.task_id
-            INNER JOIN task_status_master tsm
-                ON tsm.id = t.status_id
-            WHERE ta.user_id = :user_id
-              AND ta.is_active = 1
-              AND DATE(t.task_start_time) = CURRENT_DATE()
-              AND t.task_start_time IS NOT NULL
-              AND t.task_end_time IS NOT NULL
-            GROUP BY LOWER(tsm.name)
-        ";
-
-        $stmt = $this->conn->prepare($query);
-        $stmt->execute([':user_id' => $userId]);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-        return array_map(static function (array $row): array {
-            return [
-                'status_name' => (string)($row['status_name'] ?? ''),
-                'total_hours' => (float)($row['total_hours'] ?? 0),
-            ];
-        }, $rows);
+        return [
+            'summary' => [
+                'average_hours' => $averageHours,
+                'total_hours' => round($totalHours, 2),
+                'total_tasks' => (int)$totalTasks,
+                'productivity' => $avgProductivity,
+            ],
+            'rows' => $mappedRows,
+        ];
     }
 }
