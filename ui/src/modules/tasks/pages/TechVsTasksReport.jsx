@@ -23,6 +23,7 @@ const TechVsTasksReport = () => {
   const [lastUpdated, setLastUpdated] = useState(null)
 
   const [selected, setSelected] = useState(null)
+  const [selectedStatus, setSelectedStatus] = useState('')
   const [detailRows, setDetailRows] = useState([])
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailPage, setDetailPage] = useState(1)
@@ -46,8 +47,8 @@ const TechVsTasksReport = () => {
     void loadSummary()
   }, [])
 
-  const openDetails = async (row) => {
-    setSelected({ expert_id: expertId, technical_expert: expertName } as TechVsTasksSummaryRow)
+  const handleOpenTaskDetails = async (expertId, expertName, status) => {
+    setSelected({ expert_id: expertId, technical_expert: expertName })
     setSelectedStatus(status)
     setDetailPage(1)
     setSortBy('task_id')
