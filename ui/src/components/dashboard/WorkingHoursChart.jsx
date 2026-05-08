@@ -1,6 +1,6 @@
 const WorkingHoursChart = ({ data = [], loading = false }) => {
   if (loading) return <div className="placeholder-glow"><span className="placeholder col-12" style={{ height: 280, display: 'block' }} /></div>
-  if (!data.length) return <p className="text-secondary mb-0">No working-hour data available for this month.</p>
+  if (!data.length) return <p className="text-secondary mb-0">No working hours data found in last 30 days.</p>
 
   const values = data.map((row) => Number(row.worked_hours ?? 0))
   const max = Math.max(...values, 8)

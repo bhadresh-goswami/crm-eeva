@@ -13,12 +13,16 @@ class ExpertDashboardAnalyticsService {
     public function getDashboardAnalytics(int $userId): array {
         $cards = $this->getCardsWithChangePercentages($userId);
 
-        return [
+        $analyticsData = [
             'cards' => $cards,
             'working_hours_trend' => $this->getWorkingHoursTrend($userId),
             'task_status_ratio' => $this->getTaskStatusRatio($userId),
             'today_distribution' => $this->getTodayDistribution($userId),
         ];
+
+        error_log(print_r($analyticsData, true));
+
+        return $analyticsData;
     }
 
     private function getCardsWithChangePercentages(int $userId): array {
@@ -47,6 +51,7 @@ class ExpertDashboardAnalyticsService {
                 ON tsm.id = t.status_id
             WHERE ta.user_id = :user_id
               AND ta.is_active = 1
+              AND DATE(t.created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
         ";
 
         $cardsStmt = $this->conn->prepare($cardsQuery);
@@ -54,10 +59,10 @@ class ExpertDashboardAnalyticsService {
         $cardCounts = $cardsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
         $today = new DateTimeImmutable('today');
-        $currentStart = $today->modify('-9 days')->format('Y-m-d');
+        $currentStart = $today->modify('-29 days')->format('Y-m-d');
         $currentEnd = $today->format('Y-m-d');
-        $previousStart = $today->modify('-19 days')->format('Y-m-d');
-        $previousEnd = $today->modify('-10 days')->format('Y-m-d');
+        $previousStart = $today->modify('-59 days')->format('Y-m-d');
+        $previousEnd = $today->modify('-30 days')->format('Y-m-d');
 
         $periodQuery = "
             SELECT
@@ -141,8 +146,7 @@ class ExpertDashboardAnalyticsService {
               AND ta.is_active = 1
               AND t.task_start_time IS NOT NULL
               AND t.task_end_time IS NOT NULL
-              AND MONTH(t.task_start_time) = MONTH(CURRENT_DATE())
-              AND YEAR(t.task_start_time) = YEAR(CURRENT_DATE())
+              AND DATE(t.task_start_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
             GROUP BY DATE(t.task_start_time)
             ORDER BY work_date ASC
         ";
@@ -171,12 +175,7 @@ class ExpertDashboardAnalyticsService {
                 ON tsm.id = t.status_id
             WHERE ta.user_id = :user_id
               AND ta.is_active = 1
-              AND LOWER(tsm.name) IN (
-                  'assigned',
-                  'completed',
-                  'success',
-                  'rejected'
-              )
+              AND DATE(t.created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
             GROUP BY LOWER(tsm.name)
         ";
 
