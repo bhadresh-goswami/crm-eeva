@@ -31,6 +31,7 @@ require_once "controllers/CandidateController.php";
 
 require_once "controllers/TaskController.php";
 require_once "controllers/DashboardController.php";
+require_once "controllers/ExpertDashboardAnalyticsController.php";
 
 require_once "controllers/UserController.php";
 require_once "controllers/RoleController.php";
@@ -288,6 +289,11 @@ elseif ($uri === "/dashboard/assign-task") {
     (new DashboardController())->assignTask($actorUserId);
 }
 
+
+elseif ($uri === "/expert/dashboard-analytics" && $method === "GET") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    (new ExpertDashboardAnalyticsController())->index($user);
+}
 
 // ===================================================
 // 📋 TASKS
