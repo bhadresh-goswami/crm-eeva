@@ -101,16 +101,35 @@ class CandidatePerformanceReportService {
 
     private function buildFilters(array $query, array &$params): array {
         $where = ['1=1'];
-        if (!empty($query['candidate_id'])) { $where[] = 't.candidate_id = :candidate_id'; $params[':candidate_id'] = (int)$query['candidate_id']; }
-        if (!empty($query['client_id'])) { $where[] = 't.client_id = :client_id'; $params[':client_id'] = (int)$query['client_id']; }
+        $hasCandidate = !empty($query['candidate_id']);
+        $hasClient = !empty($query['client_id']);
         $hasFromDate = !empty($query['from_date']);
         $hasToDate = !empty($query['to_date']);
+
+        if ($hasCandidate) {
+            $where[] = 't.candidate_id = :candidate_id';
+            $params[':candidate_id'] = (int)$query['candidate_id'];
+        }
+
+        if ($hasClient) {
+            $where[] = 't.client_id = :client_id';
+            $params[':client_id'] = (int)$query['client_id'];
+        }
 
         if ($hasFromDate && $hasToDate) {
             $where[] = 'DATE(t.created_at) BETWEEN :from_date AND :to_date';
             $params[':from_date'] = (string)$query['from_date'];
             $params[':to_date'] = (string)$query['to_date'];
-        } else {
+        } elseif ($hasFromDate) {
+            $where[] = 'DATE(t.created_at) >= :from_date';
+            $params[':from_date'] = (string)$query['from_date'];
+        } elseif ($hasToDate) {
+            $where[] = 'DATE(t.created_at) <= :to_date';
+            $params[':to_date'] = (string)$query['to_date'];
+        }
+
+        $hasAnyFilter = $hasCandidate || $hasClient || $hasFromDate || $hasToDate;
+        if (!$hasAnyFilter) {
             $where[] = 'DATE(t.created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 10 DAY)';
         }
 
