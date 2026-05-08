@@ -194,13 +194,10 @@ class ManagerReportsController {
                 return;
             }
 
-            $status = strtolower(trim((string)($request['status'] ?? 'completed')));
+            $status = strtolower(trim((string)($request['status'] ?? '')));
             $fromDate = $request['from_date'] ?? null;
             $toDate = $request['to_date'] ?? null;
             $limit = max(1, min(5000, (int)($request['limit'] ?? 1000)));
-
-            error_log('Expert detail expert_id: ' . $expertId);
-            error_log('Expert detail status: ' . $status);
 
             $durationExpr = "CASE
                 WHEN t.duration IS NOT NULL THEN t.duration
@@ -209,8 +206,9 @@ class ManagerReportsController {
                 ELSE 0
             END";
 
-            $params = [':expert_id' => $expertId, ':status' => $status, ':limit' => $limit];
-            $where = ["ta.user_id = :expert_id", "ta.is_active = 1", "LOWER(COALESCE(tsm.name,'')) = :status"];
+            $params = [':expert_id' => $expertId, ':limit' => $limit];
+            $where = ["ta.user_id = :expert_id", "ta.is_active = 1"];
+            if ($status !== '') { $where[] = "LOWER(COALESCE(tsm.name,'')) = :status"; $params[':status'] = $status; }
             if (!empty($fromDate) && !empty($toDate)) { $where[] = "DATE(t.due_date) BETWEEN :from_date AND :to_date"; $params[':from_date'] = (string)$fromDate; $params[':to_date'] = (string)$toDate; }
 
             $sql = "SELECT DISTINCT
