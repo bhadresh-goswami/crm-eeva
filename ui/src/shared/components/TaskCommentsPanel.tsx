@@ -53,7 +53,7 @@ const TaskCommentsPanel = ({ taskId, refreshKey = 0 }: TaskCommentsPanelProps) =
   }, [taskId, refreshKey])
 
   return (
-    <section className="task-details-modal__section">
+    <section className="task-details-modal__section task-details-modal__section--comments">
       <h4 className="task-details-modal__section-title">Comments &amp; Activity</h4>
       <div className="task-comments-panel">
         {loading ? <p className="task-details-modal__empty">Loading comments...</p> : null}

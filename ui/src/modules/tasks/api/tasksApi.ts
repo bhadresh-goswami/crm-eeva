@@ -24,6 +24,7 @@ export type TaskRecord = {
   assigned_to_id: number | null
   assigned_to_name: string
   file_url: string
+  resume_url: string
   can_assign: boolean
   task_start_time?: string
   task_end_time?: string
@@ -76,10 +77,57 @@ export type TaskUpdateCheck = {
   upcomingTasks: TaskRecord[]
 }
 
+export type TaskFilterOptions = {
+  companies: string[]
+  statuses: string[]
+  assignees: { id: number; name: string }[]
+  task_types: { id: number; name: string }[]
+  candidates: { id: number; name: string }[]
+}
+
 export const getTasksLastUpdate = async (): Promise<string | null> => {
   const response = await apiRequest<Record<string, unknown>>('/tasks/last-update')
   const value = String(response.last_update ?? '').trim()
   return value || null
+}
+
+export const getTaskFilterOptions = async (): Promise<TaskFilterOptions> => {
+  const response = await apiRequest<Record<string, unknown>>('/tasks/filter-options')
+  const root = response && typeof response === 'object' ? (response as Record<string, unknown>) : {}
+  const data = (root.data && typeof root.data === 'object' ? root.data : root) as Record<string, unknown>
+
+  const companiesRaw = data.companies ?? data.clients ?? data.company_names ?? data.company
+  const statusesRaw = data.statuses ?? data.task_statuses ?? data.taskStatuses ?? data.status
+  const assigneesRaw = data.assignees ?? data.assigned_to ?? data.users ?? data.experts
+  const taskTypesRaw = data.task_types ?? data.taskTypes ?? data.types ?? data.support_types
+  const candidatesRaw = data.candidates ?? data.candidate_list ?? data.candidate
+
+  return {
+    companies: Array.isArray(companiesRaw)
+      ? companiesRaw.map((v) => String(v).trim()).filter(Boolean)
+      : [],
+    statuses: Array.isArray(statusesRaw)
+      ? statusesRaw.map((v) => String(v).trim().toLowerCase()).filter(Boolean)
+      : [],
+    assignees: Array.isArray(assigneesRaw)
+      ? assigneesRaw
+          .map((row) => ({
+            id: Number((row as Record<string, unknown>).id ?? (row as Record<string, unknown>).user_id ?? 0),
+            name: String((row as Record<string, unknown>).name ?? (row as Record<string, unknown>).full_name ?? '').trim(),
+          }))
+          .filter((row) => row.id > 0 && row.name)
+      : [],
+    task_types: Array.isArray(taskTypesRaw)
+      ? taskTypesRaw
+          .map((row) => ({ id: Number((row as Record<string, unknown>).id ?? 0), name: String((row as Record<string, unknown>).name ?? '').trim() }))
+          .filter((row) => row.id > 0 && row.name)
+      : [],
+    candidates: Array.isArray(candidatesRaw)
+      ? candidatesRaw
+          .map((row) => ({ id: Number((row as Record<string, unknown>).id ?? 0), name: String((row as Record<string, unknown>).name ?? '').trim() }))
+          .filter((row) => row.id > 0 && row.name)
+      : [],
+  }
 }
 
 export type BulkPriceTaskRecord = {
@@ -169,6 +217,12 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   assigned_to_name: String(raw.assigned_to_name ?? raw.assigned_to ?? raw.expert_name ?? '').trim(),
   file_url: (() => {
     const value = String(raw.file ?? raw.file_url ?? raw.attachment ?? raw.attachment_url ?? raw.uploaded_file ?? '').trim()
+    if (!value) return ''
+    if (value.startsWith('http://') || value.startsWith('https://')) return value
+    return `${FILE_BASE_URL}/${value}`
+  })(),
+  resume_url: (() => {
+    const value = String(raw.resume_url ?? raw.resume ?? raw.candidate_resume ?? raw.cv_url ?? '').trim()
     if (!value) return ''
     if (value.startsWith('http://') || value.startsWith('https://')) return value
     return `${FILE_BASE_URL}/${value}`
@@ -600,4 +654,98 @@ export const getTaskAssignmentReport = async (query: {
       } as TaskAssignmentReportRow
     })
     .filter((item): item is TaskAssignmentReportRow => Boolean(item?.task_id))
+}
+
+export type TechVsTasksSummaryRow = {
+  expert_id: number
+  task_id: string
+  technical_expert: string
+  total_completed_hours: number
+  completed_count: number
+  success_count: number
+  rejected_count: number
+  success_ratio: number
+}
+
+export type TechVsTaskDetailRow = {
+  task_id: number
+  candidate_name: string
+  client_company: string
+  task_type: string
+  status: string
+  task_date: string
+  est_time: string
+  duration: number
+  feedback_status: string
+  average_score: number | null
+  assigned_by: string
+}
+
+export const getTechVsTasksSummary = async (query: Record<string, string | number>) => {
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([k, v]) => { if (v !== '' && v !== undefined && v !== null) params.set(k, String(v)) })
+  const endpoint = params.toString() ? `/manager/reports/tech-vs-tasks?${params.toString()}` : '/manager/reports/tech-vs-tasks'
+  const response = await apiRequest<unknown>(endpoint)
+  return getList(response).map((item) => {
+    const row = item as UnknownMap
+    return {
+      expert_id: asNumber(row.expert_id),
+      task_id: String(row.task_id ?? ''),
+      technical_expert: String(row.technical_expert ?? ''),
+      total_completed_hours: asNumber(row.total_completed_hours),
+      completed_count: asNumber(row.completed_count),
+      success_count: asNumber(row.success_count),
+      rejected_count: asNumber(row.rejected_count),
+      success_ratio: asNumber(row.success_ratio),
+    } as TechVsTasksSummaryRow
+  })
+}
+
+export const getTechVsTaskDetails = async (payload: Record<string, string | number>) => {
+  const response = await apiRequest<unknown>('/manager/reports/tech-vs-task-details', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return getList(response).map((item) => {
+    const row = item as UnknownMap
+    return {
+      task_id: asNumber(row.task_id),
+      candidate_name: String(row.candidate_name ?? ''),
+      client_company: String(row.client_company ?? ''),
+      task_type: String(row.task_type ?? ''),
+      status: String(row.status ?? row.status_name ?? row.task_status ?? ''),
+      task_date: String(row.task_date ?? ''),
+      est_time: String(row.est_time ?? ''),
+      duration: asNumber(row.duration),
+      feedback_status: String(row.feedback_status ?? ''),
+      average_score: row.average_score === null ? null : asNumber(row.average_score),
+      assigned_by: String(row.assigned_by ?? ''),
+    } as TechVsTaskDetailRow
+  })
+}
+
+export type ManagerReportFilters = {
+  candidate_id?: string
+  expert_id?: string
+  task_type_id?: string
+  client_id?: string
+  from_date?: string
+  to_date?: string
+  page?: number
+  limit?: number
+}
+
+export const getManagerReportList = async (endpoint: string, filters: ManagerReportFilters) => {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v !== '' && v !== undefined && v !== null) params.set(k, String(v))
+  })
+  const response = await apiRequest<Record<string, unknown>>(`${endpoint}?${params.toString()}`)
+  return getList(response)
+}
+
+export const getManagerReportTaskDetails = async (taskId: number) => {
+  const response = await apiRequest<Record<string, unknown>>(`/manager/reports/task-details/${taskId}`)
+  const data = response.data
+  return data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
 }

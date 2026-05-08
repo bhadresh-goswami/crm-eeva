@@ -31,6 +31,7 @@ require_once "controllers/CandidateController.php";
 
 require_once "controllers/TaskController.php";
 require_once "controllers/DashboardController.php";
+require_once "controllers/ExpertDashboardAnalyticsController.php";
 
 require_once "controllers/UserController.php";
 require_once "controllers/RoleController.php";
@@ -40,6 +41,7 @@ require_once "controllers/TaskStatusController.php";
 require_once "controllers/PaymentStatusController.php";
 require_once "controllers/InvoiceController.php";
 require_once "controllers/FeedbackController.php";
+require_once "controllers/ManagerReportsController.php";
 require_once "services/EmailService.php";
 require_once "services/LoggerService.php";
 
@@ -256,6 +258,10 @@ elseif ($uri === "/dashboard/tasks-by-status") {
     authorize($user,['admin','manager','coordinator','expert','expertlead']);
     (new DashboardController())->tasksByStatus();
 }
+elseif ($uri === "/tasks/filter-options" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    (new TaskController())->loadFilterOptions();
+}
 
 elseif ($uri === "/dashboard/team-tasks") {
     authorize($user,['expertlead']);
@@ -284,6 +290,11 @@ elseif ($uri === "/dashboard/assign-task") {
 }
 
 
+elseif ($uri === "/expert/dashboard-analytics" && $method === "GET") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    (new ExpertDashboardAnalyticsController())->index($user);
+}
+
 // ===================================================
 // 📋 TASKS
 // ===================================================
@@ -304,6 +315,10 @@ elseif ($uri === "/tasks/check-updates" && $method === "GET") {
         $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
     }
     (new TaskController())->checkUpdates($actorUserId);
+}
+elseif ($uri === "/tasks/load-task-for-feedback" && $method === "POST") {
+    authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
+    (new TaskController())->LoadTaskForFeedback();
 }
 elseif ($uri === "/expert/tasks" && $method === "GET") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
@@ -398,6 +413,30 @@ elseif ($uri === "/reports/tasks" && $method === "GET") {
 elseif ($uri === "/reports/task-assignments" && $method === "GET") {
     authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
     (new TaskController())->reportTaskAssignments();
+}
+elseif ($uri === "/manager/reports/feedback-pending" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new ManagerReportsController())->feedbackPending();
+}
+elseif ($uri === "/manager/reports/tech-vs-tasks" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new ManagerReportsController())->techVsTasks();
+}
+elseif ($uri === "/manager/reports/tech-vs-task-details" && ($method === "GET" || $method === "POST")) {
+    authorize($user,['admin','manager']);
+    (new ManagerReportsController())->techVsTaskDetails();
+}
+elseif ($uri === "/manager/reports/tasks-summary" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new ManagerReportsController())->tasksSummary();
+}
+elseif ($uri === "/manager/reports/feedback-report" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new ManagerReportsController())->feedbackReport();
+}
+elseif (preg_match('#^/manager/reports/task-details/(\d+)$#', $uri, $matches) && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new ManagerReportsController())->taskDetails((int)$matches[1]);
 }
 elseif ($uri === "/tasks/update-prices" && $method === "POST") {
     authorize($user,['admin','manager']);

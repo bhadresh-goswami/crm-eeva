@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { roleDashboardPath } from '../../routes/roleDashboard'
 
@@ -33,38 +33,36 @@ const Icon = ({ name }: { name: IconName }) => (
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const { user } = useAuth()
+  const location = useLocation()
+  const [isReportsOpen, setIsReportsOpen] = useState(false)
+  const [isManageOpen, setIsManageOpen] = useState(false)
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false)
+  const reportsRef = useRef<HTMLDivElement | null>(null)
+  const manageRef = useRef<HTMLDivElement | null>(null)
+  const invoiceRef = useRef<HTMLDivElement | null>(null)
 
   const sections = useMemo<MenuSection[]>(() => {
     if (!user) return []
 
     if (user.role === 'manager') {
       return [
-        {
-          title: 'Main',
-          items: [
-            { label: 'Dashboard', to: roleDashboardPath.manager, icon: 'dashboard' },
-            { label: 'Tasks', to: '/tasks', icon: 'tasks' },
-          ],
-        },
-        {
-          title: 'Finance',
-          items: [
-            { label: 'Payment Correction', to: '/tasks/payment-correction', icon: 'payment' },
-            { label: 'Invoices', to: '/invoices', icon: 'invoices' },
-          ],
-        },
-        {
-          title: 'Reports',
-          items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }, { label: 'Feedback Report', to: '/reports/feedback', icon: 'reports' }],
-        },
-        {
-          title: 'CRM',
-          items: [
-            { label: 'Clients', to: '/clients', icon: 'clients' },
-            { label: 'POC', to: '/pocs', icon: 'poc' },
-            { label: 'Candidates', to: '/candidates', icon: 'candidates' },
-          ],
-        },
+        { title: 'Main', items: [
+          { label: 'Dashboard', to: roleDashboardPath.manager, icon: 'dashboard' },
+          { label: 'Tasks', to: '/tasks', icon: 'tasks' },
+          { label: 'Invoice', to: '/invoices', icon: 'invoices' },
+          { label: 'Payment Correction', to: '/tasks/payment-correction', icon: 'payment' },
+        ] },
+        { title: 'Manage', items: [
+          { label: 'Client', to: '/clients', icon: 'clients' },
+          { label: 'POC', to: '/pocs', icon: 'poc' },
+          { label: 'Candidates', to: '/candidates', icon: 'candidates' },
+        ] },
+        { title: 'Reports', items: [
+          { label: 'Feedback Pending Report', to: '/reports/feedback-pending', icon: 'reports' },
+          { label: 'Tech Vs Tasks', to: '/reports/tech-vs-tasks', icon: 'reports' },
+          { label: 'Tasks Summary', to: '/reports/tasks-summary', icon: 'reports' },
+          { label: 'Feedback Report', to: '/reports/feedback-report', icon: 'reports' },
+        ] },
       ]
     }
 
@@ -139,25 +137,128 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   }, [user])
 
   if (!user) return null
+  const allItems = sections.flatMap((section) => section.items)
+  const reportsItems = allItems.filter((item) => item.to.startsWith('/reports'))
+  const orderedLabels = user.role === 'manager' ? ['Dashboard', 'Tasks', 'Invoice'] : ['Dashboard', 'Tasks', 'Task Feedback', 'Payment Correction', 'Invoices', 'Clients', 'POC', 'Candidates']
+  const manageItems = user.role === 'manager' ? allItems.filter((item) => ['Client', 'POC', 'Candidates'].includes(item.label)) : []
+  const invoiceItems = user.role === 'manager' ? allItems.filter((item) => ['Payment Correction', 'Invoice'].includes(item.label)) : []
+  const primaryItems = orderedLabels
+    .map((label) => allItems.find((item) => item.label === label))
+    .filter((item): item is MenuItem => Boolean(item))
+
+  const isReportsActive = reportsItems.some((item) => location.pathname === item.to)
+  const isManageActive = manageItems.some((item) => location.pathname === item.to)
+  const isInvoiceActive = invoiceItems.some((item) => location.pathname === item.to)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (reportsRef.current && !reportsRef.current.contains(event.target as Node)) setIsReportsOpen(false)
+      if (manageRef.current && !manageRef.current.contains(event.target as Node)) setIsManageOpen(false)
+      if (invoiceRef.current && !invoiceRef.current.contains(event.target as Node)) setIsInvoiceOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    setIsReportsOpen(false)
+    setIsManageOpen(false)
+    setIsInvoiceOpen(false)
+    onClose()
+  }, [location.pathname, onClose])
+
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('.modal-overlay, .modal.d-block, .invoice-modal-backdrop, .alert-modal-backdrop')) {
+        setIsReportsOpen(false)
+        setIsManageOpen(false)
+        setIsInvoiceOpen(false)
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <>
-      <aside className={`sidebar ${isOpen ? 'sidebar--open' : 'sidebar--closed'}`} aria-label="Role navigation">
-        <h2 className="sidebar__title">CRM Suite</h2>
-
-        {sections.map((section) => (
-          <section key={section.title} className="sidebar__group">
-            <h3 className="sidebar__group-title">{section.title}</h3>
-            <div className="sidebar__group-links">
-              {section.items.map((item) => (
-                <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
-                  <Icon name={item.icon} />
-                  <span className="menu-label">{item.label}</span>
-                </NavLink>
-              ))}
+      <nav className="top-nav" aria-label="Role navigation">
+        <div className="top-nav__scroller">
+          {primaryItems.filter((item) => item.label !== 'Invoice').map((item) => (
+            <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+              <Icon name={item.icon} />
+              <span className="menu-label">{item.label}</span>
+            </NavLink>
+          ))}
+          {invoiceItems.length > 0 ? (
+            <div ref={invoiceRef} className="top-nav__dropdown" onMouseEnter={() => setIsInvoiceOpen(true)} onMouseLeave={() => setIsInvoiceOpen(false)}>
+              <button type="button" className={`menu-item top-nav__dropdown-trigger ${isInvoiceActive ? 'sidebar__link--active' : ''}`} onClick={() => setIsInvoiceOpen((prev) => !prev)} aria-expanded={isInvoiceOpen}>
+                <Icon name="invoices" />
+                <span className="menu-label">Invoice</span>
+                <span className="top-nav__caret">▾</span>
+              </button>
+              {isInvoiceOpen ? (
+                <div className="top-nav__dropdown-menu">
+                  {invoiceItems.map((item) => (
+                    <NavLink key={item.to} to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`}>{item.label === 'Invoice' ? 'Manage Invoice' : item.label}</NavLink>
+                  ))}
+                </div>
+              ) : null}
             </div>
-          </section>
-        ))}
+          ) : null}
+
+          {manageItems.length > 0 ? (
+            <div ref={manageRef} className="top-nav__dropdown" onMouseEnter={() => setIsManageOpen(true)} onMouseLeave={() => setIsManageOpen(false)}>
+              <button type="button" className={`menu-item top-nav__dropdown-trigger ${isManageActive ? 'sidebar__link--active' : ''}`} onClick={() => setIsManageOpen((prev) => !prev)} aria-expanded={isManageOpen}>
+                <Icon name="clients" />
+                <span className="menu-label">Manage</span>
+                <span className="top-nav__caret">▾</span>
+              </button>
+              {isManageOpen ? (
+                <div className="top-nav__dropdown-menu">
+                  {manageItems.map((item) => (
+                    <NavLink key={item.to} to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`}>{item.label}</NavLink>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {reportsItems.length > 0 ? (
+            <div ref={reportsRef} className="top-nav__dropdown" onMouseEnter={() => setIsReportsOpen(true)} onMouseLeave={() => setIsReportsOpen(false)}>
+              <button type="button" className={`menu-item top-nav__dropdown-trigger ${isReportsActive ? 'sidebar__link--active' : ''}`} onClick={() => setIsReportsOpen((prev) => !prev)} aria-expanded={isReportsOpen}>
+                <Icon name="reports" />
+                <span className="menu-label">Reports</span>
+                <span className="top-nav__caret">▾</span>
+              </button>
+              {isReportsOpen ? (
+                <div className="top-nav__dropdown-menu">
+                  {reportsItems.map((item) => (
+                    <NavLink key={item.to} to={item.to} className={({ isActive }) => `top-nav__dropdown-item ${isActive ? 'top-nav__dropdown-item--active' : ''}`}>
+                      <span>{item.label}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </nav>
+
+      <aside className={`mobile-nav-drawer ${isOpen ? 'mobile-nav-drawer--open' : 'mobile-nav-drawer--closed'}`} aria-label="Mobile role navigation">
+        <div className="sidebar__group-links">
+          {primaryItems.map((item) => (
+            <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+              <Icon name={item.icon} />
+              <span className="menu-label">{item.label}</span>
+            </NavLink>
+          ))}
+          {reportsItems.map((item) => (
+            <NavLink key={item.to} to={item.to} className={({ isActive }) => `menu-item ${isActive ? 'sidebar__link--active' : ''}`}>
+              <Icon name="reports" />
+              <span className="menu-label">{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
       </aside>
       {isOpen ? <button type="button" className="sidebar-backdrop" onClick={onClose} aria-label="Close navigation" /> : null}
     </>

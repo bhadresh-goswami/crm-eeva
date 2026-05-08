@@ -5,6 +5,50 @@ require_once dirname(__DIR__) . "/services/EmailService.php";
 require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class TaskController {
+    public function loadFilterOptions() {
+        try {
+            $db = new Database();
+            $conn = $db->connect();
+
+            $taskColumns = $this->getTableColumns($conn, 'tasks');
+            $clientColumns = $this->getTableColumns($conn, 'clients');
+            $hasTaskClientId = in_array('client_id', $taskColumns, true);
+            $hasTaskCompanyName = in_array('company_name', $taskColumns, true);
+            $hasClientCompanyName = in_array('company_name', $clientColumns, true);
+
+            $companyValueExpr = $hasClientCompanyName
+                ? "COALESCE(c.company_name, c.name, '')"
+                : "COALESCE(c.name, '')";
+
+            if ($hasTaskClientId) {
+                $companiesSql = "SELECT DISTINCT TRIM({$companyValueExpr}) AS value FROM tasks t LEFT JOIN clients c ON c.id = t.client_id WHERE TRIM({$companyValueExpr}) <> '' ORDER BY value ASC";
+            } elseif ($hasTaskCompanyName) {
+                $companiesSql = "SELECT DISTINCT TRIM(COALESCE(t.company_name, '')) AS value FROM tasks t WHERE TRIM(COALESCE(t.company_name, '')) <> '' ORDER BY value ASC";
+            } else {
+                $companiesSql = "SELECT DISTINCT TRIM({$companyValueExpr}) AS value FROM clients c WHERE TRIM({$companyValueExpr}) <> '' ORDER BY value ASC";
+            }
+
+            $companies = $conn->query($companiesSql)->fetchAll(PDO::FETCH_COLUMN);
+            $statuses = $conn->query("SELECT DISTINCT TRIM(COALESCE(ts.name, '')) AS value FROM task_status_master ts WHERE TRIM(COALESCE(ts.name, '')) <> '' ORDER BY value ASC")->fetchAll(PDO::FETCH_COLUMN);
+            $assignees = $conn->query("SELECT DISTINCT u.id, TRIM(u.name) AS name FROM users u INNER JOIN task_assignments ta ON ta.user_id = u.id WHERE TRIM(COALESCE(u.name, '')) <> '' AND (u.status = 1 OR u.status = 'active' OR u.status = '1' OR u.status IS NULL) ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+            $taskTypes = $conn->query("SELECT DISTINCT id, TRIM(name) AS name FROM task_types WHERE TRIM(COALESCE(name, '')) <> '' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+            $candidates = $conn->query("SELECT DISTINCT id, TRIM(name) AS name FROM candidates WHERE TRIM(COALESCE(name, '')) <> '' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'companies' => array_values(array_filter($companies, fn($v) => is_string($v) && trim($v) !== '')),
+                    'statuses' => array_values(array_filter($statuses, fn($v) => is_string($v) && trim($v) !== '')),
+                    'assignees' => $assignees,
+                    'task_types' => $taskTypes,
+                    'candidates' => $candidates,
+                ],
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
     private function ensureTaskTimingColumns(PDO $conn): void {
         $columns = $this->getTableColumns($conn, 'tasks');
         if (!in_array('task_start_time', $columns, true)) {
@@ -28,14 +72,20 @@ class TaskController {
             $taskColumns = $this->getTableColumns($conn, 'tasks');
             $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
             $feedbackColumns = $this->getTableColumns($conn, 'task_feedback');
+            $taskFilesColumns = $this->getTableColumns($conn, 'task_files');
 
             $hasIsActive = in_array('is_active', $assignmentColumns, true);
             $hasAssignedBy = in_array('assigned_by', $assignmentColumns, true);
             $hasAssignedById = in_array('assigned_by_id', $assignmentColumns, true);
             $hasFileUrl = in_array('file_url', $taskColumns, true);
+            $hasFile = in_array('file', $taskColumns, true);
+            $hasAttachment = in_array('attachment', $taskColumns, true);
+            $hasAttachmentUrl = in_array('attachment_url', $taskColumns, true);
+            $hasUploadedFile = in_array('uploaded_file', $taskColumns, true);
             $hasTaskStartTime = in_array('task_start_time', $taskColumns, true);
             $hasTaskEndTime = in_array('task_end_time', $taskColumns, true);
             $hasFeedbackOverall = in_array('overall', $feedbackColumns, true);
+            $hasTaskFilesFileUrl = in_array('file_url', $taskFilesColumns, true);
 
             $userIds = $this->getHierarchyUserIds($conn, $expertUserId);
             if (count($userIds) === 0) {
@@ -65,7 +115,21 @@ class TaskController {
             $activeWhere = $hasIsActive ? 'AND ta2.is_active = 1' : '';
             $taskStartExpr = $hasTaskStartTime ? 't.task_start_time' : 'NULL';
             $taskEndExpr = $hasTaskEndTime ? 't.task_end_time' : 'NULL';
-            $fileUrlExpr = $hasFileUrl ? "COALESCE(t.file_url, '')" : "''";
+            $fileUrlExpr = "''";
+            if ($hasFileUrl) {
+                $fileUrlExpr = "COALESCE(t.file_url, '')";
+            } elseif ($hasFile) {
+                $fileUrlExpr = "COALESCE(t.file, '')";
+            } elseif ($hasAttachment) {
+                $fileUrlExpr = "COALESCE(t.attachment, '')";
+            } elseif ($hasAttachmentUrl) {
+                $fileUrlExpr = "COALESCE(t.attachment_url, '')";
+            } elseif ($hasUploadedFile) {
+                $fileUrlExpr = "COALESCE(t.uploaded_file, '')";
+            }
+            if ($hasTaskFilesFileUrl) {
+                $fileUrlExpr = "COALESCE(NULLIF({$fileUrlExpr}, ''), COALESCE(tf_latest.file_url, ''))";
+            }
             $feedbackOverallExpr = $hasFeedbackOverall ? 'COALESCE(tfb.overall, 0)' : '0';
 
             if ($hasAssignedBy) {
@@ -113,6 +177,15 @@ class TaskController {
                 LEFT JOIN task_types tt ON tt.id = t.task_type_id
                 LEFT JOIN users assigned_to_user ON assigned_to_user.id = ta.user_id
                 {$assignedByJoin}
+                LEFT JOIN (
+                    SELECT tf1.task_id, tf1.file_url
+                    FROM task_files tf1
+                    INNER JOIN (
+                        SELECT task_id, MAX(id) AS max_id
+                        FROM task_files
+                        GROUP BY task_id
+                    ) tf2 ON tf2.max_id = tf1.id
+                ) tf_latest ON tf_latest.task_id = t.id
                 LEFT JOIN task_feedback tfb ON tfb.task_id = t.id
                 WHERE ta.user_id IN ($placeholders)
             ";
@@ -177,6 +250,183 @@ class TaskController {
         $subUserIds = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 
         return array_values(array_unique(array_merge([$rootUserId], $subUserIds)));
+    }
+
+
+
+    public function LoadTaskForFeedback() {
+        try {
+            $db = new Database();
+            $conn = $db->connect();
+            $taskColumns = $this->getTableColumns($conn, 'tasks');
+            $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+            $hasTaskStartTime = in_array('task_start_time', $taskColumns, true);
+            $hasTaskEndTime = in_array('task_end_time', $taskColumns, true);
+            $hasIsActive = in_array('is_active', $assignmentColumns, true);
+            $assignmentJoin = $hasIsActive
+                ? "LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1"
+                : "LEFT JOIN task_assignments ta ON ta.task_id = t.id";
+
+            $payload = json_decode(file_get_contents("php://input"), true) ?: [];
+
+            $search = trim((string)($payload['search'] ?? ''));
+            $dateFrom = trim((string)($payload['date_from'] ?? ''));
+            $dateTo = trim((string)($payload['date_to'] ?? ''));
+            $page = max(1, (int)($payload['page'] ?? 1));
+            $limit = max(1, min(100, (int)($payload['limit'] ?? 10)));
+            $offset = ($page - 1) * $limit;
+
+            $allowedSort = [
+                'task_date' => 't.due_date',
+                'candidate_name' => 'cand.name',
+                'task_type' => 'tt.name',
+                'status_name' => 'ts.name',
+                'duration' => 't.duration',
+            ];
+
+            $sortByKey = strtolower(trim((string)($payload['sort_by'] ?? 'task_date')));
+            $sortOrder = strtoupper(trim((string)($payload['sort_order'] ?? 'DESC'))) === 'ASC' ? 'ASC' : 'DESC';
+            $sortColumn = $allowedSort[$sortByKey] ?? 't.due_date';
+
+            $where = ["LOWER(COALESCE(ts.name, '')) = 'completed'"];
+            $params = [];
+
+            if ($search !== '') {
+                $where[] = "(cand.name LIKE ? OR tt.name LIKE ? OR ts.name LIKE ? OR CAST(t.id AS CHAR) LIKE ?)";
+                $like = '%' . $search . '%';
+                array_push($params, $like, $like, $like, $like);
+            }
+
+            if ($dateFrom !== '') {
+                $where[] = 'DATE(t.due_date) >= ?';
+                $params[] = $dateFrom;
+            }
+
+            if ($dateTo !== '') {
+                $where[] = 'DATE(t.due_date) <= ?';
+                $params[] = $dateTo;
+            }
+
+            $whereClause = implode(' AND ', $where);
+
+            $countSql = "
+                SELECT COUNT(DISTINCT t.id)
+                FROM tasks t
+                LEFT JOIN candidates cand ON cand.id = t.candidate_id
+                LEFT JOIN task_types tt ON tt.id = t.task_type_id
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                LEFT JOIN task_feedback tf ON tf.task_id = t.id
+                {$assignmentJoin}
+                LEFT JOIN users u ON u.id = ta.user_id
+                WHERE {$whereClause}
+            ";
+
+            $countStmt = $conn->prepare($countSql);
+            $countStmt->execute($params);
+            $totalRecords = (int)$countStmt->fetchColumn();
+            $totalPages = max(1, (int)ceil($totalRecords / $limit));
+
+            $dataSql = "
+                SELECT
+                    t.id,
+                    DATE(t.due_date) AS task_date,
+                    COALESCE(cand.name, '') AS candidate_name,
+                    COALESCE(tt.name, '') AS task_type,
+                    COALESCE(ts.name, '') AS status_name,
+                    COALESCE(t.duration, 0) AS duration,
+                    " . ($hasTaskStartTime ? "t.task_start_time" : "t.start_time") . " AS actual_from_time,
+                    " . ($hasTaskEndTime ? "t.task_end_time" : "t.end_time") . " AS actual_to_time,
+                    tf.id AS feedback_id
+                FROM tasks t
+                LEFT JOIN candidates cand ON cand.id = t.candidate_id
+                LEFT JOIN task_types tt ON tt.id = t.task_type_id
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                LEFT JOIN task_feedback tf ON tf.task_id = t.id
+                {$assignmentJoin}
+                LEFT JOIN users u ON u.id = ta.user_id
+                WHERE {$whereClause}
+                ORDER BY
+                    CASE WHEN tf.id IS NULL THEN 0 ELSE 1 END ASC,
+                    {$sortColumn} {$sortOrder},
+                    t.id DESC
+                LIMIT {$limit} OFFSET {$offset}
+            ";
+
+            $stmt = $conn->prepare($dataSql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $sourceTz = new DateTimeZone('Asia/Kolkata');
+            $estTz = new DateTimeZone('America/New_York');
+
+            $items = array_map(function ($row) use ($sourceTz, $estTz) {
+                $taskDate = (string)($row['task_date'] ?? '');
+
+                $convert = function ($value) use ($taskDate, $sourceTz, $estTz) {
+                    if (!$value || !$taskDate) return null;
+                    $raw = trim((string)$value);
+                    if ($raw === '') return null;
+
+                    $dateTime = DateTime::createFromFormat('Y-m-d H:i:s', $raw, $sourceTz)
+                        ?: DateTime::createFromFormat('Y-m-d H:i', $raw, $sourceTz)
+                        ?: DateTime::createFromFormat('Y-m-d H:i:s', "{$taskDate} {$raw}", $sourceTz)
+                        ?: DateTime::createFromFormat('Y-m-d H:i', "{$taskDate} {$raw}", $sourceTz)
+                        ?: DateTime::createFromFormat('H:i:s', $raw, $sourceTz)
+                        ?: DateTime::createFromFormat('H:i', $raw, $sourceTz)
+                        ?: DateTime::createFromFormat('Y-m-d', $taskDate, $sourceTz);
+
+                    if (!$dateTime) {
+                        try {
+                            $dateTime = new DateTime("{$taskDate} {$raw}", $sourceTz);
+                        } catch (Throwable $e) {
+                            return null;
+                        }
+                    }
+
+                    $dateTime->setTimezone($estTz);
+                    return $dateTime;
+                };
+
+                $fromEst = $convert($row['actual_from_time'] ?? null);
+                $toEst = $convert($row['actual_to_time'] ?? null);
+
+                $fromText = $fromEst ? $fromEst->format('h:i A') : null;
+                $toText = $toEst ? $toEst->format('h:i A') : null;
+
+                return [
+                    'id' => (int)$row['id'],
+                    'task_date' => $taskDate,
+                    'candidate_name' => (string)($row['candidate_name'] ?? ''),
+                    'task_type' => (string)($row['task_type'] ?? ''),
+                    'status_name' => (string)($row['status_name'] ?? ''),
+                    'duration' => (int)($row['duration'] ?? 0),
+                    'actual_from_time_est' => $fromText,
+                    'actual_to_time_est' => $toText,
+                    'est_time_range' => ($fromText && $toText) ? "{$fromText} - {$toText} EST" : '--',
+                    'has_feedback' => !empty($row['feedback_id']),
+                    'feedback_id' => !empty($row['feedback_id']) ? (int)$row['feedback_id'] : null,
+                ];
+            }, $rows);
+
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'items' => $items,
+                    'pagination' => [
+                        'current_page' => $page,
+                        'total_pages' => $totalPages,
+                        'total_records' => $totalRecords,
+                        'per_page' => $limit,
+                    ],
+                ],
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Failed to load task reports for feedback: ' . $e->getMessage(),
+            ]);
+        }
     }
 
     public function cancelTask() {
@@ -836,6 +1086,7 @@ public function downloadFile() {
         }
     }
 
+
     public function checkUpdates($user_id = null) {
         $db = new Database();
         $conn = $db->connect();
@@ -1270,7 +1521,7 @@ public function downloadFile() {
                 return;
             }
 
-            $conn->prepare("UPDATE tasks SET status_id = ?, task_start_time = NOW() WHERE id = ?")
+            $conn->prepare("UPDATE tasks SET status_id = ?, task_start_time = COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()) WHERE id = ?")
                 ->execute([(int)$inProgressStatusId, (int)$data->task_id]);
 
             $conn->prepare("UPDATE task_assignments SET is_active = 1 WHERE id = ?")
@@ -1363,8 +1614,8 @@ public function downloadFile() {
             $conn->prepare("
                 UPDATE tasks
                 SET status_id = ?,
-                    task_end_time = NOW(),
-                    duration = TIMESTAMPDIFF(MINUTE, task_start_time, NOW())
+                    task_end_time = COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()),
+                    duration = TIMESTAMPDIFF(MINUTE, task_start_time, COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()))
                 WHERE id = ?
             ")->execute([(int)$statusId, (int)$data->task_id]);
 

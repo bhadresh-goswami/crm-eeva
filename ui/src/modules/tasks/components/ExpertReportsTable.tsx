@@ -1,0 +1,127 @@
+import { BsArrowDownUp, BsChatSquareText, BsEye } from 'react-icons/bs'
+
+type Row = {
+  id: number
+  task_date: string
+  candidate_name: string
+  task_type: string
+  status_name: string
+  est_time_range: string
+  duration: number
+  has_feedback: boolean
+  feedback_id: number | null
+}
+
+type Props = {
+  items: Row[]
+  loading: boolean
+  sortBy: string
+  sortOrder: string
+  onSort: (column: string) => void
+  onAddFeedback: (id: number) => void
+  onViewFeedback: (id: number) => void
+}
+
+const statusBadge = (statusName: string) => {
+  const n = String(statusName || '').toLowerCase()
+  if (n === 'assigned') return 'bg-primary'
+  if (n === 'completed') return 'bg-success'
+  if (n === 'cancelled') return 'bg-secondary'
+  if (n === 'pending') return 'bg-warning text-dark'
+  return 'bg-secondary'
+}
+
+const actionCellStyle = {
+  width: 80,
+  minWidth: 80,
+}
+
+const actionButtonBaseStyle = {
+  width: 36,
+  height: 36,
+  borderRadius: '999px',
+  border: 'none',
+  color: '#fff',
+  boxShadow: '0 4px 10px rgba(15, 23, 42, 0.16)',
+  transition: 'all 0.18s ease',
+}
+
+const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onViewFeedback }: Props) => (
+  <div className="card border-0 shadow-sm mb-2">
+    <div className="card-body p-0">
+      <div className="table-responsive w-100" style={{ maxWidth: '100%', overflowX: 'auto', overflowY: 'auto', maxHeight: '58vh' }}>
+        <table className="table table-hover table-bordered align-middle mb-0" style={{ fontSize: '0.94rem', marginBottom: 0 }}>
+          <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+            <tr>
+              <th className="text-center text-nowrap" style={actionCellStyle}>Action</th>
+              {['task_date','candidate_name','task_type','status_name','est_time','duration'].map((col) => <th key={col} className="text-nowrap" role="button" onClick={() => onSort(col === 'est_time' ? 'task_date' : col)}>{col.replaceAll('_',' ').replace(/\b\w/g, (c) => c.toUpperCase())} <BsArrowDownUp size={12} className={sortBy===col?'text-primary':''} /></th>)}
+              <th className="text-nowrap" style={{ minWidth: 96 }}>Feedback</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? <tr><td colSpan={8} className="text-center py-5"><div className="spinner-border text-primary" /></td></tr> : items.length===0 ? <tr><td colSpan={8} className="text-center py-5 text-muted">No completed tasks found.</td></tr> : items.map((row) => (
+              <tr key={row.id}>
+                <td style={actionCellStyle}>
+                  <div className="d-flex justify-content-center align-items-center">
+                    {!row.has_feedback ? (
+                      <button
+                        type="button"
+                        className="btn btn-sm d-inline-flex align-items-center justify-content-center"
+                        style={{ ...actionButtonBaseStyle, backgroundColor: '#2563EB' }}
+                        onClick={() => onAddFeedback(row.id)}
+                        onMouseEnter={(event) => {
+                          event.currentTarget.style.backgroundColor = '#1D4ED8'
+                          event.currentTarget.style.transform = 'translateY(-1px)'
+                        }}
+                        onMouseLeave={(event) => {
+                          event.currentTarget.style.backgroundColor = '#2563EB'
+                          event.currentTarget.style.transform = 'translateY(0)'
+                        }}
+                        aria-label="Add Feedback"
+                        title="Add Feedback"
+                      >
+                        <BsChatSquareText size={17} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-sm d-inline-flex align-items-center justify-content-center"
+                        style={{ ...actionButtonBaseStyle, backgroundColor: '#059669' }}
+                        onClick={() => onViewFeedback(row.id)}
+                        onMouseEnter={(event) => {
+                          event.currentTarget.style.backgroundColor = '#047857'
+                          event.currentTarget.style.transform = 'translateY(-1px)'
+                        }}
+                        onMouseLeave={(event) => {
+                          event.currentTarget.style.backgroundColor = '#059669'
+                          event.currentTarget.style.transform = 'translateY(0)'
+                        }}
+                        aria-label="View Feedback"
+                        title="View Feedback"
+                      >
+                        <BsEye size={17} />
+                      </button>
+                    )}
+                  </div>
+                </td>
+                <td className="text-nowrap">{row.task_date || '--'}</td><td className="text-nowrap">{row.candidate_name || '--'}</td><td className="text-nowrap">{row.task_type || '--'}</td>
+                <td className="text-nowrap"><span className={`badge ${statusBadge(row.status_name)}`}>{row.status_name || '--'}</span></td>
+                <td className="text-nowrap">{row.est_time_range || '--'}</td>
+                <td className="text-nowrap">{row.duration ? `${row.duration} min` : '--'}</td>
+                <td className="text-nowrap align-middle">
+                  {row.feedback_id == null ? (
+                    <span className="badge bg-warning text-dark">Pending</span>
+                  ) : (
+                    <span className="badge bg-success">Submitted</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+)
+
+export default ExpertReportsTable

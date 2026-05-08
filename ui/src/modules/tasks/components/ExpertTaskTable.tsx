@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { BsDownload } from 'react-icons/bs'
 import { apiFetch } from '../../../api/client'
 import { checkExpertActiveTask, endExpertTask, startExpertTask, type EndTaskStatus, type ExpertTaskItem } from '../api/expertTasksApi'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
@@ -11,6 +12,8 @@ type ExpertTaskTableProps = {
   emptyText: string
   currentUserId: number
   onTaskUpdated: () => Promise<void>
+  dateRangeFilter: '7' | '10' | 'all'
+  onDateRangeFilterChange: (value: '7' | '10' | 'all') => void
 }
 
 const pageSizes = [5, 10, 20]
@@ -79,29 +82,23 @@ const formatDateAndTimeZone = (dateValue: string, startTime: string, endTime: st
   return `${dateText} | ${timeText}`
 }
 
+const getResumeUrl = (task: ExpertTaskItem & { displayStatus: string }) => {
+  const value = String(task.resume_url || task.candidate_resume || '').trim()
+  return value || ''
+}
+
 const toIstDate = (dateValue: string) => {
   const [y, m, d] = dateValue.split('-').map(Number)
   if (!y || !m || !d) return null
   return new Date(Date.UTC(y, m - 1, d))
 }
 
-const getCurrentWeekRangeUtc = () => {
-  const now = new Date()
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-  const day = start.getUTCDay()
-  const diffToMonday = day === 0 ? -6 : 1 - day
-  start.setUTCDate(start.getUTCDate() + diffToMonday)
-  const end = new Date(start)
-  end.setUTCDate(start.getUTCDate() + 6)
-  return { start, end }
-}
 
-const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTaskUpdated }: ExpertTaskTableProps) => {
+const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTaskUpdated, dateRangeFilter, onDateRangeFilterChange }: ExpertTaskTableProps) => {
   const { showToast } = useAlert()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'my' | 'sub'>('all')
-  const [weekFilter, setWeekFilter] = useState<'last7' | 'current_week'>('last7')
   const [pageSize, setPageSize] = useState(10)
   const [page, setPage] = useState(1)
   const [viewTaskId, setViewTaskId] = useState<number | null>(null)
@@ -149,26 +146,35 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
       const taskDate = toIstDate(task.due_date)
       const nowUtc = new Date()
       const today = new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth(), nowUtc.getUTCDate()))
-      const last7Start = new Date(today)
-      last7Start.setUTCDate(today.getUTCDate() - 6)
-      const currentWeek = getCurrentWeekRangeUtc()
-      const matchesWeek = (() => {
+      const matchesDateRange = (() => {
+        if (dateRangeFilter === 'all') return true
         if (!taskDate) return false
-        if (weekFilter === 'current_week') return taskDate >= currentWeek.start && taskDate <= currentWeek.end
-        return taskDate >= last7Start && taskDate <= today
+        const days = Number(dateRangeFilter)
+        const start = new Date(today)
+        start.setUTCDate(today.getUTCDate() - days)
+        return taskDate >= start && taskDate <= today
       })()
-      return matchesSearch && matchesStatus && matchesAssignment && matchesWeek
+      return matchesSearch && matchesStatus && matchesAssignment && matchesDateRange
     })
-  }, [assignmentFilter, currentUserId, mapped, search, statusFilter, weekFilter])
+  }, [assignmentFilter, currentUserId, mapped, search, statusFilter, dateRangeFilter])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const sorted = useMemo(() => [...filtered].sort((a, b) => {
+    const dateCmp = String(b.due_date || '').localeCompare(String(a.due_date || ''))
+    if (dateCmp !== 0) return dateCmp
+    return b.task_id - a.task_id
+  }), [filtered])
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
   const safePage = Math.min(page, totalPages)
-  const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
+  const paged = sorted.slice((safePage - 1) * pageSize, safePage * pageSize)
   const selectedTask = mapped.find((task) => task.task_id === viewTaskId) ?? null
   const statusOptions = Array.from(new Set(mapped.map((item) => item.displayStatus)))
   const cellClampStyle: CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220, fontSize: 13, lineHeight: 1.35 }
 
-  const downloadFile = async (fileName: string) => {
+  const downloadFile = async (fileRef: string) => {
+    if (!fileRef) return
+    const normalized = fileRef.trim()
+    const fileName = normalized.split('/').pop() ?? ''
     if (!fileName) return
     const response = await apiFetch(`/tasks/file?file=${encodeURIComponent(fileName)}`)
     if (!response.ok) return
@@ -256,9 +262,10 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
             <option value="my">My Tasks</option>
             <option value="sub">Team Tasks</option>
           </select>
-          <select value={weekFilter} onChange={(event) => { setWeekFilter(event.target.value as 'last7' | 'current_week'); setPage(1) }} style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '0.45rem 0.6rem', fontSize: 13 }}>
-            <option value="last7">Last 7 Days</option>
-            <option value="current_week">Current Week</option>
+          <select value={dateRangeFilter} onChange={(event) => { onDateRangeFilterChange(event.target.value as '7' | '10' | 'all'); setPage(1) }} style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '0.45rem 0.6rem', fontSize: 13 }}>
+            <option value="7">Last 7 Days</option>
+            <option value="10">Last 10 Days</option>
+            <option value="all">All Tasks</option>
           </select>
         </div>
       </div>
@@ -278,6 +285,16 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
                 <p style={{ margin: '0.3rem 0', fontSize: 13 }}>{formatDateAndTimeZone(task.due_date, task.start_time, task.end_time, 'Asia/Kolkata')}</p>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <button className="button" title="View" onClick={() => setViewTaskId(task.task_id)} style={{ minWidth: 36 }}>👁</button>
+                  {getResumeUrl(task) ? (
+                    <button
+                      className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                      title="Download Resume"
+                      onClick={() => window.open(getResumeUrl(task), '_blank', 'noopener,noreferrer')}
+                      style={{ minWidth: 36, height: 32, padding: '0 10px' }}
+                    >
+                      <BsDownload size={14} />
+                    </button>
+                  ) : null}
                   {(task.displayStatus === 'Pending' || task.displayStatus === 'Assigned') ? (
                     <button className="button button--primary" title={startDisabled ? 'Another task is already in progress' : 'Start task'} disabled={startDisabled} onClick={() => setStartTaskId(task.task_id)} style={{ whiteSpace: 'nowrap' }}>▶ Start</button>
                   ) : null}
@@ -324,8 +341,18 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
                     <td style={{ padding: '0.55rem 0.75rem', ...cellClampStyle }} title={task.is_own_task === 1 ? 'Me' : (task.assigned_to_name || '—')}>{task.is_own_task === 1 ? 'Me' : (task.assigned_to_name || '—')}</td>
                     <td style={{ padding: '0.55rem 0.75rem', ...cellClampStyle }} title={task.assigned_by_name || '—'}>{task.assigned_by_name || '—'}</td>
                     <td style={{ padding: '0.55rem 0.75rem', textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+                      <div className="d-flex align-items-center gap-2" style={{ display: 'inline-flex', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
                         <button className="button" title="View task details" onClick={() => setViewTaskId(task.task_id)} style={{ width: 32, height: 32, minWidth: 32, padding: 0, cursor: 'pointer' }}>👁</button>
+                        {getResumeUrl(task) ? (
+                          <button
+                            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                            title="Download Resume"
+                            onClick={() => window.open(getResumeUrl(task), '_blank', 'noopener,noreferrer')}
+                            style={{ width: 32, height: 32, minWidth: 32, padding: 0, justifyContent: 'center' }}
+                          >
+                            <BsDownload size={14} />
+                          </button>
+                        ) : null}
                         {task.file_url ? <button className="button" title="Download file" onClick={() => void downloadFile(task.file_url)} style={{ width: 32, height: 32, minWidth: 32, padding: 0, cursor: 'pointer' }}>⬇</button> : null}
                         {(task.displayStatus === 'Pending' || task.displayStatus === 'Assigned') ? (
                           <button className="button button--primary" title={disableStartTooltip} disabled={startDisabled} onClick={() => setStartTaskId(task.task_id)} style={{ height: 32, padding: '0 10px', borderRadius: 8 }}>▶ Start</button>
@@ -345,7 +372,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
 
       <div style={{ borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', alignItems: 'center', padding: '0.85rem 1rem' }}>
         <label>Rows per page<select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }} style={{ marginLeft: 8 }}>{pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
-        <span>{filtered.length === 0 ? '0-0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filtered.length)}`} of {filtered.length}</span>
+        <span>{sorted.length === 0 ? '0-0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, sorted.length)}`} of {sorted.length}</span>
         <button className="button" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={safePage <= 1}>‹</button>
         <button className="button" onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))} disabled={safePage >= totalPages}>›</button>
       </div>
@@ -372,7 +399,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
           selectedTask ? (
             <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
               {(selectedTask.displayStatus === 'Pending' || selectedTask.displayStatus === 'Assigned') ? (
-                <button className="button button--primary" title={hasActiveTask && activeTaskId !== selectedTask.task_id ? 'Another task is already in progress' : 'Start task'} disabled={!canStartTask(selectedTask)} onClick={() => setStartTaskId(selectedTask.task_id)} style={{ borderRadius: 8 }}>▶ Start Task</button>
+                <button className="button button--primary" title={hasActiveTask && activeTaskId !== selectedTask.task_id ? 'Another task is already in progress' : 'Start task'} disabled={!canStartTask(selectedTask)} onClick={() => setStartTaskId(selectedTask.task_id)} style={{ borderRadius: 8 }}>▶ Task</button>
               ) : null}
               {canEndTask(selectedTask) ? (
                 <button className="button button--primary" onClick={() => openEndTaskModal(selectedTask.task_id)} style={{ borderRadius: 8 }}>✅ End Task</button>
