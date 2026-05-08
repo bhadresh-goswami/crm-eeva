@@ -187,18 +187,20 @@ class ManagerReportsController {
                 ? (json_decode(file_get_contents('php://input'), true) ?? [])
                 : $_GET;
 
-            if (empty($request['expert_id'])) {
+            $expertId = (int)($request['expert_id'] ?? 0);
+            if ($expertId <= 0) {
                 http_response_code(422);
                 echo json_encode(['success' => false, 'message' => 'Expert ID is required']);
                 return;
             }
 
-            $expertId = (int)($request['expert_id'] ?? 0);
+            $status = strtolower(trim((string)($request['status'] ?? 'completed')));
             $fromDate = $request['from_date'] ?? null;
             $toDate = $request['to_date'] ?? null;
-            $taskTypeId = $request['task_type_id'] ?? null;
-            $clientId = $request['client_id'] ?? null;
-            $statusType = isset($request['status_type']) ? strtolower(trim((string)$request['status_type'])) : null;
+            $limit = max(1, min(5000, (int)($request['limit'] ?? 1000)));
+
+            error_log('Expert detail expert_id: ' . $expertId);
+            error_log('Expert detail status: ' . $status);
 
             $durationExpr = "CASE
                 WHEN t.duration IS NOT NULL THEN t.duration
@@ -207,12 +209,9 @@ class ManagerReportsController {
                 ELSE 0
             END";
 
-            $params = [':expert_id' => $expertId];
-            $where = ["ta.user_id = :expert_id", "ta.is_active = 1"];
-            if (!empty($fromDate) && !empty($toDate)) { $where[] = "DATE(t.created_at) BETWEEN :from_date AND :to_date"; $params[':from_date'] = (string)$fromDate; $params[':to_date'] = (string)$toDate; }
-            if (!empty($taskTypeId)) { $where[] = "t.task_type_id = :task_type_id"; $params[':task_type_id'] = (int)$taskTypeId; }
-            if (!empty($clientId)) { $where[] = "t.client_id = :client_id"; $params[':client_id'] = (int)$clientId; }
-            if (!empty($statusType)) { $where[] = "LOWER(COALESCE(tsm.name,'')) = :status_type"; $params[':status_type'] = $statusType; }
+            $params = [':expert_id' => $expertId, ':status' => $status, ':limit' => $limit];
+            $where = ["ta.user_id = :expert_id", "ta.is_active = 1", "LOWER(COALESCE(tsm.name,'')) = :status"];
+            if (!empty($fromDate) && !empty($toDate)) { $where[] = "DATE(t.due_date) BETWEEN :from_date AND :to_date"; $params[':from_date'] = (string)$fromDate; $params[':to_date'] = (string)$toDate; }
 
             $sql = "SELECT DISTINCT
                 t.id AS task_id,
@@ -228,7 +227,8 @@ class ManagerReportsController {
                 COALESCE(assigned_by_user.name, 'N/A') AS assigned_by
                 " . $this->baseSelect() . "
                 WHERE " . implode(' AND ', $where) . "
-                ORDER BY t.created_at DESC";
+                ORDER BY t.created_at DESC
+                LIMIT :limit";
 
             $stmt = $this->conn->prepare($sql);
             foreach ($params as $k => $v) {
