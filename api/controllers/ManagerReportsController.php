@@ -195,6 +195,12 @@ class ManagerReportsController {
             }
 
             $status = strtolower(trim((string)($request['status'] ?? '')));
+            $allowedStatuses = ['completed', 'success', 'rejected'];
+            if ($status !== '' && !in_array($status, $allowedStatuses, true)) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Invalid status filter']);
+                return;
+            }
             $fromDate = $request['from_date'] ?? null;
             $toDate = $request['to_date'] ?? null;
             $limit = max(1, min(5000, (int)($request['limit'] ?? 1000)));
@@ -208,7 +214,7 @@ class ManagerReportsController {
 
             $params = [':expert_id' => $expertId, ':limit' => $limit];
             $where = ["ta.user_id = :expert_id", "ta.is_active = 1"];
-            if ($status !== '') { $where[] = "LOWER(COALESCE(tsm.name,'')) = :status"; $params[':status'] = $status; }
+            if ($status !== '') { $where[] = "LOWER(tsm.name) = :status"; $params[':status'] = $status; }
             if (!empty($fromDate) && !empty($toDate)) { $where[] = "DATE(t.due_date) BETWEEN :from_date AND :to_date"; $params[':from_date'] = (string)$fromDate; $params[':to_date'] = (string)$toDate; }
 
             $sql = "SELECT DISTINCT
