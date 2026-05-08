@@ -1,5 +1,7 @@
 import { apiRequest } from '../api/client'
 
 export const getExpertDashboardAnalytics = async () => {
-  return apiRequest('/expert/dashboard-analytics')
+  const response = await apiRequest('/expert/dashboard-analytics')
+  console.log('Dashboard analytics response', response?.data)
+  return response
 }
