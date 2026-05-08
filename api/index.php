@@ -42,6 +42,7 @@ require_once "controllers/PaymentStatusController.php";
 require_once "controllers/InvoiceController.php";
 require_once "controllers/FeedbackController.php";
 require_once "controllers/ManagerReportsController.php";
+require_once "controllers/CandidatePerformanceReportController.php";
 require_once "services/EmailService.php";
 require_once "services/LoggerService.php";
 
@@ -413,6 +414,19 @@ elseif ($uri === "/reports/tasks" && $method === "GET") {
 elseif ($uri === "/reports/task-assignments" && $method === "GET") {
     authorize($user,['admin','manager','coordinator','expert','expertlead','technical expert']);
     (new TaskController())->reportTaskAssignments();
+}
+
+elseif ($uri === "/reports/candidate-performance" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new CandidatePerformanceReportController())->list();
+}
+elseif ($uri === "/reports/candidate-performance-details" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new CandidatePerformanceReportController())->details();
+}
+elseif ($uri === "/reports/candidate-performance-feedback" && $method === "GET") {
+    authorize($user,['admin','manager']);
+    (new CandidatePerformanceReportController())->feedback();
 }
 elseif ($uri === "/manager/reports/feedback-pending" && $method === "GET") {
     authorize($user,['admin','manager']);
