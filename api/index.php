@@ -422,7 +422,7 @@ elseif ($uri === "/manager/reports/tech-vs-tasks" && $method === "GET") {
     authorize($user,['admin','manager']);
     (new ManagerReportsController())->techVsTasks();
 }
-elseif ($uri === "/manager/reports/tech-vs-task-details" && $method === "GET") {
+elseif ($uri === "/manager/reports/tech-vs-task-details" && ($method === "GET" || $method === "POST")) {
     authorize($user,['admin','manager']);
     (new ManagerReportsController())->techVsTaskDetails();
 }

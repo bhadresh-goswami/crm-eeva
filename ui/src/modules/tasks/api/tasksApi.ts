@@ -701,10 +701,11 @@ export const getTechVsTasksSummary = async (query: Record<string, string | numbe
   })
 }
 
-export const getTechVsTaskDetails = async (query: Record<string, string | number>) => {
-  const params = new URLSearchParams()
-  Object.entries(query).forEach(([k, v]) => { if (v !== '' && v !== undefined && v !== null) params.set(k, String(v)) })
-  const response = await apiRequest<unknown>(`/manager/reports/tech-vs-task-details?${params.toString()}`)
+export const getTechVsTaskDetails = async (payload: Record<string, string | number>) => {
+  const response = await apiRequest<unknown>('/manager/reports/tech-vs-task-details', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
   return getList(response).map((item) => {
     const row = item as UnknownMap
     return {

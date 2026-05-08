@@ -183,35 +183,52 @@ class ManagerReportsController {
 
     public function techVsTaskDetails(): void {
         try {
-            $expertId = isset($_GET['expert_id']) ? (int)$_GET['expert_id'] : 0;
-            if ($expertId <= 0) {
-                echo json_encode(['success' => true, 'data' => []]);
+            $request = $_SERVER['REQUEST_METHOD'] === 'POST'
+                ? (json_decode(file_get_contents('php://input'), true) ?? [])
+                : $_GET;
+
+            if (empty($request['expert_id'])) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Expert ID is required']);
                 return;
             }
 
+            $expertId = (int)($request['expert_id'] ?? 0);
+            $fromDate = $request['from_date'] ?? null;
+            $toDate = $request['to_date'] ?? null;
+            $taskTypeId = $request['task_type_id'] ?? null;
+            $clientId = $request['client_id'] ?? null;
+            $statusType = isset($request['status_type']) ? strtolower(trim((string)$request['status_type'])) : null;
+
+            $durationExpr = "CASE
+                WHEN t.duration IS NOT NULL THEN t.duration
+                WHEN t.start_time IS NOT NULL AND t.end_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.start_time, t.end_time), 0)
+                WHEN t.task_start_time IS NOT NULL AND t.task_end_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.task_start_time, t.task_end_time), 0)
+                ELSE 0
+            END";
+
             $params = [':expert_id' => $expertId];
-            $where = ["ta.user_id = :expert_id"];
-            if (!empty($_GET['from_date'])) { $where[] = "DATE(t.due_date) >= :from_date"; $params[':from_date'] = (string)$_GET['from_date']; }
-            if (!empty($_GET['to_date'])) { $where[] = "DATE(t.due_date) <= :to_date"; $params[':to_date'] = (string)$_GET['to_date']; }
-            if (!empty($_GET['task_type_id'])) { $where[] = "t.task_type_id = :task_type_id"; $params[':task_type_id'] = (int)$_GET['task_type_id']; }
-            if (!empty($_GET['client_id'])) { $where[] = "t.client_id = :client_id"; $params[':client_id'] = (int)$_GET['client_id']; }
+            $where = ["ta.user_id = :expert_id", "ta.is_active = 1"];
+            if (!empty($fromDate) && !empty($toDate)) { $where[] = "DATE(t.created_at) BETWEEN :from_date AND :to_date"; $params[':from_date'] = (string)$fromDate; $params[':to_date'] = (string)$toDate; }
+            if (!empty($taskTypeId)) { $where[] = "t.task_type_id = :task_type_id"; $params[':task_type_id'] = (int)$taskTypeId; }
+            if (!empty($clientId)) { $where[] = "t.client_id = :client_id"; $params[':client_id'] = (int)$clientId; }
+            if (!empty($statusType)) { $where[] = "LOWER(COALESCE(tsm.name,'')) = :status_type"; $params[':status_type'] = $statusType; }
 
             $sql = "SELECT DISTINCT
                 t.id AS task_id,
                 COALESCE(cd.name, 'N/A') AS candidate_name,
                 COALESCE(c_task.company_name, c_candidate.company_name, c_client.company_name, 'N/A') AS client_company,
                 COALESCE(tt.name, 'N/A') AS task_type,
-                COALESCE(tsm.name, 'N/A') AS status_name,
                 COALESCE(tsm.name, 'N/A') AS task_status,
                 DATE(t.due_date) AS task_date,
-                COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_start_time, t.start_time), '+00:00', 'America/New_York'), '%m-%d-%Y %h:%i %p'), 'N/A') AS est_time,
+                COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_start_time, t.start_time), '+00:00', '-05:00'), '%m-%d-%Y %h:%i %p'), 'N/A') AS est_time,
                 {$durationExpr} AS duration,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
-                ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score,
+                COALESCE(tf.overall, 0) AS average_score,
                 COALESCE(assigned_by_user.name, 'N/A') AS assigned_by
                 " . $this->baseSelect() . "
                 WHERE " . implode(' AND ', $where) . "
-                ORDER BY t.due_date DESC, t.id DESC";
+                ORDER BY t.created_at DESC";
 
             $stmt = $this->conn->prepare($sql);
             foreach ($params as $k => $v) {
