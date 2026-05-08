@@ -161,9 +161,9 @@ class ManagerReportsController {
                 u.name AS technical_expert,
                 ROUND(SUM({$durationExpr})/60,2) AS total_completed_hours,
                 COUNT(DISTINCT t.id) AS completed_count,
-                SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) IN ('completed','success') THEN 1 ELSE 0 END) AS success_count,
-                SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) IN ('rejected','cancelled','failed') THEN 1 ELSE 0 END) AS rejected_count,
-                ROUND((SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) IN ('completed','success') THEN 1 ELSE 0 END) / NULLIF(COUNT(DISTINCT t.id),0)) * 100,2) AS success_ratio
+                SUM(CASE WHEN t.status_id = 8 THEN 1 ELSE 0 END) AS success_count,
+                SUM(CASE WHEN t.status_id IN (5,6) OR LOWER(COALESCE(tsm.name,'')) IN ('rejected','cancelled','failed','no show','no-show') THEN 1 ELSE 0 END) AS rejected_count,
+                ROUND((SUM(CASE WHEN t.status_id = 8 THEN 1 ELSE 0 END) / NULLIF(COUNT(DISTINCT t.id),0)) * 100,2) AS success_ratio
                 " . $this->baseSelect() . "
                 WHERE {$where}
                 GROUP BY ta.user_id, u.name
