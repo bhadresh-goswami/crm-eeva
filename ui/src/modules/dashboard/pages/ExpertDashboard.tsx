@@ -3,16 +3,18 @@ import ExpertTaskTable from '../../tasks/components/ExpertTaskTable'
 import { getExpertTasks, type ExpertTaskItem } from '../../tasks/api/expertTasksApi'
 import { useAuth } from '../../../context/AuthContext'
 import PageContainer from '../../../shared/components/PageContainer'
-import { getExpertDashboardAnalytics } from '../../../services/expertDashboardAnalyticsService'
+import {
+  getExpertDashboardAnalytics,
+  type AnalyticsPayload,
+} from '../../../services/expertDashboardAnalyticsService'
 import StatCard from '../../../components/dashboard/StatCard'
 import DailyWorkingAnalyticsTable from '../../../components/dashboard/DailyWorkingAnalyticsTable'
 
-type AnalyticsPayload = {
-  cards?: Record<string, { count?: number; change_percentage?: number }>
-  daily_working_analytics?: {
-    summary?: { average_hours?: number; total_hours?: number; total_tasks?: number; productivity?: number }
-    rows?: Array<Record<string, string | number>>
-  }
+const emptyAnalytics: AnalyticsPayload = {
+  daily_working_analytics: {
+    summary: {},
+    rows: [],
+  },
 }
 
 const ExpertDashboard = () => {
@@ -21,7 +23,7 @@ const ExpertDashboard = () => {
   const [loading, setLoading] = useState(true)
   const [analyticsLoading, setAnalyticsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [analytics, setAnalytics] = useState<AnalyticsPayload>({})
+  const [analytics, setAnalytics] = useState<AnalyticsPayload>(emptyAnalytics)
   const [dateRangeFilter, setDateRangeFilter] = useState<'7' | '10' | 'all'>('7')
 
   const loadTasks = useCallback(async (range: '7' | '10' | 'all' = dateRangeFilter) => {
@@ -51,9 +53,9 @@ const ExpertDashboard = () => {
     setAnalyticsLoading(true)
     try {
       const response = await getExpertDashboardAnalytics()
-      setAnalytics((response?.data ?? {}) as AnalyticsPayload)
+      setAnalytics(response?.data ?? emptyAnalytics)
     } catch {
-      setAnalytics({})
+      setAnalytics(emptyAnalytics)
     } finally {
       setAnalyticsLoading(false)
     }
@@ -84,7 +86,7 @@ const ExpertDashboard = () => {
       <div className="row g-3 section">
         <div className="col-12">
           <DailyWorkingAnalyticsTable
-            data={analytics.daily_working_analytics ?? { summary: {}, rows: [] }}
+            data={analytics.daily_working_analytics ?? emptyAnalytics.daily_working_analytics}
             loading={analyticsLoading}
           />
         </div>
