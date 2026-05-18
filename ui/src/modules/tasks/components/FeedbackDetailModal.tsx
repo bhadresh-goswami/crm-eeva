@@ -1,4 +1,24 @@
-const FeedbackDetailModal = ({ open, data, onClose }) => {
+type FeedbackData = {
+  interview_round?: string
+  company_name?: string
+  interviewer_name?: string
+  communication?: number | string
+  technical?: number | string
+  confidence?: number | string
+  project_explanation?: number | string
+  read_proper?: number | string
+  area_of_improvements?: string
+  recording_url?: string
+  overall?: number | string
+}
+
+type FeedbackDetailModalProps = {
+  open: boolean
+  data: FeedbackData | null
+  onClose: () => void
+}
+
+const FeedbackDetailModal = ({ open, data, onClose }: FeedbackDetailModalProps) => {
   if (!open) return null
   return <div className="modal fade show d-block" tabIndex={-1}><div className="modal-dialog modal-lg"><div className="modal-content"><div className="modal-header"><h5 className="modal-title">Feedback Details</h5><button className="btn-close" onClick={onClose}/></div><div className="modal-body"><div className="row g-2">{[
     ['Interview Round', data?.interview_round],['Company Name', data?.company_name],['Interviewer Name', data?.interviewer_name],['Communication Score', data?.communication],['Technical Score', data?.technical],['Confidence Score', data?.confidence],['Project Explanation Score', data?.project_explanation],['Read Proper', data?.read_proper],['Area of Improvements', data?.area_of_improvements],['Recording URL', data?.recording_url],['Overall Score', data?.overall]
