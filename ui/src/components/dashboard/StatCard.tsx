@@ -1,11 +1,22 @@
-const colorClassMap = {
+type StatCardColor = 'blue' | 'green' | 'cyan' | 'red' | 'primary'
+
+type StatCardProps = {
+  title: string
+  count?: number
+  changePercentage?: number | null
+  color?: StatCardColor
+  loading?: boolean
+}
+
+const colorClassMap: Record<StatCardColor, string> = {
   blue: 'primary',
   green: 'success',
   cyan: 'info',
   red: 'danger',
+  primary: 'primary',
 }
 
-const StatCard = ({ title, count = 0, changePercentage = null, color = 'primary', loading = false }) => {
+const StatCard = ({ title, count = 0, changePercentage = null, color = 'primary', loading = false }: StatCardProps) => {
   const variant = colorClassMap[color] ?? 'primary'
 
   return (
