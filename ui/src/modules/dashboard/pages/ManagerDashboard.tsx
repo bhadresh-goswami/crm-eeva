@@ -14,7 +14,7 @@ import {
   type ManagerTaskStatus,
 } from '../api/dashboardApi'
 import { getTasksLastUpdate } from '../../tasks/api/tasksApi'
-import { FaBell, FaChartLine, FaCheckCircle, FaClock, FaEye, FaIndianRupeeSign, FaPen, FaUserCircle, FaWallet } from 'react-icons/fa'
+import { FaBell, FaChartLine, FaCheckCircle, FaClock, FaEye, FaRupeeSign, FaPen, FaUserCircle, FaWallet } from 'react-icons/fa'
 import KPIStatCard from '../../../components/dashboard/KPIStatCard'
 import StatusBadge from '../../../components/dashboard/StatusBadge'
 
@@ -311,7 +311,7 @@ const ManagerDashboard = () => {
               <article key={index} className="kpi-card skeleton-card" aria-hidden="true" />
             ))
           : cards.map((card) => {
-              const icon = card.label === 'Total Revenue' ? <FaIndianRupeeSign />
+              const icon = card.label === 'Total Revenue' ? <FaRupeeSign />
                 : card.label === 'Completed Tasks' ? <FaCheckCircle />
                   : card.label === 'Pending Tasks' ? <FaClock />
                     : card.label === 'Pending Payments' ? <FaWallet /> : <FaChartLine />
