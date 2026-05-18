@@ -1,20 +1,8 @@
-type FeedbackData = {
-  interview_round?: string
-  company_name?: string
-  interviewer_name?: string
-  communication?: number | string
-  technical?: number | string
-  confidence?: number | string
-  project_explanation?: number | string
-  read_proper?: number | string
-  area_of_improvements?: string
-  recording_url?: string
-  overall?: number | string
-}
+import type { CandidateFeedbackData } from '../services/candidatePerformanceReportService'
 
 type FeedbackDetailModalProps = {
   open: boolean
-  data: FeedbackData | null
+  data: CandidateFeedbackData | null
   onClose: () => void
 }
 
