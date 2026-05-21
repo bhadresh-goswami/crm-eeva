@@ -24,9 +24,11 @@ const ExpertReportsTable = ({ items, loading, sortBy, sortOrder, onSort, onAddFe
           </thead>
           <tbody>
             {loading ? <tr><td colSpan={10} className="text-center py-5"><div className="spinner-border text-primary" /></td></tr> : items.length===0 ? <tr><td colSpan={10} className="text-center py-5 text-muted">No completed tasks found.</td></tr> : items.map((row) => {
-              const dateTime = parseISTDateTime(row.task_date, row.start_time)
-              const istTime = dateTime ? formatIST(dateTime) : '--'
-              const estTime = dateTime ? formatEST(dateTime) : '--'
+              const startDateTime = parseISTDateTime(row.task_date, row.start_time)
+              const endDateTime = parseISTDateTime(row.task_date, row.end_time)
+              const istTime = startDateTime ? `${formatIST(startDateTime)}${endDateTime ? ` - ${formatIST(endDateTime)}` : ''}` : '--'
+              const estTime = startDateTime ? `${formatEST(startDateTime)}${endDateTime ? ` - ${formatEST(endDateTime)}` : ''}` : '--'
+              const computedDuration = Number(row.duration) > 0 ? Number(row.duration) : (startDateTime && endDateTime ? Math.max(0, Math.round((endDateTime.getTime() - startDateTime.getTime()) / 60000)) : 0)
               return (
               <tr key={row.id}>
                 <td className="text-center">{!row.has_feedback ? <button className="btn btn-primary btn-sm d-inline-flex align-items-center justify-content-center" style={{ width: 34, height: 30 }} onClick={() => onAddFeedback(row.id)} aria-label="Add Feedback" title="Add Feedback"><BsPlusCircle/></button> : <button className="btn btn-outline-success btn-sm d-inline-flex align-items-center justify-content-center" style={{ width: 34, height: 30 }} onClick={() => onViewFeedback(row.id)} aria-label="View Feedback" title="View Feedback"><BsEye/></button>}</td>
@@ -34,7 +36,7 @@ const ExpertReportsTable = ({ items, loading, sortBy, sortOrder, onSort, onAddFe
                 <td className="text-nowrap"><span className={`badge ${statusBadge(row.status_name)}`}>{row.status_name || '--'}</span></td>
                 <td className="text-nowrap">{istTime}</td>
                 <td className="text-nowrap">{estTime}</td>
-                <td className="text-nowrap">{row.duration ? `${row.duration} min` : '--'}</td>
+                <td className="text-nowrap">{computedDuration > 0 ? `${computedDuration} min` : '--'}</td>
                 <td className="text-nowrap align-middle">
                   {row.feedback_id == null ? (
                     <span className="badge bg-warning text-dark">Pending</span>
