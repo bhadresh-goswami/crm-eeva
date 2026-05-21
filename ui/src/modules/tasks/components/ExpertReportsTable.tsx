@@ -15,6 +15,40 @@ type Row = {
   feedback_id: number | null
 }
 
+const IST_ZONE = 'Asia/Kolkata'
+const EST_ZONE = 'America/New_York'
+
+const parseISTDateTime = (dateValue?: string, timeValue?: string) => {
+  if (!dateValue || !timeValue) return null
+  const timePart = String(timeValue).trim().slice(0, 8)
+  const normalizedDate = String(dateValue).trim()
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalizedDate)
+  if (!match) return null
+  const [h, m, s = '00'] = timePart.split(':')
+  if (!h || !m) return null
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const hours = Number(h)
+  const minutes = Number(m)
+  const seconds = Number(s)
+  if ([year, month, day, hours, minutes, seconds].some(Number.isNaN)) return null
+
+  const utcMillis = Date.UTC(year, month - 1, day, hours - 5, minutes - 30, seconds)
+  const asDate = new Date(utcMillis)
+  return Number.isNaN(asDate.getTime()) ? null : asDate
+}
+
+const formatTime = (date: Date | null, zone: string, suffix: string) => {
+  if (!date) return '--'
+  return `${new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: zone,
+  }).format(date)} ${suffix}`
+}
+
 type Props = {
   items: Row[]
   loading: boolean
