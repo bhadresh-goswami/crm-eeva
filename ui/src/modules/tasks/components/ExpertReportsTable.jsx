@@ -10,7 +10,7 @@ const statusBadge = (statusName) => {
   return 'bg-secondary'
 }
 
-const ExpertReportsTable = ({ items, loading, sortBy, sortOrder, onSort, onAddFeedback, onViewFeedback }) => (
+const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onViewFeedback }) => (
   <div className="card border-0 shadow-sm mb-2">
     <div className="card-body p-0">
       <div className="table-responsive w-100" style={{ maxWidth: '100%', overflowX: 'auto', overflowY: 'auto', maxHeight: '58vh' }}>
