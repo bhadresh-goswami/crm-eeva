@@ -242,3 +242,26 @@ input:focus, select:focus, textarea:focus, .form-control:focus, .form-select:foc
 .manager-sort { border: 0; background: transparent; width: 100%; display: flex; justify-content: space-between; align-items: center; color: inherit; font-size: inherit; font-weight: 600; }
 .top-nav { position: sticky; top: 0; }
 .top-nav__dropdown-menu { min-width: 230px; }
+
+.expert-matrix-wrap { background: #fff; }
+.expert-matrix-table { min-width: 1200px; table-layout: fixed; font-size: 10px !important; }
+.expert-matrix-table th,
+.expert-matrix-table td { border: 1px solid #1f2937 !important; padding: 2px 3px !important; font-size: 10px !important; vertical-align: middle; }
+.expert-matrix-head th { position: sticky; top: 0; z-index: 3; background: #f3f4f6 !important; font-weight: 700; }
+.expert-matrix-time-col { width: 148px; min-width: 148px; }
+.expert-matrix-time { width: 148px; min-width: 148px; font-weight: 500; }
+.expert-column-header {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  min-width: 42px;
+  width: 42px;
+  height: 140px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 2px;
+}
+.expert-matrix-cell { min-width: 42px; width: 42px; height: 34px; text-align: center; }
+.expert-matrix-pill { white-space: normal !important; font-size: 10px !important; line-height: 1.15; border-radius: 999px; padding: 2px 4px; }

@@ -283,4 +283,74 @@ class ManagerReportsController {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
+
+    public function expertAvailabilityMatrix(): void {
+        try {
+            $date = (string)($_GET['date'] ?? date('Y-m-d'));
+            $expertId = isset($_GET['expert_id']) && $_GET['expert_id'] !== '' ? (int)$_GET['expert_id'] : null;
+            $taskTypeId = isset($_GET['task_type_id']) && $_GET['task_type_id'] !== '' ? (int)$_GET['task_type_id'] : null;
+            $status = strtolower(trim((string)($_GET['status'] ?? '')));
+
+            $startIst = new DateTime($date . ' 17:00:00', new DateTimeZone('Asia/Kolkata'));
+            $endIst = (clone $startIst)->modify('+13 hours');
+            $startUtc = (clone $startIst)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+            $endUtc = (clone $endIst)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+
+            $expertWhere = ["u.status = 'active'", "LOWER(COALESCE(r.name,'')) LIKE '%expert%'"];
+            $expertParams = [];
+            if ($expertId !== null) { $expertWhere[] = 'u.id = :expert_id'; $expertParams[':expert_id'] = $expertId; }
+            $expertsStmt = $this->conn->prepare("SELECT DISTINCT u.id, u.name FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE " . implode(' AND ', $expertWhere) . " ORDER BY u.name ASC");
+            foreach ($expertParams as $k => $v) { $expertsStmt->bindValue($k, $v, PDO::PARAM_INT); }
+            $expertsStmt->execute();
+            $experts = $expertsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $taskWhere = ['ta.user_id IS NOT NULL', 'COALESCE(ta.assigned_at, t.start_time, t.task_start_time, t.due_date) >= :start_utc', 'COALESCE(ta.assigned_at, t.start_time, t.task_start_time, t.due_date) < :end_utc'];
+            $params = [':start_utc' => $startUtc, ':end_utc' => $endUtc];
+            if ($expertId !== null) { $taskWhere[] = 'ta.user_id = :expert_id'; $params[':expert_id'] = $expertId; }
+            if ($taskTypeId !== null) { $taskWhere[] = 't.task_type_id = :task_type_id'; $params[':task_type_id'] = $taskTypeId; }
+            if ($status !== '') { $taskWhere[] = 'LOWER(REPLACE(tsm.name, " ", "_")) = :status'; $params[':status'] = $status; }
+
+            $taskSql = "SELECT ta.user_id expert_id, cd.name candidate_name, tt.name task_type, LOWER(REPLACE(COALESCE(tsm.name,'assigned'),' ','_')) status_key,
+                CONVERT_TZ(COALESCE(ta.assigned_at, t.start_time, t.task_start_time, t.due_date), '+00:00', '+05:30') as slot_ist
+                FROM tasks t
+                INNER JOIN task_assignments ta ON ta.task_id=t.id AND ta.is_active=1
+                LEFT JOIN candidates cd ON cd.id=t.candidate_id
+                LEFT JOIN task_types tt ON tt.id=t.task_type_id
+                LEFT JOIN task_status_master tsm ON tsm.id=t.status_id
+                WHERE " . implode(' AND ', $taskWhere) . " ORDER BY slot_ist ASC";
+            $stmt = $this->conn->prepare($taskSql);
+            foreach ($params as $k => $v) { $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
+            $stmt->execute();
+            $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $slots = [];
+            $cursor = clone $startIst;
+            while ($cursor < $endIst) {
+                $next = (clone $cursor)->modify('+30 minutes');
+                $slotKey = $cursor->format('Y-m-d H:i');
+                $slots[$slotKey] = ['slot_key' => $slotKey, 'ist_label' => $cursor->format('h:i A') . ' - ' . $next->format('h:i A') . ' IST', 'est_label' => (clone $cursor)->setTimezone(new DateTimeZone('America/New_York'))->format('h:i A') . ' - ' . (clone $next)->setTimezone(new DateTimeZone('America/New_York'))->format('h:i A') . ' EST', 'tasks_by_expert' => []];
+                $cursor = $next;
+            }
+            foreach ($tasks as $task) {
+                $dt = new DateTime((string)$task['slot_ist'], new DateTimeZone('Asia/Kolkata'));
+                $minute = ((int)$dt->format('i') >= 30) ? '30' : '00';
+                $key = $dt->format('Y-m-d H:') . $minute;
+                if (!isset($slots[$key])) continue;
+                $slots[$key]['tasks_by_expert'][(string)$task['expert_id']] = [
+                    'candidate_name' => (string)($task['candidate_name'] ?? 'N/A'),
+                    'task_type' => (string)($task['task_type'] ?? 'N/A'),
+                    'status_key' => (string)($task['status_key'] ?? 'assigned'),
+                ];
+            }
+
+            $filterTaskTypes = $this->conn->query("SELECT id, name FROM task_types WHERE status='active' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+            $statusOptions = [
+              ['key' => 'assigned', 'label' => 'Assigned'], ['key' => 'running', 'label' => 'Running'], ['key' => 'completed', 'label' => 'Completed'], ['key' => 'no_show', 'label' => 'No Show'], ['key' => 'rescheduled', 'label' => 'Rescheduled']
+            ];
+            echo json_encode(['success' => true, 'data' => ['date' => $date, 'experts' => $experts, 'slots' => array_values($slots), 'filters' => ['experts' => $experts, 'task_types' => $filterTaskTypes, 'statuses' => $statusOptions]]]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
 }
