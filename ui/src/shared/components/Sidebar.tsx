@@ -63,6 +63,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           { label: 'Tasks Summary', to: '/reports/tasks-summary', icon: 'reports' },
           { label: 'Feedback Report', to: '/reports/feedback-report', icon: 'reports' },
           { label: 'Candidate Performance Report', to: '/reports/candidate-performance', icon: 'reports' },
+          { label: "Today's Expert Availability Report", to: '/reports/expert-availability', icon: 'reports' },
         ] },
       ]
     }
@@ -85,7 +86,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         },
         {
           title: 'Reports',
-          items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }, { label: 'Feedback Report', to: '/reports/feedback', icon: 'reports' }],
+          items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }, { label: 'Feedback Report', to: '/reports/feedback', icon: 'reports' }, { label: "Today's Expert Availability Report", to: '/reports/expert-availability', icon: 'reports' }],
         },
         {
           title: 'CRM',
@@ -131,7 +132,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
     sections.push({
       title: 'Reports',
-      items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }, { label: 'Feedback Report', to: '/reports/feedback', icon: 'reports' }],
+      items: [{ label: 'Task Reports', to: '/reports/tasks', icon: 'reports' }, { label: 'Candidate Report', to: '/reports/candidates', icon: 'reports' }, { label: 'Feedback Report', to: '/reports/feedback', icon: 'reports' }, { label: "Today's Expert Availability Report", to: '/reports/expert-availability', icon: 'reports' }],
     })
 
     return sections
