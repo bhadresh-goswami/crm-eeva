@@ -20,7 +20,7 @@ const defaultFilters = {
 
 const ExpertTaskReportsPage = () => {
   const { user } = useAuth()
-  const userId = Number(user?.id ?? 0)
+  const sessionExpertId = Number(user?.expert_id ?? user?.user_id ?? user?.id ?? 0)
   const [filters, setFilters] = useState(defaultFilters)
   const [items, setItems] = useState([])
   const [pagination, setPagination] = useState({ current_page: 1, total_pages: 1, total_records: 0, per_page: 10 })
@@ -31,7 +31,7 @@ const ExpertTaskReportsPage = () => {
   const fetchRows = async (payload = filters) => {
     setLoading(true)
     try {
-      const scopedPayload = userId > 0 ? { ...payload, user_id: userId, expert_id: userId } : payload
+      const scopedPayload = sessionExpertId > 0 ? { ...payload, user_id: sessionExpertId, expert_id: sessionExpertId } : payload
       const res = await loadTaskForFeedback(scopedPayload)
       setItems(Array.isArray(res.items) ? res.items : [])
       setPagination(res.pagination ?? { current_page: 1, total_pages: 1, total_records: 0, per_page: 10 })
@@ -40,7 +40,7 @@ const ExpertTaskReportsPage = () => {
     }
   }
 
-  useEffect(() => { void fetchRows() }, [])
+  useEffect(() => { if (sessionExpertId > 0) void fetchRows() }, [sessionExpertId])
 
   const onSort = (col: string) => {
     const nextOrder = filters.sort_by === col && filters.sort_order === 'DESC' ? 'ASC' : 'DESC'
