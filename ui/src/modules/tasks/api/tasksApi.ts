@@ -749,3 +749,20 @@ export const getManagerReportTaskDetails = async (taskId: number) => {
   const data = response.data
   return data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
 }
+
+export type ExpertAvailabilityMatrixFilters = { date?: string; expert_id?: string; task_type_id?: string; status?: string }
+export type ExpertAvailabilityMatrixResponse = {
+  date: string
+  experts: Array<{ id: number; name: string }>
+  slots: Array<{ slot_key: string; ist_label: string; est_label: string; tasks_by_expert: Record<string, { candidate_name: string; task_type: string; status_key: string }> }>
+  filters: { experts: Array<{ id: number; name: string }>; task_types: Array<{ id: number; name: string }>; statuses: Array<{ key: string; label: string }> }
+}
+
+export const getExpertAvailabilityMatrixReport = async (filters: ExpertAvailabilityMatrixFilters) => {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([k,v])=>{ if(v) params.set(k, String(v)) })
+  const endpoint = params.toString() ? `/manager/reports/expert-availability-matrix?${params.toString()}` : '/manager/reports/expert-availability-matrix'
+  const response = await apiRequest<Record<string, unknown>>(endpoint)
+  const data = (response.data && typeof response.data === 'object' ? response.data : {}) as Record<string, unknown>
+  return data as unknown as ExpertAvailabilityMatrixResponse
+}
