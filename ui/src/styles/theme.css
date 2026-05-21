@@ -248,8 +248,8 @@ input:focus, select:focus, textarea:focus, .form-control:focus, .form-select:foc
 .expert-matrix-table th,
 .expert-matrix-table td { border: 1px solid #1f2937 !important; padding: 2px 3px !important; font-size: 10px !important; vertical-align: middle; }
 .expert-matrix-head th { position: sticky; top: 0; z-index: 3; background: #f3f4f6 !important; font-weight: 700; }
-.expert-matrix-time-col { width: 148px; min-width: 148px; }
-.expert-matrix-time { width: 148px; min-width: 148px; font-weight: 500; }
+.expert-matrix-time-col { width: 110px; min-width: 110px; max-width: 110px; }
+.expert-matrix-time { width: 110px; min-width: 110px; max-width: 110px; font-weight: 500; }
 .expert-column-header {
   writing-mode: vertical-rl;
   transform: rotate(180deg);
@@ -264,4 +264,14 @@ input:focus, select:focus, textarea:focus, .form-control:focus, .form-select:foc
   padding: 4px 2px;
 }
 .expert-matrix-cell { min-width: 42px; width: 42px; height: 34px; text-align: center; }
-.expert-matrix-pill { white-space: normal !important; font-size: 10px !important; line-height: 1.15; border-radius: 999px; padding: 2px 4px; }
+.expert-slot-trigger {
+  border: 0;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.1;
+  padding: 3px 6px;
+  max-width: 100%;
+  display: inline-block;
+  white-space: normal;
+  cursor: pointer;
+}
