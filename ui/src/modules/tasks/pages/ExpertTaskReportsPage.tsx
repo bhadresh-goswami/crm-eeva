@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
 import FeedbackModal from '../components/FeedbackModal'
 import ExpertReportsFilterCard from '../components/ExpertReportsFilterCard'
@@ -9,7 +9,9 @@ import { loadTaskForFeedback } from '../services/expertTaskReportsService'
 import { useAuth } from '../../../context/AuthContext'
 
 const defaultFilters = {
-  search: '',
+  candidate_name: '',
+  task_type: '',
+  status_name: '',
   date_from: '',
   date_to: '',
   page: 1,
@@ -20,7 +22,7 @@ const defaultFilters = {
 
 const ExpertTaskReportsPage = () => {
   const { user } = useAuth()
-  const userId = Number(user?.id ?? 0)
+  const sessionExpertId = Number(user?.expert_id ?? user?.user_id ?? user?.id ?? 0)
   const [filters, setFilters] = useState(defaultFilters)
   const [items, setItems] = useState([])
   const [pagination, setPagination] = useState({ current_page: 1, total_pages: 1, total_records: 0, per_page: 10 })
@@ -28,10 +30,27 @@ const ExpertTaskReportsPage = () => {
   const [modalMode, setModalMode] = useState<'ADD' | 'VIEW'>('ADD')
   const [taskId, setTaskId] = useState<number | null>(null)
 
+  const filteredItems = useMemo(() => items.filter((row: any) => {
+    if (filters.candidate_name && String(row.candidate_name || '').toLowerCase() !== filters.candidate_name.toLowerCase()) return false
+    if (filters.task_type && String(row.task_type || '').toLowerCase() !== filters.task_type.toLowerCase()) return false
+    if (filters.status_name && String(row.status_name || '').toLowerCase() !== filters.status_name.toLowerCase()) return false
+    return true
+  }), [items, filters.candidate_name, filters.task_type, filters.status_name])
+
+  const summaryBadges = useMemo(() => filteredItems.reduce((acc: Record<string, number>, row: any) => {
+    const key = String(row.task_type || 'Unknown').trim() || 'Unknown'
+    acc[key] = (acc[key] ?? 0) + 1
+    return acc
+  }, {}), [filteredItems])
+
+  const candidateOptions = useMemo(() => Array.from(new Set(items.map((r: any) => String(r.candidate_name || '').trim()).filter(Boolean))).sort(), [items])
+  const taskTypeOptions = useMemo(() => Array.from(new Set(items.map((r: any) => String(r.task_type || '').trim()).filter(Boolean))).sort(), [items])
+  const statusOptions = useMemo(() => Array.from(new Set(items.map((r: any) => String(r.status_name || '').trim()).filter(Boolean))).sort(), [items])
+
   const fetchRows = async (payload = filters) => {
     setLoading(true)
     try {
-      const scopedPayload = userId > 0 ? { ...payload, user_id: userId, expert_id: userId } : payload
+      const scopedPayload = sessionExpertId > 0 ? { ...payload, user_id: sessionExpertId, expert_id: sessionExpertId } : payload
       const res = await loadTaskForFeedback(scopedPayload)
       setItems(Array.isArray(res.items) ? res.items : [])
       setPagination(res.pagination ?? { current_page: 1, total_pages: 1, total_records: 0, per_page: 10 })
@@ -40,7 +59,7 @@ const ExpertTaskReportsPage = () => {
     }
   }
 
-  useEffect(() => { void fetchRows() }, [])
+  useEffect(() => { if (sessionExpertId > 0) void fetchRows() }, [sessionExpertId])
 
   const onSort = (col: string) => {
     const nextOrder = filters.sort_by === col && filters.sort_order === 'DESC' ? 'ASC' : 'DESC'
@@ -58,9 +77,21 @@ const ExpertTaskReportsPage = () => {
           onChange={(key: string, value: string) => setFilters((p) => ({ ...p, [key]: value }))}
           onApply={() => { const payload = { ...filters, page: 1 }; setFilters(payload); void fetchRows(payload) }}
           onReset={() => { setFilters(defaultFilters); void fetchRows(defaultFilters) }}
+          candidateOptions={candidateOptions}
+          taskTypeOptions={taskTypeOptions}
+          statusOptions={statusOptions}
+          pageSize={filters.limit}
+          onPageSizeChange={(size: number) => { const payload = { ...filters, page: 1, limit: size }; setFilters(payload); void fetchRows(payload) }}
         />
+        <div className="d-flex flex-wrap gap-2 mb-2">
+          {Object.entries(summaryBadges).map(([taskType, count]) => (
+            <span key={taskType} className="badge rounded-pill text-primary-emphasis" style={{ backgroundColor: '#dbeafe', fontSize: '0.82rem', padding: '0.5rem 0.7rem' }}>
+              {taskType} <span className="badge rounded-pill text-bg-primary ms-1">{String(count).padStart(2, '0')}</span>
+            </span>
+          ))}
+        </div>
         <ExpertReportsTable
-          items={items}
+          items={filteredItems}
           loading={loading}
           sortBy={filters.sort_by}
           sortOrder={filters.sort_order}
