@@ -454,6 +454,10 @@ elseif ($uri === "/manager/reports/feedback-report" && $method === "GET") {
     authorize($user,['admin','manager']);
     (new ManagerReportsController())->feedbackReport();
 }
+elseif ($uri === "/manager/reports/expert-availability-matrix" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator']);
+    (new ManagerReportsController())->expertAvailabilityMatrix();
+}
 elseif (preg_match('#^/manager/reports/task-details/(\d+)$#', $uri, $matches) && $method === "GET") {
     authorize($user,['admin','manager']);
     (new ManagerReportsController())->taskDetails((int)$matches[1]);
