@@ -1,6 +1,19 @@
 const IST_ZONE = 'Asia/Kolkata'
 const EST_ZONE = 'America/New_York'
 
+export const parseISTDateTime = (dateValue?: string, timeValue?: string) => {
+  if (!dateValue || !timeValue) return null
+  const normalizedDate = String(dateValue).trim()
+  const timePart = String(timeValue).trim().slice(0, 8)
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalizedDate)
+  if (!match) return null
+  const [h, m, s = '00'] = timePart.split(':')
+  if (!h || !m) return null
+  const utcMillis = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(h) - 5, Number(m) - 30, Number(s))
+  const asDate = new Date(utcMillis)
+  return Number.isNaN(asDate.getTime()) ? null : asDate
+}
+
 const toDate = (value: string | Date) => {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
   if (!value) return null
@@ -36,4 +49,3 @@ export const formatDualTimezone = (value: string | Date) => {
   if (ist === '—' || est === '—') return '—'
   return `${ist} / ${est}`
 }
-

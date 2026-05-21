@@ -1,4 +1,5 @@
 import { BsArrowDownUp, BsChatSquareText, BsEye } from 'react-icons/bs'
+import { formatEST, formatIST, parseISTDateTime } from '../../../utils/timezone'
 
 type Row = {
   id: number
@@ -99,8 +100,8 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
           <tbody>
             {loading ? <tr><td colSpan={10} className="text-center py-5"><div className="spinner-border text-primary" /></td></tr> : items.length===0 ? <tr><td colSpan={10} className="text-center py-5 text-muted">No completed tasks found.</td></tr> : items.map((row) => {
               const dateTime = parseISTDateTime(row.task_date, row.start_time)
-              const istTime = formatTime(dateTime, IST_ZONE, 'IST')
-              const estTime = formatTime(dateTime, EST_ZONE, 'EST')
+              const istTime = dateTime ? formatIST(dateTime) : '--'
+              const estTime = dateTime ? formatEST(dateTime) : '--'
               return (
               <tr key={row.id}>
                 <td style={actionCellStyle}>
