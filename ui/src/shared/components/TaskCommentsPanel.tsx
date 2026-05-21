@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getTaskComments, type TaskCommentItem } from '../../modules/tasks/api/taskCommentsApi'
+import { formatDualTimezone } from '../../utils/timezone'
 
 type TaskCommentsPanelProps = {
   taskId: number | null
@@ -10,13 +11,7 @@ const formatDateTime = (value: string) => {
   if (!value) return '—'
   const date = new Date(value.replace(' ', 'T'))
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
+  return formatDualTimezone(date)
 }
 
 const TaskCommentsPanel = ({ taskId, refreshKey = 0 }: TaskCommentsPanelProps) => {

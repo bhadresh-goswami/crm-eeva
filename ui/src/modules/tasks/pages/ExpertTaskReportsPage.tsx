@@ -6,6 +6,7 @@ import ExpertReportsTable from '../components/ExpertReportsTable'
 import ExpertReportsPagination from '../components/ExpertReportsPagination'
 // @ts-ignore
 import { loadTaskForFeedback } from '../services/expertTaskReportsService'
+import { useAuth } from '../../../context/AuthContext'
 
 const defaultFilters = {
   search: '',
@@ -18,6 +19,8 @@ const defaultFilters = {
 }
 
 const ExpertTaskReportsPage = () => {
+  const { user } = useAuth()
+  const userId = Number(user?.id ?? 0)
   const [filters, setFilters] = useState(defaultFilters)
   const [items, setItems] = useState([])
   const [pagination, setPagination] = useState({ current_page: 1, total_pages: 1, total_records: 0, per_page: 10 })
@@ -28,7 +31,8 @@ const ExpertTaskReportsPage = () => {
   const fetchRows = async (payload = filters) => {
     setLoading(true)
     try {
-      const res = await loadTaskForFeedback(payload)
+      const scopedPayload = userId > 0 ? { ...payload, user_id: userId, expert_id: userId } : payload
+      const res = await loadTaskForFeedback(scopedPayload)
       setItems(Array.isArray(res.items) ? res.items : [])
       setPagination(res.pagination ?? { current_page: 1, total_pages: 1, total_records: 0, per_page: 10 })
     } finally {
@@ -46,7 +50,7 @@ const ExpertTaskReportsPage = () => {
   }
 
   return (
-    <PageContainer title="Expert Task Reports" description="Track completed tasks and feedback activity.">
+    <PageContainer title={`Expert Task Reports${user?.name ? ` - ${user.name}` : ''}`} description="Track completed tasks and feedback activity.">
       <div style={{ backgroundColor: '#f8fafc', fontSize: '0.95rem', maxWidth: '100%', overflowX: 'hidden' }} className="px-2 px-md-2 py-2">
         <ExpertReportsFilterCard
           filters={filters}

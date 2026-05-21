@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import AnimatedModal from './AnimatedModal'
 import TaskCommentsPanel from './TaskCommentsPanel'
+import { formatDualTimezone } from '../../utils/timezone'
 
 type TaskDetailRole = 'manager' | 'admin' | 'expert'
 
@@ -43,14 +44,6 @@ const formatDate = (dateValue: string, timeZone: 'Asia/Kolkata' | 'America/New_Y
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone }).format(start)
 }
 
-const formatTimeRange = (dateValue: string, startTime: string, endTime: string, timeZone: 'Asia/Kolkata' | 'America/New_York') => {
-  const start = toUtcFromIst(dateValue, startTime)
-  const end = toUtcFromIst(dateValue, endTime)
-  if (!start || !end) return '—'
-  const formatter = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone })
-  return `${formatter.format(start)} – ${formatter.format(end)}`
-}
-
 const badgeStyle = (status: string) => {
   const normalized = status.toLowerCase()
   if (normalized.includes('progress')) return { background: '#dcfce7', color: '#166534' }
@@ -71,9 +64,9 @@ const TaskDetailsModal = ({ isOpen, role, task, onClose, headerActions, comments
   const descriptionContainsTable = /<table[\s\S]*?>/i.test(description)
 
   const dateIst = task.dueDate ? formatDate(task.dueDate, 'Asia/Kolkata') : '—'
-  const timeIst = task.dueDate && task.startTime && task.endTime ? formatTimeRange(task.dueDate, task.startTime, task.endTime, 'Asia/Kolkata') : '—'
-  const dateEst = task.dueDate ? formatDate(task.dueDate, 'America/New_York') : '—'
-  const timeEst = task.dueDate && task.startTime && task.endTime ? formatTimeRange(task.dueDate, task.startTime, task.endTime, 'America/New_York') : '—'
+  const startDate = task.dueDate && task.startTime ? toUtcFromIst(task.dueDate, task.startTime) : null
+  const endDate = task.dueDate && task.endTime ? toUtcFromIst(task.dueDate, task.endTime) : null
+  const timeDual = startDate && endDate ? `${formatDualTimezone(startDate)} - ${formatDualTimezone(endDate)}` : '—'
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={onClose} title="Task Details" cardClassName="task-details-modal-card task-details-modal-card--fullscreen" size="xl">
@@ -123,8 +116,7 @@ const TaskDetailsModal = ({ isOpen, role, task, onClose, headerActions, comments
               <div className="task-details-modal__meta"><span className="task-details-modal__label">Assigned To</span><span className="task-details-modal__value">{task.assignedTo || '—'}</span></div>
               <div className="task-details-modal__meta"><span className="task-details-modal__label">Assigned By</span><span className="task-details-modal__value">{task.assignedBy || '—'}</span></div>
               <div className="task-details-modal__meta"><span className="task-details-modal__label">Date (IST)</span><span className="task-details-modal__value">{dateIst}</span></div>
-              <div className="task-details-modal__meta"><span className="task-details-modal__label">Time (IST)</span><span className="task-details-modal__value">{dateIst} | {timeIst}</span></div>
-              <div className="task-details-modal__meta"><span className="task-details-modal__label">Time (EST)</span><span className="task-details-modal__value">{dateEst} | {timeEst}</span></div>
+              <div className="task-details-modal__meta"><span className="task-details-modal__label">Time (IST / EST)</span><span className="task-details-modal__value">{dateIst} | {timeDual}</span></div>
             </div>
           </section>
 
