@@ -26,9 +26,9 @@ class ExpertReportsController {
 
             $where = ["ta.user_id = ?"];
             $params = [$expertUserId];
-            if ($candidateName !== '') { $where[] = 'LOWER(COALESCE(c.name, \"\")) = LOWER(?)'; $params[] = $candidateName; }
-            if ($taskType !== '') { $where[] = 'LOWER(COALESCE(tt.name, \"\")) = LOWER(?)'; $params[] = $taskType; }
-            if ($statusName !== '') { $where[] = 'LOWER(COALESCE(ts.name, \"\")) = LOWER(?)'; $params[] = $statusName; }
+            if ($candidateName !== '') { $where[] = "LOWER(COALESCE(c.name, '')) = LOWER(?)"; $params[] = $candidateName; }
+            if ($taskType !== '') { $where[] = "LOWER(COALESCE(tt.name, '')) = LOWER(?)"; $params[] = $taskType; }
+            if ($statusName !== '') { $where[] = "LOWER(COALESCE(ts.name, '')) = LOWER(?)"; $params[] = $statusName; }
             if ($dateFrom !== '') { $where[] = 'DATE(t.due_date) >= ?'; $params[] = $dateFrom; }
             if ($dateTo !== '') { $where[] = 'DATE(t.due_date) <= ?'; $params[] = $dateTo; }
             $whereClause = implode(' AND ', $where);
