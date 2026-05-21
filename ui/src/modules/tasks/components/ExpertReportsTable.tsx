@@ -1,5 +1,5 @@
 import { BsArrowDownUp, BsChatSquareText, BsEye } from 'react-icons/bs'
-import { formatEST, formatIST, parseISTDateTime } from '../../../utils/timezone'
+import { formatEST, formatIST } from '../../../utils/timezone'
 
 type Row = {
   id: number
@@ -15,8 +15,6 @@ type Row = {
   feedback_id: number | null
 }
 
-const IST_ZONE = 'Asia/Kolkata'
-const EST_ZONE = 'America/New_York'
 
 const parseISTDateTime = (dateValue?: string, timeValue?: string) => {
   if (!dateValue || !timeValue) return null
@@ -39,15 +37,6 @@ const parseISTDateTime = (dateValue?: string, timeValue?: string) => {
   return Number.isNaN(asDate.getTime()) ? null : asDate
 }
 
-const formatTime = (date: Date | null, zone: string, suffix: string) => {
-  if (!date) return '--'
-  return `${new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: zone,
-  }).format(date)} ${suffix}`
-}
 
 type Props = {
   items: Row[]
