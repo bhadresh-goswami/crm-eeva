@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BsArrowClockwise, BsDownload } from 'react-icons/bs'
+import { BsArrowClockwise, BsDownload, BsThreeDots } from 'react-icons/bs'
 import PageContainer from '../../../shared/components/PageContainer'
 import { getExpertAvailabilityMatrixReport, type ExpertAvailabilityMatrixFilters, type ExpertAvailabilityMatrixResponse } from '../api/tasksApi'
 
 type Slot = ExpertAvailabilityMatrixResponse['slots'][number]
 
-const statusClasses: Record<string, string> = {
-  assigned: 'bg-warning text-dark',
-  running: 'bg-primary text-white',
-  completed: 'bg-success text-white',
-  no_show: 'bg-light text-dark',
-  rescheduled: 'bg-danger text-white',
+const statusCellClasses: Record<string, string> = {
+  assigned: 'slot-cell-assigned',
+  running: 'slot-cell-running',
+  completed: 'slot-cell-completed',
+  no_show: 'slot-cell-no-show',
+  rescheduled: 'slot-cell-rescheduled',
 }
 
 const defaultFilters = (): ExpertAvailabilityMatrixFilters => ({
@@ -60,8 +60,8 @@ const ExpertAvailabilityMatrixReportPage = () => {
     </div></div></div>
     {error ? <div className='alert alert-danger py-2'>{error}</div> : null}
     <div className='expert-matrix-wrap table-responsive border rounded' style={{ maxHeight: '70vh' }}><table id='expert-availability-matrix-table' className='table table-bordered table-sm mb-0 align-middle expert-matrix-table'>
-      <thead className='table-light expert-matrix-head'><tr><th className='expert-matrix-time-col text-center'>IST</th><th className='expert-matrix-time-col text-center'>EST</th>{data?.experts.map((e)=><th key={e.id} className='expert-column-header'>{e.name}</th>)}</tr></thead>
-      <tbody>{loading && !data ? <tr><td colSpan={3} className='text-center py-4'>Loading...</td></tr> : slotRows.map((slot)=><tr key={slot.slot_key}><td className='expert-matrix-time'>{slot.ist_label.replace(' IST', '')}</td><td className='expert-matrix-time'>{slot.est_label.replace(' EST', '')}</td>{data?.experts.map((expert)=>{const task = slot.tasks_by_expert[String(expert.id)] as Slot['tasks_by_expert'][string] | undefined; if(!task) return <td key={`${slot.slot_key}-${expert.id}`} className='expert-matrix-cell' />; return <td key={`${slot.slot_key}-${expert.id}`} className='expert-matrix-cell'><button type='button' className={`expert-slot-trigger ${statusClasses[task.status_key] ?? 'bg-secondary text-white'}`} onClick={() => setSelectedTask({ ...task, ist: slot.ist_label, est: slot.est_label, expert: expert.name })}>{task.candidate_name} - {task.task_type}</button></td>})}</tr>)}</tbody>
+      <thead className='expert-matrix-head'><tr><th className='expert-matrix-time-col text-center sticky-col-ist'>IST</th><th className='expert-matrix-time-col text-center sticky-col-est'>EST</th>{data?.experts.map((e)=><th key={e.id} className='expert-column-header'>{e.name}</th>)}</tr></thead>
+      <tbody>{loading && !data ? <tr><td colSpan={3} className='text-center py-4'>Loading...</td></tr> : slotRows.map((slot)=><tr key={slot.slot_key}><td className='expert-matrix-time sticky-col-ist'>{slot.ist_label.replace(' IST', '')}</td><td className='expert-matrix-time sticky-col-est'>{slot.est_label.replace(' EST', '')}</td>{data?.experts.map((expert)=>{const task = slot.tasks_by_expert[String(expert.id)] as Slot['tasks_by_expert'][string] | undefined; if(!task) return <td key={`${slot.slot_key}-${expert.id}`} className='expert-matrix-cell' />; return <td key={`${slot.slot_key}-${expert.id}`} className={`expert-matrix-cell ${statusCellClasses[task.status_key] ?? ''}`}><button type='button' className='slot-view-btn' onClick={() => setSelectedTask({ ...task, ist: slot.ist_label, est: slot.est_label, expert: expert.name })} aria-label='View task slot details'><BsThreeDots /></button></td>})}</tr>)}</tbody>
     </table></div>
     {selectedTask ? <><div className='modal-backdrop fade show' onClick={() => setSelectedTask(null)} /><div className='modal fade show d-block' tabIndex={-1} role='dialog' aria-modal='true'><div className='modal-dialog modal-dialog-centered'><div className='modal-content'><div className='modal-header py-2'><h6 className='modal-title mb-0'>Task Slot Details</h6><button className='btn-close' onClick={() => setSelectedTask(null)} /></div><div className='modal-body small'><p className='mb-1'><strong>Expert:</strong> {selectedTask.expert}</p><p className='mb-1'><strong>Candidate:</strong> {selectedTask.candidate_name}</p><p className='mb-1'><strong>Task Type:</strong> {selectedTask.task_type}</p><p className='mb-1'><strong>Status:</strong> {selectedTask.status_key.replace('_', ' ')}</p><p className='mb-1'><strong>IST Slot:</strong> {selectedTask.ist}</p><p className='mb-0'><strong>EST Slot:</strong> {selectedTask.est}</p></div></div></div></div></> : null}
   </PageContainer>
