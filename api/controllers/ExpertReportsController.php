@@ -66,10 +66,9 @@ class ExpertReportsController {
                     COALESCE(t.duration, 0) AS duration,
                     CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
                     t.created_at,
-                    t.updated_at,
                     tf.id AS feedback_id
                 {$baseFrom}
-                ORDER BY DATE(t.due_date) DESC, t.updated_at DESC, t.created_at DESC
+                ORDER BY DATE(t.due_date) DESC, t.created_at DESC
                 LIMIT {$limit} OFFSET {$offset}
             ";
             $stmt = $conn->prepare($listSql);
@@ -87,4 +86,3 @@ class ExpertReportsController {
         }
     }
 }
-
