@@ -15,7 +15,7 @@ const defaultFilters = {
   date_from: '',
   date_to: '',
   page: 1,
-  limit: 10,
+  limit: 20,
   sort_by: 'task_date',
   sort_order: 'DESC',
 }
@@ -27,21 +27,13 @@ const ExpertTaskReportsPage = () => {
   const [items, setItems] = useState([])
   const [pagination, setPagination] = useState({ current_page: 1, total_pages: 1, total_records: 0, per_page: 10 })
   const [loading, setLoading] = useState(false)
+  const [taskTypeCounts, setTaskTypeCounts] = useState<Record<string, number>>({})
   const [modalMode, setModalMode] = useState<'ADD' | 'VIEW'>('ADD')
   const [taskId, setTaskId] = useState<number | null>(null)
 
-  const filteredItems = useMemo(() => items.filter((row: any) => {
-    if (filters.candidate_name && String(row.candidate_name || '').toLowerCase() !== filters.candidate_name.toLowerCase()) return false
-    if (filters.task_type && String(row.task_type || '').toLowerCase() !== filters.task_type.toLowerCase()) return false
-    if (filters.status_name && String(row.status_name || '').toLowerCase() !== filters.status_name.toLowerCase()) return false
-    return true
-  }), [items, filters.candidate_name, filters.task_type, filters.status_name])
+  const filteredItems = useMemo(() => items, [items])
 
-  const summaryBadges = useMemo(() => filteredItems.reduce((acc: Record<string, number>, row: any) => {
-    const key = String(row.task_type || 'Unknown').trim() || 'Unknown'
-    acc[key] = (acc[key] ?? 0) + 1
-    return acc
-  }, {}), [filteredItems])
+  const summaryBadges = useMemo(() => taskTypeCounts, [taskTypeCounts])
 
   const candidateOptions = useMemo(() => Array.from(new Set(items.map((r: any) => String(r.candidate_name || '').trim()).filter(Boolean))).sort(), [items])
   const taskTypeOptions = useMemo(() => Array.from(new Set(items.map((r: any) => String(r.task_type || '').trim()).filter(Boolean))).sort(), [items])
@@ -52,7 +44,15 @@ const ExpertTaskReportsPage = () => {
     try {
       const scopedPayload = sessionExpertId > 0 ? { ...payload, user_id: sessionExpertId, expert_id: sessionExpertId } : payload
       const res = await loadTaskForFeedback(scopedPayload)
-      setItems(Array.isArray(res.items) ? res.items : [])
+      setItems(Array.isArray(res.items) ? res.items.map((row: any) => ({ ...row, id: Number(row.task_id ?? row.id), start_time: row.ist_start_time ?? row.start_time, end_time: row.ist_end_time ?? row.end_time, has_feedback: String(row.feedback_status || '').toLowerCase() === 'submitted', feedback_id: row.feedback_id ?? null })) : [])
+      const mappedCounts = Array.isArray(res.task_type_counts)
+        ? res.task_type_counts.reduce((acc: Record<string, number>, item: any) => {
+            const key = String(item.task_type || 'Unknown')
+            acc[key] = Number(item.total ?? 0)
+            return acc
+          }, {})
+        : {}
+      setTaskTypeCounts(mappedCounts)
       setPagination(res.pagination ?? { current_page: 1, total_pages: 1, total_records: 0, per_page: 10 })
     } finally {
       setLoading(false)
@@ -69,7 +69,7 @@ const ExpertTaskReportsPage = () => {
   }
 
   return (
-    <PageContainer title={`Expert Task Reports${user?.name ? ` - ${user.name}` : ''}`} description="Track completed tasks and feedback activity.">
+    <PageContainer title={`Expert Task Reports${user?.name ? ` - ${user.name}` : ''}`} description="Professional expert personal activity report.">
       <div style={{ backgroundColor: '#f8fafc', fontSize: '0.95rem', maxWidth: '100%', overflowX: 'hidden' }} className="px-2 px-md-2 py-2">
         <ExpertReportsFilterCard
           filters={filters}
@@ -102,6 +102,8 @@ const ExpertTaskReportsPage = () => {
         <ExpertReportsPagination
           page={pagination.current_page}
           totalPages={pagination.total_pages}
+          totalRecords={pagination.total_records}
+          perPage={filters.limit}
           onPageChange={(p: number) => { if (p < 1 || p > pagination.total_pages) return; const payload = { ...filters, page: p }; setFilters(payload); void fetchRows(payload) }}
         />
       </div>

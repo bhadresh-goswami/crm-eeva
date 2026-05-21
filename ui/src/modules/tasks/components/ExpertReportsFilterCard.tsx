@@ -25,9 +25,9 @@ const ExpertReportsFilterCard = ({ filters, onChange, onApply, onReset, loading,
       <div className="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
         <h6 className="mb-0 fw-semibold text-dark" style={{ fontSize: '1rem' }}>Filter Reports</h6>
         <div className="d-flex align-items-center gap-2">
-          <label className="form-label mb-0 text-muted fw-semibold" style={{ fontSize: '0.85rem' }}>Page Size</label>
+          <label className="form-label mb-0 text-muted fw-semibold" style={{ fontSize: '0.85rem' }}>Entries</label>
           <select className="form-select form-select-sm" style={{ minWidth: 90 }} value={pageSize} onChange={(e) => onPageSizeChange(Number(e.target.value))}>
-            {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+            {[20, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
           </select>
         </div>
       </div>

@@ -6,7 +6,7 @@ type Row = {
   task_date: string
   candidate_name: string
   task_type: string
-  assigned_to_name?: string
+  expert_name?: string
   status_name: string
   est_time_range: string
   task_date?: string
@@ -93,7 +93,7 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
           <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
             <tr>
               <th className="text-center text-nowrap" style={actionCellStyle}>Action</th>
-              {['task_date','candidate_name','assigned_to_name','task_type','status_name','ist_time','est_time','duration'].map((col) => <th key={col} className="text-nowrap" role="button" onClick={() => onSort(col === 'ist_time' || col === 'est_time' ? 'task_date' : col)}>{col === 'ist_time' ? 'IST Time' : col === 'est_time' ? 'EST Time' : col.replaceAll('_',' ').replace(/\b\w/g, (c) => c.toUpperCase())} <BsArrowDownUp size={12} className={sortBy===col?'text-primary':''} /></th>)}
+              {['task_date','expert_name','candidate_name','task_type','status_name','ist_time','est_time','duration'].map((col) => <th key={col} className="text-nowrap" role="button" onClick={() => onSort(col === 'ist_time' || col === 'est_time' ? 'task_date' : col)}>{col === 'ist_time' ? 'IST Time' : col === 'est_time' ? 'EST Time' : col.replaceAll('_',' ').replace(/\b\w/g, (c) => c.toUpperCase())} <BsArrowDownUp size={12} className={sortBy===col?'text-primary':''} /></th>)}
               <th className="text-nowrap" style={{ minWidth: 96 }}>Feedback</th>
             </tr>
           </thead>
@@ -147,7 +147,7 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
                     )}
                   </div>
                 </td>
-                <td className="text-nowrap">{row.task_date || '--'}</td><td className="text-nowrap">{row.candidate_name || '--'}</td><td className="text-nowrap">{row.assigned_to_name || '--'}</td><td className="text-nowrap">{row.task_type || '--'}</td>
+                <td className="text-nowrap">{row.task_date || '--'}</td><td className="text-nowrap">{row.expert_name || '--'}</td><td className="text-nowrap">{row.candidate_name || '--'}</td><td className="text-nowrap">{row.task_type || '--'}</td>
                 <td className="text-nowrap"><span className={`badge ${statusBadge(row.status_name)}`}>{row.status_name || '--'}</span></td>
                 <td className="text-nowrap">{istTime}</td>
                 <td className="text-nowrap">{estTime}</td>
