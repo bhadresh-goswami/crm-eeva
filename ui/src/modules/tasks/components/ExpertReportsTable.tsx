@@ -1,11 +1,12 @@
 import { BsArrowDownUp, BsChatSquareText, BsEye } from 'react-icons/bs'
-import { formatDualTimezone } from '../../../utils/timezone'
+import { formatEST, formatIST, parseISTDateTime } from '../../../utils/timezone'
 
 type Row = {
   id: number
   task_date: string
   candidate_name: string
   task_type: string
+  expert_name?: string
   status_name: string
   est_time_range: string
   task_date?: string
@@ -58,12 +59,16 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
           <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
             <tr>
               <th className="text-center text-nowrap" style={actionCellStyle}>Action</th>
-              {['task_date','candidate_name','task_type','status_name','est_time','duration'].map((col) => <th key={col} className="text-nowrap" role="button" onClick={() => onSort(col === 'est_time' ? 'task_date' : col)}>{col === 'est_time' ? 'Time (IST / EST)' : col.replaceAll('_',' ').replace(/\b\w/g, (c) => c.toUpperCase())} <BsArrowDownUp size={12} className={sortBy===col?'text-primary':''} /></th>)}
+              {['task_date','expert_name','candidate_name','task_type','status_name','ist_time','est_time','duration'].map((col) => <th key={col} className="text-nowrap" role="button" onClick={() => onSort(col === 'ist_time' || col === 'est_time' ? 'task_date' : col)}>{col === 'ist_time' ? 'IST Time' : col === 'est_time' ? 'EST Time' : col.replaceAll('_',' ').replace(/\b\w/g, (c) => c.toUpperCase())} <BsArrowDownUp size={12} className={sortBy===col?'text-primary':''} /></th>)}
               <th className="text-nowrap" style={{ minWidth: 96 }}>Feedback</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={8} className="text-center py-5"><div className="spinner-border text-primary" /></td></tr> : items.length===0 ? <tr><td colSpan={8} className="text-center py-5 text-muted">No completed tasks found.</td></tr> : items.map((row) => (
+            {loading ? <tr><td colSpan={10} className="text-center py-5"><div className="spinner-border text-primary" /></td></tr> : items.length===0 ? <tr><td colSpan={10} className="text-center py-5 text-muted">No completed tasks found.</td></tr> : items.map((row) => {
+              const dateTime = parseISTDateTime(row.task_date, row.start_time)
+              const istTime = dateTime ? formatIST(dateTime) : '--'
+              const estTime = dateTime ? formatEST(dateTime) : '--'
+              return (
               <tr key={row.id}>
                 <td style={actionCellStyle}>
                   <div className="d-flex justify-content-center align-items-center">
@@ -108,9 +113,10 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
                     )}
                   </div>
                 </td>
-                <td className="text-nowrap">{row.task_date || '--'}</td><td className="text-nowrap">{row.candidate_name || '--'}</td><td className="text-nowrap">{row.task_type || '--'}</td>
+                <td className="text-nowrap">{row.task_date || '--'}</td><td className="text-nowrap">{row.expert_name || '--'}</td><td className="text-nowrap">{row.candidate_name || '--'}</td><td className="text-nowrap">{row.task_type || '--'}</td>
                 <td className="text-nowrap"><span className={`badge ${statusBadge(row.status_name)}`}>{row.status_name || '--'}</span></td>
-                <td className="text-nowrap">{row.task_date && row.start_time ? `${formatDualTimezone(`${row.task_date}T${row.start_time}`)}${row.end_time ? ` - ${formatDualTimezone(`${row.task_date}T${row.end_time}`)}` : ''}` : (row.est_time_range || '--')}</td>
+                <td className="text-nowrap">{istTime}</td>
+                <td className="text-nowrap">{estTime}</td>
                 <td className="text-nowrap">{row.duration ? `${row.duration} min` : '--'}</td>
                 <td className="text-nowrap align-middle">
                   {row.feedback_id == null ? (
@@ -120,7 +126,7 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
                   )}
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
