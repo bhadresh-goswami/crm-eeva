@@ -22,7 +22,7 @@ const defaultFilters = {
 
 const ExpertTaskReportsPage = () => {
   const { user } = useAuth()
-  const sessionExpertId = Number(user?.expert_id ?? user?.user_id ?? user?.id ?? 0)
+  const sessionExpertId = Number((user as any)?.expert_id ?? (user as any)?.user_id ?? user?.id ?? 0)
   const [filters, setFilters] = useState(defaultFilters)
   const [items, setItems] = useState([])
   const [pagination, setPagination] = useState({ current_page: 1, total_pages: 1, total_records: 0, per_page: 10 })

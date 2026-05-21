@@ -8,8 +8,6 @@ type Row = {
   task_type: string
   expert_name?: string
   status_name: string
-  est_time_range: string
-  task_date?: string
   start_time?: string
   end_time?: string
   duration: number
