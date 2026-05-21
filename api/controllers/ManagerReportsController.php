@@ -161,9 +161,9 @@ class ManagerReportsController {
                 u.name AS technical_expert,
                 ROUND(SUM({$durationExpr})/60,2) AS total_completed_hours,
                 COUNT(DISTINCT t.id) AS completed_count,
-                SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) IN ('completed','success') THEN 1 ELSE 0 END) AS success_count,
-                SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) IN ('rejected','cancelled','failed') THEN 1 ELSE 0 END) AS rejected_count,
-                ROUND((SUM(CASE WHEN LOWER(COALESCE(tsm.name,'')) IN ('completed','success') THEN 1 ELSE 0 END) / NULLIF(COUNT(DISTINCT t.id),0)) * 100,2) AS success_ratio
+                SUM(CASE WHEN t.status_id = 8 THEN 1 ELSE 0 END) AS success_count,
+                SUM(CASE WHEN t.status_id IN (5,6) OR LOWER(COALESCE(tsm.name,'')) IN ('rejected','cancelled','failed','no show','no-show') THEN 1 ELSE 0 END) AS rejected_count,
+                ROUND((SUM(CASE WHEN t.status_id = 8 THEN 1 ELSE 0 END) / NULLIF(COUNT(DISTINCT t.id),0)) * 100,2) AS success_ratio
                 " . $this->baseSelect() . "
                 WHERE {$where}
                 GROUP BY ta.user_id, u.name
@@ -187,18 +187,23 @@ class ManagerReportsController {
                 ? (json_decode(file_get_contents('php://input'), true) ?? [])
                 : $_GET;
 
-            if (empty($request['expert_id'])) {
+            $expertId = (int)($request['expert_id'] ?? 0);
+            if ($expertId <= 0) {
                 http_response_code(422);
                 echo json_encode(['success' => false, 'message' => 'Expert ID is required']);
                 return;
             }
 
-            $expertId = (int)($request['expert_id'] ?? 0);
+            $status = strtolower(trim((string)($request['status'] ?? '')));
+            $allowedStatuses = ['completed', 'success', 'rejected'];
+            if ($status !== '' && !in_array($status, $allowedStatuses, true)) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Invalid status filter']);
+                return;
+            }
             $fromDate = $request['from_date'] ?? null;
             $toDate = $request['to_date'] ?? null;
-            $taskTypeId = $request['task_type_id'] ?? null;
-            $clientId = $request['client_id'] ?? null;
-            $statusType = isset($request['status_type']) ? strtolower(trim((string)$request['status_type'])) : null;
+            $limit = max(1, min(5000, (int)($request['limit'] ?? 1000)));
 
             $durationExpr = "CASE
                 WHEN t.duration IS NOT NULL THEN t.duration
@@ -207,12 +212,10 @@ class ManagerReportsController {
                 ELSE 0
             END";
 
-            $params = [':expert_id' => $expertId];
+            $params = [':expert_id' => $expertId, ':limit' => $limit];
             $where = ["ta.user_id = :expert_id", "ta.is_active = 1"];
-            if (!empty($fromDate) && !empty($toDate)) { $where[] = "DATE(t.created_at) BETWEEN :from_date AND :to_date"; $params[':from_date'] = (string)$fromDate; $params[':to_date'] = (string)$toDate; }
-            if (!empty($taskTypeId)) { $where[] = "t.task_type_id = :task_type_id"; $params[':task_type_id'] = (int)$taskTypeId; }
-            if (!empty($clientId)) { $where[] = "t.client_id = :client_id"; $params[':client_id'] = (int)$clientId; }
-            if (!empty($statusType)) { $where[] = "LOWER(COALESCE(tsm.name,'')) = :status_type"; $params[':status_type'] = $statusType; }
+            if ($status !== '') { $where[] = "LOWER(tsm.name) = :status"; $params[':status'] = $status; }
+            if (!empty($fromDate) && !empty($toDate)) { $where[] = "DATE(t.due_date) BETWEEN :from_date AND :to_date"; $params[':from_date'] = (string)$fromDate; $params[':to_date'] = (string)$toDate; }
 
             $sql = "SELECT DISTINCT
                 t.id AS task_id,
@@ -228,7 +231,8 @@ class ManagerReportsController {
                 COALESCE(assigned_by_user.name, 'N/A') AS assigned_by
                 " . $this->baseSelect() . "
                 WHERE " . implode(' AND ', $where) . "
-                ORDER BY t.created_at DESC";
+                ORDER BY t.created_at DESC
+                LIMIT :limit";
 
             $stmt = $this->conn->prepare($sql);
             foreach ($params as $k => $v) {

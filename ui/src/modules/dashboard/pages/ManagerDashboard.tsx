@@ -14,6 +14,9 @@ import {
   type ManagerTaskStatus,
 } from '../api/dashboardApi'
 import { getTasksLastUpdate } from '../../tasks/api/tasksApi'
+import { FaBell, FaChartLine, FaCheckCircle, FaClock, FaEye, FaRupeeSign, FaPen, FaUserCircle, FaWallet } from 'react-icons/fa'
+import KPIStatCard from '../../../components/dashboard/KPIStatCard'
+import StatusBadge from '../../../components/dashboard/StatusBadge'
 
 const defaultSummary: DashboardSummary = {
   totalTasks: 0,
@@ -289,28 +292,31 @@ const ManagerDashboard = () => {
 
   return (
     <PageContainer title="Manager Dashboard" description="Live dashboard summary and task assignment workflow.">
+      <section className="manager-hero section">
+        <div>
+          <p className="manager-hero__eyebrow">Manager Workspace</p>
+          <h3 className="manager-hero__title">Welcome back, focus on delivery and quality.</h3>
+          <p className="manager-hero__meta">{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        </div>
+        <div className="manager-hero__actions">
+          <button className="header__icon-btn" type="button" aria-label="Notifications"><FaBell /></button>
+          <span className="crm-status-badge crm-status-badge--pending">Break status: Active</span>
+          <span className="manager-avatar"><FaUserCircle /> Manager</span>
+        </div>
+      </section>
 
-      <div className="row g-3 section">
+      <div className="manager-kpi-grid section">
         {loadingSummary
-          ? Array.from({ length: cards.length || 6 }).map((_, index) => (
-              <article key={index} className="col-12 col-md-6 col-xl-3 card skeleton-card" aria-hidden="true" />
+          ? Array.from({ length: cards.length || 5 }).map((_, index) => (
+              <article key={index} className="kpi-card skeleton-card" aria-hidden="true" />
             ))
           : cards.map((card) => {
-              if (!card.tab) {
-                return (
-                  <div key={card.label} className={`col-12 col-md-6 col-xl-3 card metric-card metric-card--${card.tone}`}>
-                    <span className="metric-card__title">{card.label}</span>
-                    <h3 className="metric-card__value">{card.value}</h3>
-                  </div>
-                )
-              }
-
-              return (
-                <button key={card.label} type="button" className={`col-12 col-md-6 col-xl-3 card metric-card metric-card--button metric-card--${card.tone}`} onClick={() => setActiveTab(card.tab)}>
-                  <span className="metric-card__title">{card.label}</span>
-                  <h3 className="metric-card__value">{card.value}</h3>
-                </button>
-              )
+              const icon = card.label === 'Total Revenue' ? <FaRupeeSign />
+                : card.label === 'Completed Tasks' ? <FaCheckCircle />
+                  : card.label === 'Pending Tasks' ? <FaClock />
+                    : card.label === 'Pending Payments' ? <FaWallet /> : <FaChartLine />
+              const helperText = card.label === 'Success Rate' ? 'Completion trend for active pipeline' : 'Updated from live task data'
+              return <KPIStatCard key={card.label} title={card.label} value={card.value} icon={icon} helperText={helperText} accent={card.tone === 'default' ? 'primary' : card.tone as 'success' | 'warning' | 'danger'} onClick={card.tab ? () => setActiveTab(card.tab) : undefined} />
             })}
       </div>
       <div className="card section">
@@ -325,9 +331,9 @@ const ManagerDashboard = () => {
                   <td>{task.client || '-'}</td>
                   <td>{task.candidate || '-'}</td>
                   <td>₹{Number(task.amount ?? 0)}</td>
-                  <td><span className={`badge ${(task.paymentStatus ?? 'pending') === 'paid' ? 'text-bg-success' : 'text-bg-warning'}`}>{task.paymentStatus || 'pending'}</span></td>
+                  <td><StatusBadge status={task.paymentStatus || 'pending'} /></td>
                   <td>{task.duration ? `${task.duration} mins` : '-'}</td>
-                  <td className="d-flex gap-2"><button className="btn btn-sm btn-light" onClick={() => setDetailTask(task)}>👁️</button><button className="btn btn-sm btn-light" onClick={() => setActiveTab('completed')}>✏️</button></td>
+                  <td><div className="dashboard-action-group"><button className="dashboard-action-btn dashboard-action-btn--view" title="View" onClick={() => setDetailTask(task)}><FaEye /></button><button className="dashboard-action-btn dashboard-action-btn--edit" title="Edit" onClick={() => setActiveTab('completed')}><FaPen /></button></div></td>
                 </tr>
               ))}
             </tbody>
@@ -433,7 +439,7 @@ const ManagerDashboard = () => {
                 return (
                   <tr key={task.id}>
                     <td>{index + 1}</td>
-                    <td><span className={`status-pill status-pill--${task.status}`}>{task.status}</span></td>
+                    <td><StatusBadge status={task.status} /></td>
                     <td>{task.dueDate?.slice(0, 10) || '—'}</td>
                     <td>{task.candidate || '—'}</td>
                     <td>{task.client || '—'}</td>
