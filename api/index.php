@@ -32,6 +32,7 @@ require_once "controllers/CandidateController.php";
 require_once "controllers/TaskController.php";
 require_once "controllers/DashboardController.php";
 require_once "controllers/ExpertDashboardAnalyticsController.php";
+require_once "controllers/ExpertReportsController.php";
 
 require_once "controllers/UserController.php";
 require_once "controllers/RoleController.php";
@@ -316,6 +317,11 @@ elseif ($uri === "/tasks/check-updates" && $method === "GET") {
         $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
     }
     (new TaskController())->checkUpdates($actorUserId);
+}
+
+elseif ($uri === "/reports/expert-tasks" && $method === "GET") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    (new ExpertReportsController())->index($user);
 }
 elseif ($uri === "/tasks/load-task-for-feedback" && $method === "POST") {
     authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
