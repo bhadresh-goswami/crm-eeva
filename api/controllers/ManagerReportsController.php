@@ -87,10 +87,16 @@ class ManagerReportsController {
         return " LIMIT :offset, :limit";
     }
 
-    private function runListReport(string $extraWhere = ''): void {
+    private function completedTaskWhere(): string {
+        return "LOWER(COALESCE(tsm.name, '')) = 'completed'";
+    }
+
+    private function runListReport(string $extraWhere = '', string $baseWhere = ''): void {
         try {
             $params = [];
-            $where = $this->applyFilters($params);
+            $where = $baseWhere !== '' ? $baseWhere : '1=1';
+            $filterWhere = $this->applyFilters($params);
+            if ($filterWhere !== '1=1') $where .= " AND {$filterWhere}";
             if ($extraWhere) $where .= " AND {$extraWhere}";
             $durationExpr = "CASE
                 WHEN t.duration IS NOT NULL THEN t.duration
@@ -141,9 +147,9 @@ class ManagerReportsController {
         }
     }
 
-    public function feedbackPending(): void { $this->runListReport('tf.id IS NULL'); }
+    public function feedbackPending(): void { $this->runListReport('tf.id IS NULL', $this->completedTaskWhere()); }
     public function tasksSummary(): void { $this->runListReport(); }
-    public function feedbackReport(): void { $this->runListReport('tf.id IS NOT NULL'); }
+    public function feedbackReport(): void { $this->runListReport('tf.id IS NOT NULL', $this->completedTaskWhere()); }
 
     public function techVsTasks(): void {
         try {
