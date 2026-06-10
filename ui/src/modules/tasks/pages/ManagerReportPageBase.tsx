@@ -3,6 +3,7 @@ import { BsArrowDownUp, BsEye } from 'react-icons/bs'
 import { getTaskFilterOptions, getManagerReportList, getManagerReportTaskDetails, type ManagerReportFilters } from '../api/tasksApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import { getClients } from '../../clients/api/clientsApi'
+import { formatEST, formatIST, parseISTDateTime } from '../../../utils/timezone'
 
 export type ReportColumn = { key: string; label: string }
 
@@ -16,6 +17,49 @@ type ReportPageProps = {
 type SortConfig = { key: string; direction: 'asc' | 'desc' }
 
 type Option = { id: number; name: string }
+
+const asString = (value: unknown) => value === undefined || value === null ? '' : String(value).trim()
+
+const withoutZoneSuffix = (value: string, suffix: string) => value.endsWith(` ${suffix}`) ? value.slice(0, -suffix.length - 1) : value
+
+const getScheduleDate = (row: Record<string, unknown>) => {
+  const dueDate = asString(row.due_date ?? row.task_date)
+  if (dueDate) return dueDate.slice(0, 10)
+  const scheduledStart = asString(row.scheduled_start_time)
+  const scheduledEnd = asString(row.scheduled_end_time)
+  return (scheduledStart || scheduledEnd).slice(0, 10)
+}
+
+const getScheduleText = (row: Record<string, unknown>) => {
+  const startTime = asString(row.scheduled_start_time)
+  const endTime = asString(row.scheduled_end_time)
+  if (!startTime && !endTime) return '--'
+
+  const scheduleDate = getScheduleDate(row)
+  const startDate = startTime ? parseISTDateTime(scheduleDate, startTime) : null
+  const endDate = endTime ? parseISTDateTime(scheduleDate, endTime) : null
+  if (!startDate && !endDate) return '--'
+
+  const istStart = startDate ? withoutZoneSuffix(formatIST(startDate), 'IST') : '--'
+  const istEnd = endDate ? withoutZoneSuffix(formatIST(endDate), 'IST') : '--'
+  const estStart = startDate ? withoutZoneSuffix(formatEST(startDate), 'EST') : '--'
+  const estEnd = endDate ? withoutZoneSuffix(formatEST(endDate), 'EST') : '--'
+
+  return `IST: ${istStart} - ${istEnd}\nEST: ${estStart} - ${estEnd}`
+}
+
+const renderSchedule = (row: Record<string, unknown>) => {
+  const scheduleText = getScheduleText(row)
+  if (scheduleText === '--') return scheduleText
+  const [istLine, estLine] = scheduleText.split('\n')
+
+  return (
+    <div className="manager-schedule-cell">
+      <div><strong>IST:</strong> {istLine.replace('IST: ', '')}</div>
+      <div><strong>EST:</strong> {estLine.replace('EST: ', '')}</div>
+    </div>
+  )
+}
 
 const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPageProps) => {
   const { showToast } = useAlert()
@@ -73,6 +117,8 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPag
   }
 
   const mapValue = (row: Record<string, unknown>, key: string) => {
+    if (key === 'schedule') return getScheduleText(row)
+
     const mapping: Record<string, string[]> = {
       taskId: ['task_id'],
       candidate: ['candidate_name', 'candidate'],
@@ -85,12 +131,15 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPag
       feedbackSubmittedDate: ['feedback_date'],
       averageScore: ['average_score'],
       estTime: ['est_time'],
+      schedule: ['scheduled_start_time', 'scheduled_end_time'],
       duration: ['duration'],
     }
     const aliases = mapping[key] ?? [key]
     for (const alias of aliases) if (row[alias] !== undefined && row[alias] !== null && row[alias] !== '') return row[alias]
     return '—'
   }
+
+  const renderCell = (row: Record<string, unknown>, key: string) => key === 'schedule' ? renderSchedule(row) : String(mapValue(row, key))
 
   return (
     <div className="page-container">
@@ -110,7 +159,7 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPag
         const head = columns.filter((c) => c.key !== 'action').map((c) => c.label).join(',')
         const body = sortedRows.map((r) => columns.filter((c) => c.key !== 'action').map((c) => `\"${String(mapValue(r, c.key)).replaceAll('\"', '\"\"')}\"`).join(',')).join('\n')
         const blob = new Blob([`${head}\n${body}`], { type: 'text/csv;charset=utf-8;' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${title.replace(/\s+/g, '_').toLowerCase()}.csv`; a.click()
-      }}>Export Excel</button></div><div className="table-wrapper manager-reports-table__wrapper"><table className="table table-hover table-bordered align-middle manager-reports-table mb-0"><thead><tr>{columns.map((column) => <th key={column.key} className={column.key === 'action' ? 'manager-col-action' : column.key === 'taskId' ? 'manager-col-taskid' : ''}>{column.key === 'action' ? <span /> : <button type="button" className="manager-sort" onClick={() => onSort(column.key)}><span>{column.label}</span><BsArrowDownUp size={12} /></button>}</th>)}</tr></thead><tbody>{loading ? <tr>{columns.map((_, i) => <td key={i}><div className="placeholder-glow"><span className="placeholder col-10" /></div></td>)}</tr> : sortedRows.length === 0 ? <tr><td colSpan={columns.length} className="text-center">No data found.</td></tr> : sortedRows.map((row, idx) => <tr key={`${String(mapValue(row, 'taskId'))}-${idx}`}>{columns.map((column) => column.key === 'action' ? <td key={`${idx}-action`} className="text-center manager-col-action"><button className="btn btn-outline-primary btn-sm rounded-pill" onClick={() => void openDetails(Number(row.task_id ?? 0))}><BsEye size={15} className="text-primary" /></button></td> : <td key={`${idx}-${column.key}`} className={`manager-cell ${column.key === 'taskId' ? 'manager-col-taskid' : ''}`} title={String(mapValue(row, column.key))}><span className="manager-cell-ellipsis">{String(mapValue(row, column.key))}</span></td>)}</tr>)}</tbody></table></div></div>
+      }}>Export Excel</button></div><div className="table-wrapper manager-reports-table__wrapper"><table className="table table-hover table-bordered align-middle manager-reports-table mb-0"><thead><tr>{columns.map((column) => <th key={column.key} className={column.key === 'action' ? 'manager-col-action' : column.key === 'taskId' ? 'manager-col-taskid' : ''}>{column.key === 'action' ? <span /> : <button type="button" className="manager-sort" onClick={() => onSort(column.key)}><span>{column.label}</span><BsArrowDownUp size={12} /></button>}</th>)}</tr></thead><tbody>{loading ? <tr>{columns.map((_, i) => <td key={i}><div className="placeholder-glow"><span className="placeholder col-10" /></div></td>)}</tr> : sortedRows.length === 0 ? <tr><td colSpan={columns.length} className="text-center">No data found.</td></tr> : sortedRows.map((row, idx) => <tr key={`${String(mapValue(row, 'taskId'))}-${idx}`}>{columns.map((column) => column.key === 'action' ? <td key={`${idx}-action`} className="text-center manager-col-action"><button className="btn btn-outline-primary btn-sm rounded-pill" onClick={() => void openDetails(Number(row.task_id ?? 0))}><BsEye size={15} className="text-primary" /></button></td> : <td key={`${idx}-${column.key}`} className={`manager-cell ${column.key === 'taskId' ? 'manager-col-taskid' : ''}`} title={column.key === 'schedule' ? undefined : String(mapValue(row, column.key))}><span className={column.key === 'schedule' ? '' : 'manager-cell-ellipsis'}>{renderCell(row, column.key)}</span></td>)}</tr>)}</tbody></table></div></div>
 
       <div className="card py-2 px-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2"><div className="d-flex align-items-center gap-2"><small className="text-muted">Rows:</small><select className="form-select form-select-sm" style={{ width: 90 }} value={String(filters.limit ?? 10)} onChange={(e) => { const limit = Number(e.target.value); setFilters((p) => ({ ...p, page: 1, limit })); void load({ page: 1, limit }) }}><option value="10">10</option><option value="50">50</option><option value="100">100</option><option value="200">200</option></select><small className="text-muted">Page {filters.page ?? 1}</small></div><nav><ul className="pagination mb-0"><li className={`page-item ${(filters.page ?? 1) <= 1 ? 'disabled' : ''}`}><button className="page-link" onClick={() => { const page = Math.max(1, (filters.page ?? 1) - 1); setFilters((p) => ({ ...p, page })); void load({ page }) }}>Previous</button></li>{[Math.max(1, (filters.page ?? 1) - 1), filters.page ?? 1, (filters.page ?? 1) + 1].filter((v, i, a) => a.indexOf(v) === i).map((pageNo) => <li key={pageNo} className={`page-item ${pageNo === (filters.page ?? 1) ? 'active' : ''}`}><button className="page-link" onClick={() => { setFilters((p) => ({ ...p, page: pageNo })); void load({ page: pageNo }) }}>{pageNo}</button></li>)}<li className={`page-item ${rows.length < Number(filters.limit ?? 10) ? 'disabled' : ''}`}><button className="page-link" onClick={() => { const page = (filters.page ?? 1) + 1; setFilters((p) => ({ ...p, page })); void load({ page }) }}>Next</button></li></ul></nav></div>
       {error ? <div className="alert alert-danger">{error} <button className="btn btn-link btn-sm" onClick={() => void load()}>Retry</button></div> : null}
