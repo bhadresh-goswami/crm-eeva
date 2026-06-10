@@ -102,7 +102,14 @@ class ManagerReportsController {
         return $expressions ? 'COALESCE(' . implode(', ', $expressions) . ')' : 'NULL';
     }
 
-    private function runListReport(string $extraWhere = '', string $baseWhere = '', bool $includeSchedule = false): void {
+    private function bindListParams(PDOStatement $stmt, array $params): void {
+        foreach ($params as $k => $v) {
+            $type = in_array($k, [':offset', ':limit', ':candidate_id', ':expert_id', ':task_type_id', ':client_id', ':company_id', ':status_id'], true) ? PDO::PARAM_INT : PDO::PARAM_STR;
+            $stmt->bindValue($k, $v, $type);
+        }
+    }
+
+    private function runListReport(string $extraWhere = '', string $baseWhere = '', bool $includeSchedule = false, bool $includePaginationMeta = false): void {
         try {
             $params = [];
             $where = $baseWhere !== '' ? $baseWhere : '1=1';
@@ -116,6 +123,25 @@ class ManagerReportsController {
                 $scheduleSelect = ",
                 {$scheduledStartExpr} AS scheduled_start_time,
                 {$scheduledEndExpr} AS scheduled_end_time";
+            }
+            $paginationMeta = null;
+            if ($includePaginationMeta) {
+                $page = max(1, (int)($_GET['page'] ?? 1));
+                $limit = max(1, min(200, (int)($_GET['limit'] ?? 20)));
+                $countStmt = $this->conn->prepare("SELECT COUNT(DISTINCT t.id) " . $this->baseSelect() . " WHERE {$where}");
+                $this->bindListParams($countStmt, $params);
+                $countStmt->execute();
+                $totalRecords = (int)$countStmt->fetchColumn();
+                $totalPages = max(1, (int)ceil($totalRecords / $limit));
+                if ($page > $totalPages) {
+                    $page = $totalPages;
+                }
+                $params[':offset'] = ($page - 1) * $limit;
+                $params[':limit'] = $limit;
+                $limitClause = " LIMIT :offset, :limit";
+                $paginationMeta = ['total_records' => $totalRecords, 'total_pages' => $totalPages, 'page' => $page, 'limit' => $limit];
+            } else {
+                $limitClause = $this->paginateClause($params);
             }
             $durationExpr = "CASE
                 WHEN t.duration IS NOT NULL THEN t.duration
@@ -152,23 +178,24 @@ class ManagerReportsController {
                     )),2) AS average_score
                 " . $this->baseSelect() . "
                 WHERE {$where}
-                ORDER BY t.due_date DESC, t.id DESC" . $this->paginateClause($params);
+                ORDER BY t.due_date DESC, t.id DESC" . $limitClause;
             $stmt = $this->conn->prepare($sql);
-            foreach ($params as $k => $v) {
-                $type = in_array($k, [':offset', ':limit', ':candidate_id', ':expert_id', ':task_type_id', ':client_id', ':company_id', ':status_id'], true) ? PDO::PARAM_INT : PDO::PARAM_STR;
-                $stmt->bindValue($k, $v, $type);
-            }
+            $this->bindListParams($stmt, $params);
             $stmt->execute();
-            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            $response = ['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+            if ($paginationMeta !== null) {
+                $response = array_merge($response, $paginationMeta, ['pagination' => $paginationMeta]);
+            }
+            echo json_encode($response);
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
 
-    public function feedbackPending(): void { $this->runListReport('tf.id IS NULL', $this->completedTaskWhere(), true); }
+    public function feedbackPending(): void { $this->runListReport('tf.id IS NULL', $this->completedTaskWhere(), true, true); }
     public function tasksSummary(): void { $this->runListReport(); }
-    public function feedbackReport(): void { $this->runListReport('tf.id IS NOT NULL', $this->completedTaskWhere(), true); }
+    public function feedbackReport(): void { $this->runListReport('tf.id IS NOT NULL', $this->completedTaskWhere(), true, true); }
 
     public function techVsTasks(): void {
         try {
