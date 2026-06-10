@@ -62,6 +62,49 @@ const renderSchedule = (row: Record<string, unknown>) => {
   )
 }
 
+const asString = (value: unknown) => value === undefined || value === null ? '' : String(value).trim()
+
+const withoutZoneSuffix = (value: string, suffix: string) => value.endsWith(` ${suffix}`) ? value.slice(0, -suffix.length - 1) : value
+
+const getScheduleDate = (row: Record<string, unknown>) => {
+  const dueDate = asString(row.due_date ?? row.task_date)
+  if (dueDate) return dueDate.slice(0, 10)
+  const scheduledStart = asString(row.scheduled_start_time)
+  const scheduledEnd = asString(row.scheduled_end_time)
+  return (scheduledStart || scheduledEnd).slice(0, 10)
+}
+
+const getScheduleText = (row: Record<string, unknown>) => {
+  const startTime = asString(row.scheduled_start_time)
+  const endTime = asString(row.scheduled_end_time)
+  if (!startTime && !endTime) return '--'
+
+  const scheduleDate = getScheduleDate(row)
+  const startDate = startTime ? parseISTDateTime(scheduleDate, startTime) : null
+  const endDate = endTime ? parseISTDateTime(scheduleDate, endTime) : null
+  if (!startDate && !endDate) return '--'
+
+  const istStart = startDate ? withoutZoneSuffix(formatIST(startDate), 'IST') : '--'
+  const istEnd = endDate ? withoutZoneSuffix(formatIST(endDate), 'IST') : '--'
+  const estStart = startDate ? withoutZoneSuffix(formatEST(startDate), 'EST') : '--'
+  const estEnd = endDate ? withoutZoneSuffix(formatEST(endDate), 'EST') : '--'
+
+  return `IST: ${istStart} - ${istEnd}\nEST: ${estStart} - ${estEnd}`
+}
+
+const renderSchedule = (row: Record<string, unknown>) => {
+  const scheduleText = getScheduleText(row)
+  if (scheduleText === '--') return scheduleText
+  const [istLine, estLine] = scheduleText.split('\n')
+
+  return (
+    <div className="manager-schedule-cell">
+      <div><strong>IST:</strong> {istLine.replace('IST: ', '')}</div>
+      <div><strong>EST:</strong> {estLine.replace('EST: ', '')}</div>
+    </div>
+  )
+}
+
 const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPageProps) => {
   const { showToast } = useAlert()
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'task_id', direction: 'asc' })
