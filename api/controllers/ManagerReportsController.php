@@ -193,6 +193,59 @@ class ManagerReportsController {
         }
     }
 
+    public function recalculateTaskDuration(): void {
+        try {
+            $eligibleWhere = "duration = 0
+                AND start_time IS NOT NULL
+                AND end_time IS NOT NULL
+                AND due_date IS NOT NULL
+                AND start_time <> ''
+                AND end_time <> ''
+                AND status_id NOT IN (1,2,5)";
+            $skippedWhere = "duration = 0
+                AND (
+                    start_time IS NULL
+                    OR end_time IS NULL
+                    OR due_date IS NULL
+                    OR start_time = ''
+                    OR end_time = ''
+                    OR status_id IS NULL
+                    OR status_id IN (1,2,5)
+                )";
+
+            $skippedStmt = $this->conn->query("SELECT COUNT(*) FROM tasks WHERE {$skippedWhere}");
+            $skipped = (int)$skippedStmt->fetchColumn();
+
+            $sql = "UPDATE tasks
+                SET duration = CASE
+                    WHEN TIME(end_time) < TIME(start_time) THEN
+                        TIMESTAMPDIFF(
+                            MINUTE,
+                            CONCAT(DATE(due_date), ' ', TIME(start_time)),
+                            DATE_ADD(CONCAT(DATE(due_date), ' ', TIME(end_time)), INTERVAL 1 DAY)
+                        )
+                    ELSE
+                        TIMESTAMPDIFF(
+                            MINUTE,
+                            CONCAT(DATE(due_date), ' ', TIME(start_time)),
+                            CONCAT(DATE(due_date), ' ', TIME(end_time))
+                        )
+                    END
+                WHERE {$eligibleWhere}";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute();
+
+            echo json_encode([
+                'success' => true,
+                'updated' => $stmt->rowCount(),
+                'skipped' => $skipped,
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
     public function feedbackPending(): void { $this->runListReport('tf.id IS NULL', $this->completedTaskWhere(), true, true); }
     public function tasksSummary(): void { $this->runListReport(); }
     public function feedbackReport(): void { $this->runListReport('tf.id IS NOT NULL', $this->completedTaskWhere(), true, true); }

@@ -758,6 +758,17 @@ export const getManagerReportList = async (endpoint: string, filters: ManagerRep
   }
 }
 
+
+export type RecalculateTaskDurationResponse = {
+  success: boolean
+  updated: number
+  skipped: number
+}
+
+export const recalculateTaskDuration = async () => apiRequest<RecalculateTaskDurationResponse>('/reports/recalculate-task-duration', {
+  method: 'POST',
+})
+
 export const getManagerReportTaskDetails = async (taskId: number) => {
   const response = await apiRequest<Record<string, unknown>>(`/manager/reports/task-details/${taskId}`)
   const data = response.data

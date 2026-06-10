@@ -434,6 +434,10 @@ elseif ($uri === "/reports/candidate-performance-feedback" && $method === "GET")
     authorize($user,['admin','manager']);
     (new CandidatePerformanceReportController())->feedback();
 }
+elseif ($uri === "/reports/recalculate-task-duration" && $method === "POST") {
+    authorize($user,['admin']);
+    (new ManagerReportsController())->recalculateTaskDuration();
+}
 elseif ($uri === "/manager/reports/feedback-pending" && $method === "GET") {
     authorize($user,['admin','manager']);
     (new ManagerReportsController())->feedbackPending();

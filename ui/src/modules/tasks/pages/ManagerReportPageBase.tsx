@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BsArrowDownUp, BsEye } from 'react-icons/bs'
-import { getTaskFilterOptions, getManagerReportList, getManagerReportTaskDetails, type ManagerReportFilters } from '../api/tasksApi'
+import { BsArrowClockwise, BsArrowDownUp, BsEye } from 'react-icons/bs'
+import { getTaskFilterOptions, getManagerReportList, getManagerReportTaskDetails, recalculateTaskDuration, type ManagerReportFilters } from '../api/tasksApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import { getClients } from '../../clients/api/clientsApi'
 import { formatEST, formatIST, parseISTDateTime } from '../../../utils/timezone'
+import { useAuth } from '../../../context/AuthContext'
 
 export type ReportColumn = { key: string; label: string }
 
@@ -64,6 +65,7 @@ const renderReportSchedule = (row: Record<string, unknown>) => {
 
 const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPageProps) => {
   const { showToast } = useAlert()
+  const { user } = useAuth()
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'task_id', direction: 'asc' })
   const [filters, setFilters] = useState<ManagerReportFilters>({ page: 1, limit: 10 })
   const [options, setOptions] = useState<{ candidates: Option[]; assignees: Option[]; taskTypes: Option[]; clients: Option[] }>({ candidates: [], assignees: [], taskTypes: [], clients: [] })
@@ -72,6 +74,7 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPag
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
   const [details, setDetails] = useState<Record<string, unknown>>({})
   const [loading, setLoading] = useState(false)
+  const [recalculatingDuration, setRecalculatingDuration] = useState(false)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -101,6 +104,24 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPag
       showToast({ type: 'error', message })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRecalculateDuration = async () => {
+    setRecalculatingDuration(true)
+    try {
+      const result = await recalculateTaskDuration()
+      showToast({
+        type: 'success',
+        title: 'Duration recalculation completed.',
+        message: `Updated: ${result.updated} tasks
+Skipped: ${result.skipped} tasks`,
+      })
+      void load({ page: 1 })
+    } catch (e) {
+      showToast({ type: 'error', message: e instanceof Error ? e.message : 'Failed to recalculate task durations' })
+    } finally {
+      setRecalculatingDuration(false)
     }
   }
 
@@ -164,7 +185,7 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPag
 
   return (
     <div className="page-container">
-      <div className="page-container__header"><div><h1 className="page-title mb-1">{title}</h1><p className="page-description mb-0">{subtitle ?? 'Live manager reporting dashboard.'}</p></div><div className="d-flex gap-2"><button className="btn btn-outline-secondary btn-sm" onClick={() => void load()}>Refresh</button></div></div>
+      <div className="page-container__header"><div><h1 className="page-title mb-1">{title}</h1><p className="page-description mb-0">{subtitle ?? 'Live manager reporting dashboard.'}</p></div><div className="d-flex gap-2">{user?.role === 'admin' ? <button className="btn btn-warning btn-sm d-inline-flex align-items-center gap-1" type="button" onClick={() => void handleRecalculateDuration()} disabled={recalculatingDuration}>{recalculatingDuration ? <span className="spinner-border spinner-border-sm" aria-hidden="true" /> : <BsArrowClockwise size={15} />}<span>{recalculatingDuration ? 'Recalculating...' : 'Recalculate Duration'}</span></button> : null}<button className="btn btn-outline-secondary btn-sm" onClick={() => void load()}>Refresh</button></div></div>
       <small className="text-muted">{lastUpdated ? `Last updated: ${lastUpdated.toLocaleString()}` : 'Last updated: --'}</small>
       <div className="card"><h3 className="card-title mb-3">Filters</h3><div className="row g-2 g-md-3">
         <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Candidate</label><select className="form-select" value={filters.candidate_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, page: 1, candidate_id: e.target.value }))}><option value="">All Candidate</option>{options.candidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
