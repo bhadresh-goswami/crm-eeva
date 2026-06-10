@@ -19,81 +19,38 @@ type SortConfig = { key: string; direction: 'asc' | 'desc' }
 type Option = { id: number; name: string }
 type PaginationState = { totalRecords: number; totalPages: number; page: number; limit: number }
 
-const asString = (value: unknown) => value === undefined || value === null ? '' : String(value).trim()
+const normalizeReportValue = (value: unknown) => value === undefined || value === null ? '' : String(value).trim()
 
-const withoutZoneSuffix = (value: string, suffix: string) => value.endsWith(` ${suffix}`) ? value.slice(0, -suffix.length - 1) : value
+const stripTimezoneSuffix = (value: string, suffix: string) => value.endsWith(` ${suffix}`) ? value.slice(0, -suffix.length - 1) : value
 
-const getScheduleDate = (row: Record<string, unknown>) => {
-  const dueDate = asString(row.due_date ?? row.task_date)
+const getReportScheduleDate = (row: Record<string, unknown>) => {
+  const dueDate = normalizeReportValue(row.due_date ?? row.task_date)
   if (dueDate) return dueDate.slice(0, 10)
-  const scheduledStart = asString(row.scheduled_start_time)
-  const scheduledEnd = asString(row.scheduled_end_time)
+  const scheduledStart = normalizeReportValue(row.scheduled_start_time)
+  const scheduledEnd = normalizeReportValue(row.scheduled_end_time)
   return (scheduledStart || scheduledEnd).slice(0, 10)
 }
 
-const getScheduleText = (row: Record<string, unknown>) => {
-  const startTime = asString(row.scheduled_start_time)
-  const endTime = asString(row.scheduled_end_time)
+const getReportScheduleText = (row: Record<string, unknown>) => {
+  const startTime = normalizeReportValue(row.scheduled_start_time)
+  const endTime = normalizeReportValue(row.scheduled_end_time)
   if (!startTime && !endTime) return '--'
 
-  const scheduleDate = getScheduleDate(row)
+  const scheduleDate = getReportScheduleDate(row)
   const startDate = startTime ? parseISTDateTime(scheduleDate, startTime) : null
   const endDate = endTime ? parseISTDateTime(scheduleDate, endTime) : null
   if (!startDate && !endDate) return '--'
 
-  const istStart = startDate ? withoutZoneSuffix(formatIST(startDate), 'IST') : '--'
-  const istEnd = endDate ? withoutZoneSuffix(formatIST(endDate), 'IST') : '--'
-  const estStart = startDate ? withoutZoneSuffix(formatEST(startDate), 'EST') : '--'
-  const estEnd = endDate ? withoutZoneSuffix(formatEST(endDate), 'EST') : '--'
+  const istStart = startDate ? stripTimezoneSuffix(formatIST(startDate), 'IST') : '--'
+  const istEnd = endDate ? stripTimezoneSuffix(formatIST(endDate), 'IST') : '--'
+  const estStart = startDate ? stripTimezoneSuffix(formatEST(startDate), 'EST') : '--'
+  const estEnd = endDate ? stripTimezoneSuffix(formatEST(endDate), 'EST') : '--'
 
   return `IST: ${istStart} - ${istEnd}\nEST: ${estStart} - ${estEnd}`
 }
 
-const renderSchedule = (row: Record<string, unknown>) => {
-  const scheduleText = getScheduleText(row)
-  if (scheduleText === '--') return scheduleText
-  const [istLine, estLine] = scheduleText.split('\n')
-
-  return (
-    <div className="manager-schedule-cell">
-      <div><strong>IST:</strong> {istLine.replace('IST: ', '')}</div>
-      <div><strong>EST:</strong> {estLine.replace('EST: ', '')}</div>
-    </div>
-  )
-}
-
-const asString = (value: unknown) => value === undefined || value === null ? '' : String(value).trim()
-
-const withoutZoneSuffix = (value: string, suffix: string) => value.endsWith(` ${suffix}`) ? value.slice(0, -suffix.length - 1) : value
-
-const getScheduleDate = (row: Record<string, unknown>) => {
-  const dueDate = asString(row.due_date ?? row.task_date)
-  if (dueDate) return dueDate.slice(0, 10)
-  const scheduledStart = asString(row.scheduled_start_time)
-  const scheduledEnd = asString(row.scheduled_end_time)
-  return (scheduledStart || scheduledEnd).slice(0, 10)
-}
-
-const getScheduleText = (row: Record<string, unknown>) => {
-  const startTime = asString(row.scheduled_start_time)
-  const endTime = asString(row.scheduled_end_time)
-  if (!startTime && !endTime) return '--'
-
-  const scheduleDate = getScheduleDate(row)
-  const startDate = startTime ? parseISTDateTime(scheduleDate, startTime) : null
-  const endDate = endTime ? parseISTDateTime(scheduleDate, endTime) : null
-  if (!startDate && !endDate) return '--'
-
-  const istStart = startDate ? withoutZoneSuffix(formatIST(startDate), 'IST') : '--'
-  const istEnd = endDate ? withoutZoneSuffix(formatIST(endDate), 'IST') : '--'
-  const estStart = startDate ? withoutZoneSuffix(formatEST(startDate), 'EST') : '--'
-  const estEnd = endDate ? withoutZoneSuffix(formatEST(endDate), 'EST') : '--'
-
-  return `IST: ${istStart} - ${istEnd}\nEST: ${estStart} - ${estEnd}`
-}
-
-const renderSchedule = (row: Record<string, unknown>) => {
-  const scheduleText = getScheduleText(row)
+const renderReportSchedule = (row: Record<string, unknown>) => {
+  const scheduleText = getReportScheduleText(row)
   if (scheduleText === '--') return scheduleText
   const [istLine, estLine] = scheduleText.split('\n')
 
@@ -174,7 +131,7 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPag
   }
 
   const mapValue = (row: Record<string, unknown>, key: string) => {
-    if (key === 'schedule') return getScheduleText(row)
+    if (key === 'schedule') return getReportScheduleText(row)
 
     const mapping: Record<string, string[]> = {
       taskId: ['task_id'],
@@ -196,7 +153,7 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPag
     return '—'
   }
 
-  const renderCell = (row: Record<string, unknown>, key: string) => key === 'schedule' ? renderSchedule(row) : String(mapValue(row, key))
+  const renderCell = (row: Record<string, unknown>, key: string) => key === 'schedule' ? renderReportSchedule(row) : String(mapValue(row, key))
   const serverPagination = pagination.totalPages > 0
   const currentPage = serverPagination ? pagination.page : (filters.page ?? 1)
   const pageLimit = serverPagination ? pagination.limit : Number(filters.limit ?? 10)
