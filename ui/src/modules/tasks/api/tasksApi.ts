@@ -735,14 +735,39 @@ export type ManagerReportFilters = {
   limit?: number
 }
 
-export const getManagerReportList = async (endpoint: string, filters: ManagerReportFilters) => {
+export type ManagerReportListResponse = {
+  items: unknown[]
+  total_records: number
+  total_pages: number
+  page: number
+  limit: number
+}
+
+export const getManagerReportList = async (endpoint: string, filters: ManagerReportFilters): Promise<ManagerReportListResponse> => {
   const params = new URLSearchParams()
   Object.entries(filters).forEach(([k, v]) => {
     if (v !== '' && v !== undefined && v !== null) params.set(k, String(v))
   })
   const response = await apiRequest<Record<string, unknown>>(`${endpoint}?${params.toString()}`)
-  return getList(response)
+  return {
+    items: getList(response),
+    total_records: asNumber(response.total_records),
+    total_pages: asNumber(response.total_pages),
+    page: asNumber(response.page),
+    limit: asNumber(response.limit),
+  }
 }
+
+
+export type RecalculateTaskDurationResponse = {
+  success: boolean
+  updated: number
+  skipped: number
+}
+
+export const recalculateTaskDuration = async () => apiRequest<RecalculateTaskDurationResponse>('/reports/recalculate-task-duration', {
+  method: 'POST',
+})
 
 export const getManagerReportTaskDetails = async (taskId: number) => {
   const response = await apiRequest<Record<string, unknown>>(`/manager/reports/task-details/${taskId}`)
