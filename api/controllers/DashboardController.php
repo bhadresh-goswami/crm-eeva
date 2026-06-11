@@ -171,6 +171,7 @@ class DashboardController {
                 SELECT ta2.id
                 FROM task_assignments ta2
                 WHERE ta2.task_id = t.id
+                  AND ta2.is_active = 1
                 ORDER BY ta2.{$assignmentOrderColumn} DESC
                 LIMIT 1
             )
@@ -236,6 +237,7 @@ class DashboardController {
             JOIN tasks t ON ta.task_id = t.id
             LEFT JOIN task_status_master ts ON t.status_id = ts.id
             WHERE DATE(t.due_date) = ?
+              AND ta.is_active = 1
               AND NOT (
                   t.end_time <= ? 
                   OR t.start_time >= ?
@@ -277,39 +279,33 @@ class DashboardController {
             $expertId = (int)$data->expert_id;
 
             $conn->beginTransaction();
+            $taskLockStmt = $conn->prepare("
+                SELECT id
+                FROM tasks
+                WHERE id = ?
+                FOR UPDATE
+            ");
+            $taskLockStmt->execute([$taskId]);
+            if ((int)$taskLockStmt->fetchColumn() <= 0) {
+                $conn->rollBack();
+                http_response_code(404);
+                echo json_encode(["success" => false, "message" => "Task not found"]);
+                return;
+            }
+
+            if ($this->activateOnlyExistingAssignmentForSameUser($conn, $taskId, $expertId)) {
+                $conn->commit();
+                echo json_encode(["success" => false, "message" => "Task is already assigned to selected expert."]);
+                return;
+            }
+
             $conn->prepare("
                 UPDATE task_assignments
                 SET is_active = 0
-                WHERE task_id = ? AND is_active = 1
+                WHERE task_id = ?
             ")->execute([$taskId]);
 
-            $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
-            $insertColumns = ['task_id', 'user_id', 'is_active'];
-            $insertValues = [$taskId, $expertId, 1];
-
-            if (in_array('assigned_by', $assignmentColumns, true)) {
-                $insertColumns[] = 'assigned_by';
-                $insertValues[] = $actorUserId;
-            } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
-                $insertColumns[] = 'assigned_by_id';
-                $insertValues[] = $actorUserId;
-            }
-
-            if (in_array('assigned_at', $assignmentColumns, true)) {
-                $insertColumns[] = 'assigned_at';
-            }
-
-            $columnList = implode(', ', $insertColumns);
-            $placeholderList = implode(', ', array_fill(0, count($insertValues), '?'));
-            if (in_array('assigned_at', $assignmentColumns, true)) {
-                $placeholderList .= ', NOW()';
-            }
-
-            $stmt = $conn->prepare("
-                INSERT INTO task_assignments ({$columnList})
-                VALUES ({$placeholderList})
-            ");
-            $stmt->execute($insertValues);
+            $this->insertActiveTaskAssignment($conn, $taskId, $expertId, $actorUserId);
 
             // UPDATE STATUS → Assigned
             $status_id = $conn->query("
@@ -349,6 +345,67 @@ class DashboardController {
                 "message" => "Something went wrong. Please try again."
             ]);
         }
+    }
+
+    private function activateOnlyExistingAssignmentForSameUser(PDO $conn, int $taskId, int $userId): bool {
+        $stmt = $conn->prepare("
+            SELECT id, user_id
+            FROM task_assignments
+            WHERE task_id = ? AND is_active = 1
+            ORDER BY id DESC
+        ");
+        $stmt->execute([$taskId]);
+        $activeAssignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!$activeAssignments || (int)$activeAssignments[0]['user_id'] !== $userId) {
+            return false;
+        }
+
+        $latestActiveAssignmentId = (int)$activeAssignments[0]['id'];
+        $conn->prepare("
+            UPDATE task_assignments
+            SET is_active = CASE WHEN id = ? THEN 1 ELSE 0 END
+            WHERE task_id = ?
+        ")->execute([$latestActiveAssignmentId, $taskId]);
+
+        return true;
+    }
+
+    private function insertActiveTaskAssignment(PDO $conn, int $taskId, int $userId, $assignedByUserId = null): void {
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $insertColumns = ['task_id', 'user_id', 'is_active'];
+        $insertValues = [$taskId, $userId, 1];
+
+        if (in_array('assigned_by', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_by';
+            $insertValues[] = $assignedByUserId;
+        } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_by_id';
+            $insertValues[] = $assignedByUserId;
+        }
+
+        $timeColumns = ['assigned_at', 'created_at'];
+        foreach ($timeColumns as $timeColumn) {
+            if (in_array($timeColumn, $assignmentColumns, true)) {
+                $insertColumns[] = $timeColumn;
+            }
+        }
+
+        $placeholders = array_fill(0, count($insertValues), '?');
+        foreach ($timeColumns as $timeColumn) {
+            if (in_array($timeColumn, $assignmentColumns, true)) {
+                $placeholders[] = 'NOW()';
+            }
+        }
+
+        $columnList = implode(', ', $insertColumns);
+        $placeholderList = implode(', ', $placeholders);
+
+        $stmt = $conn->prepare("
+            INSERT INTO task_assignments ({$columnList})
+            VALUES ({$placeholderList})
+        ");
+        $stmt->execute($insertValues);
     }
 
     private function getTableColumns(PDO $conn, string $tableName): array {
