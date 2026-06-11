@@ -6,6 +6,8 @@ export const roleDashboardPath: Record<UserRole, string> = {
   coordinator: '/coordinator/dashboard',
   expertlead: '/teamlead/dashboard',
   expert: '/expert/dashboard',
+  client: '/portal/dashboard',
+  vendor: '/portal/dashboard',
 }
 
 export const getRoleDashboardPath = (role?: UserRole | null) => {

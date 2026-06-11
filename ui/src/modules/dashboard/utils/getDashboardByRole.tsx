@@ -5,6 +5,7 @@ import CoordinatorDashboard from '../pages/CoordinatorDashboard'
 import ExpertDashboard from '../pages/ExpertDashboard'
 import ExpertLeadDashboard from '../pages/ExpertLeadDashboard'
 import ManagerDashboard from '../pages/ManagerDashboard'
+import PortalDashboardPage from '../../portal/pages/PortalDashboardPage'
 
 const dashboardByRole: Record<UserRole, ReactElement> = {
   admin: <AdminDashboard />,
@@ -12,6 +13,8 @@ const dashboardByRole: Record<UserRole, ReactElement> = {
   coordinator: <CoordinatorDashboard />,
   expert: <ExpertDashboard />,
   expertlead: <ExpertLeadDashboard />,
+  client: <PortalDashboardPage />,
+  vendor: <PortalDashboardPage />,
 }
 
 export const getDashboardByRole = (role: UserRole) => {

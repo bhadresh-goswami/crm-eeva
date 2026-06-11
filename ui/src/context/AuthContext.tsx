@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { apiRequest, setUnauthorizedHandler } from '../api/client'
 
-export type UserRole = 'admin' | 'manager' | 'coordinator' | 'expert' | 'expertlead'
+export type UserRole = 'admin' | 'manager' | 'coordinator' | 'expert' | 'expertlead' | 'client' | 'vendor'
 
 export type SessionStatus = 'logged_in' | 'break' | 'logged_out'
 
@@ -81,6 +81,8 @@ const normalizeRole = (role: string | undefined): UserRole => {
   if (normalized === 'expertlead' || normalized === 'teamlead' || normalized === 'technicallead') {
     return 'expertlead'
   }
+  if (normalized === 'client' || normalized === 'customer' || normalized === 'clientportal') return 'client'
+  if (normalized === 'vendor' || normalized === 'vendorportal') return 'vendor'
 
   return 'expert'
 }

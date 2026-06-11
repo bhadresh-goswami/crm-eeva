@@ -42,6 +42,7 @@ require_once "controllers/TaskStatusController.php";
 require_once "controllers/PaymentStatusController.php";
 require_once "controllers/InvoiceController.php";
 require_once "controllers/FeedbackController.php";
+require_once "controllers/PortalController.php";
 require_once "controllers/ManagerReportsController.php";
 require_once "controllers/CandidatePerformanceReportController.php";
 require_once "services/EmailService.php";
@@ -120,6 +121,49 @@ elseif ($uri === "/break-out" && $method === "POST") {
 // ===================================================
 
 $user = authenticate();
+
+function authorizePortalUser($user) {
+    $role = is_array($user) ? ($user['role'] ?? '') : ($user->role ?? '');
+    $normalized = strtolower(str_replace([' ', '-', '_'], '', trim((string)$role)));
+    $allowed = ['client', 'vendor', 'customer', 'clientportal', 'vendorportal'];
+
+    if (!in_array($normalized, $allowed, true)) {
+        http_response_code(403);
+        echo json_encode(["error" => "Access denied"]);
+        exit;
+    }
+}
+
+
+// ===================================================
+// 🧾 VENDOR / CLIENT PORTAL
+// ===================================================
+
+if ($uri === "/portal/summary" && $method === "GET") {
+    authorizePortalUser($user);
+    (new PortalController())->summary($user);
+    exit;
+}
+elseif ($uri === "/portal/filter-options" && $method === "GET") {
+    authorizePortalUser($user);
+    (new PortalController())->filterOptions($user);
+    exit;
+}
+elseif ($uri === "/portal/tasks" && $method === "GET") {
+    authorizePortalUser($user);
+    (new PortalController())->tasks($user);
+    exit;
+}
+elseif ($uri === "/portal/tasks/detail" && $method === "GET") {
+    authorizePortalUser($user);
+    (new PortalController())->detail($user);
+    exit;
+}
+elseif ($uri === "/portal/tasks/comment" && $method === "POST") {
+    authorizePortalUser($user);
+    (new PortalController())->addComment($user);
+    exit;
+}
 
 
 // ===================================================
