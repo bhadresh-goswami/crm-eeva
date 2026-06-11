@@ -76,7 +76,7 @@ class CandidatePerformanceReportService {
             COALESCE(tf.overall, 0) AS overall_score,
             tf.id AS feedback_id
         FROM tasks t
-        LEFT JOIN task_assignments ta ON ta.task_id = t.id
+        LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
         LEFT JOIN users u ON u.id = ta.user_id
         LEFT JOIN clients cl ON cl.id = t.client_id
         LEFT JOIN task_types tt ON tt.id = t.task_type_id

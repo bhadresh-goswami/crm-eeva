@@ -35,7 +35,8 @@ class ManagerReportsController {
                 SELECT ta2.id
                 FROM task_assignments ta2
                 WHERE ta2.task_id = t.id
-                ORDER BY ta2.is_active DESC, ta2.assigned_at DESC, ta2.id DESC
+                  AND ta2.is_active = 1
+                ORDER BY ta2.assigned_at DESC, ta2.id DESC
                 LIMIT 1
             )
             LEFT JOIN users u ON u.id = ta.user_id
