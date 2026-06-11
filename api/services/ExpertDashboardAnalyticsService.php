@@ -153,6 +153,7 @@ class ExpertDashboardAnalyticsService {
                     SELECT ta2.id
                     FROM task_assignments ta2
                     WHERE ta2.task_id = t.id
+                      AND ta2.is_active = 1
                     ORDER BY ta2.id DESC
                     LIMIT 1
                 )
@@ -170,6 +171,7 @@ class ExpertDashboardAnalyticsService {
                     SELECT ta2.id
                     FROM task_assignments ta2
                     WHERE ta2.task_id = t.id
+                      AND ta2.is_active = 1
                     ORDER BY ta2.id DESC
                     LIMIT 1
                 )
@@ -217,6 +219,7 @@ class ExpertDashboardAnalyticsService {
                     SELECT ta2.id
                     FROM task_assignments ta2
                     WHERE ta2.task_id = t.id
+                      AND ta2.is_active = 1
                     ORDER BY ta2.id DESC
                     LIMIT 1
                 )

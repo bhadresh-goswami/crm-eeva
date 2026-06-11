@@ -469,50 +469,62 @@ class TaskController {
         SELECT id FROM task_status_master WHERE name='Assigned'
     ")->fetchColumn();
 
-    foreach ($data->task_ids as $task_id) {
-        $taskId = (int)$task_id;
-        $userId = (int)$data->user_id;
+    $assigned = 0;
+    $alreadyAssigned = 0;
 
-        $conn->prepare("
-            UPDATE task_assignments
-            SET is_active = 0
-            WHERE task_id = ? AND is_active = 1
-        ")->execute([$taskId]);
+    try {
+        $conn->beginTransaction();
 
-        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
-        $insertColumns = ['task_id', 'user_id', 'is_active'];
-        $insertValues = [$taskId, $userId, 1];
+        foreach ($data->task_ids as $task_id) {
+            $taskId = (int)$task_id;
+            $userId = (int)$data->user_id;
 
-        if (in_array('assigned_by', $assignmentColumns, true)) {
-            $insertColumns[] = 'assigned_by';
-            $insertValues[] = $data->assigned_by ?? null;
-        } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
-            $insertColumns[] = 'assigned_by_id';
-            $insertValues[] = $data->assigned_by ?? null;
+            $taskLockStmt = $conn->prepare("
+                SELECT id
+                FROM tasks
+                WHERE id = ?
+                FOR UPDATE
+            ");
+            $taskLockStmt->execute([$taskId]);
+            if ((int)$taskLockStmt->fetchColumn() <= 0) {
+                continue;
+            }
+
+            if ($this->activateOnlyExistingAssignmentForSameUser($conn, $taskId, $userId)) {
+                $alreadyAssigned++;
+                continue;
+            }
+
+            $conn->prepare("
+                UPDATE task_assignments
+                SET is_active = 0
+                WHERE task_id = ?
+            ")->execute([$taskId]);
+
+            $this->insertActiveTaskAssignment($conn, $taskId, $userId, $data->assigned_by ?? null);
+
+            $conn->prepare("
+                UPDATE tasks SET status_id=? WHERE id=?
+            ")->execute([$status_id, $taskId]);
+            $assigned++;
         }
 
-        if (in_array('assigned_at', $assignmentColumns, true)) {
-            $insertColumns[] = 'assigned_at';
+        $conn->commit();
+    } catch (Exception $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
         }
-
-        $columnList = implode(', ', $insertColumns);
-        $placeholderList = implode(', ', array_fill(0, count($insertValues), '?'));
-        if (in_array('assigned_at', $assignmentColumns, true)) {
-            $placeholderList .= ', NOW()';
-        }
-
-        $stmt = $conn->prepare("
-            INSERT INTO task_assignments ({$columnList})
-            VALUES ({$placeholderList})
-        ");
-        $stmt->execute($insertValues);
-
-        $conn->prepare("
-            UPDATE tasks SET status_id=? WHERE id=?
-        ")->execute([$status_id, $taskId]);
+        LoggerService::logError('Bulk task assign failed', ['error' => $e->getMessage()]);
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
+        return;
     }
 
-    echo json_encode(["message" => "Bulk assign done"]);
+    $message = $assigned === 0 && $alreadyAssigned > 0
+        ? "Task is already assigned to selected expert."
+        : "Bulk assign done";
+
+    echo json_encode(["success" => true, "message" => $message, "assigned_count" => $assigned, "already_assigned_count" => $alreadyAssigned]);
 }
     public function bulkUpdateStatus() {
 
@@ -795,6 +807,7 @@ public function downloadFile() {
                     SELECT ta2.id
                     FROM task_assignments ta2
                     WHERE ta2.task_id = t.id
+                      AND ta2.is_active = 1
                     ORDER BY ta2.{$assignmentOrderColumn} DESC
                     LIMIT 1
                 )
@@ -889,8 +902,6 @@ public function downloadFile() {
             $statusIdStmt = $conn->prepare("SELECT id FROM task_status_master WHERE LOWER(name) = LOWER(?) LIMIT 1");
             $updateTaskMetaStmt = $conn->prepare("UPDATE tasks SET status_id = COALESCE(?, status_id), due_date = COALESCE(?, due_date), start_time = COALESCE(?, start_time), end_time = COALESCE(?, end_time) WHERE id = ?");
             $assigneeStmt = $conn->prepare("SELECT id FROM users WHERE LOWER(name) = LOWER(?) LIMIT 1");
-            $deactivateAssignmentsStmt = $conn->prepare("UPDATE task_assignments SET is_active = 0 WHERE task_id = ? AND is_active = 1");
-            $insertAssignmentStmt = $conn->prepare("INSERT INTO task_assignments (task_id, user_id, is_active) VALUES (?, ?, 1)");
 
             $updated = 0;
             foreach ($items as $item) {
@@ -939,9 +950,9 @@ public function downloadFile() {
                     if (!empty($updatedFields['assign_to'])) {
                         $assigneeStmt->execute([trim((string)$updatedFields['assign_to'])]);
                         $assigneeId = $assigneeStmt->fetchColumn();
-                        if ($assigneeId) {
-                            $deactivateAssignmentsStmt->execute([$taskId]);
-                            $insertAssignmentStmt->execute([$taskId, (int)$assigneeId]);
+                        if ($assigneeId && !$this->activateOnlyExistingAssignmentForSameUser($conn, $taskId, (int)$assigneeId)) {
+                            $conn->prepare("UPDATE task_assignments SET is_active = 0 WHERE task_id = ?")->execute([$taskId]);
+                            $this->insertActiveTaskAssignment($conn, $taskId, (int)$assigneeId);
                         }
                     }
                 }
@@ -986,6 +997,7 @@ public function downloadFile() {
                     SELECT ta2.id
                     FROM task_assignments ta2
                     WHERE ta2.task_id = t.id
+                      AND ta2.is_active = 1
                     ORDER BY ta2.{$assignmentOrderColumn} DESC
                     LIMIT 1
                 )
@@ -1015,7 +1027,7 @@ public function downloadFile() {
                 $params[] = (int)$_GET['candidate_id'];
             }
             if (!empty($_GET['assigned_user_id'])) {
-                $query .= " AND EXISTS (SELECT 1 FROM task_assignments ta_filter WHERE ta_filter.task_id = t.id AND ta_filter.user_id = ?)";
+                $query .= " AND EXISTS (SELECT 1 FROM task_assignments ta_filter WHERE ta_filter.task_id = t.id AND ta_filter.user_id = ? AND ta_filter.is_active = 1)";
                 $params[] = (int)$_GET['assigned_user_id'];
             }
 
@@ -1052,6 +1064,7 @@ public function downloadFile() {
                     SELECT ta2.id
                     FROM task_assignments ta2
                     WHERE ta2.task_id = t.id
+                      AND ta2.is_active = 1
                     ORDER BY ta2.{$assignmentOrderColumn} DESC
                     LIMIT 1
                 )
@@ -1351,38 +1364,19 @@ public function downloadFile() {
                 return;
             }
 
+            if ($this->activateOnlyExistingAssignmentForSameUser($conn, $taskId, $userId)) {
+                $conn->commit();
+                echo json_encode(["success" => false, "message" => "Task is already assigned to selected expert."]);
+                return;
+            }
+
             $conn->prepare("
                 UPDATE task_assignments
                 SET is_active = 0
-                WHERE task_id = ? AND is_active = 1
+                WHERE task_id = ?
             ")->execute([$taskId]);
 
-            $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
-            $insertColumns = ['task_id', 'user_id', 'is_active'];
-            $insertValues = [$taskId, $userId, 1];
-
-            if (in_array('assigned_by', $assignmentColumns, true)) {
-                $insertColumns[] = 'assigned_by';
-                $insertValues[] = $assignedByUserId;
-            } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
-                $insertColumns[] = 'assigned_by_id';
-                $insertValues[] = $assignedByUserId;
-            }
-
-            if (in_array('assigned_at', $assignmentColumns, true)) {
-                $insertColumns[] = 'assigned_at';
-            }
-
-            $columnList = implode(', ', $insertColumns);
-            $placeholderList = implode(', ', array_fill(0, count($insertValues), '?'));
-            if (in_array('assigned_at', $assignmentColumns, true)) {
-                $placeholderList .= ', NOW()';
-            }
-
-            $conn->prepare("
-                INSERT INTO task_assignments ({$columnList})
-                VALUES ({$placeholderList})
-            ")->execute($insertValues);
+            $this->insertActiveTaskAssignment($conn, $taskId, $userId, $assignedByUserId);
 
             $conn->prepare("
                 UPDATE tasks SET status_id=? WHERE id=?
@@ -1410,6 +1404,67 @@ public function downloadFile() {
             http_response_code(500);
             echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
+    }
+
+    private function activateOnlyExistingAssignmentForSameUser(PDO $conn, int $taskId, int $userId): bool {
+        $stmt = $conn->prepare("
+            SELECT id, user_id
+            FROM task_assignments
+            WHERE task_id = ? AND is_active = 1
+            ORDER BY id DESC
+        ");
+        $stmt->execute([$taskId]);
+        $activeAssignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!$activeAssignments || (int)$activeAssignments[0]['user_id'] !== $userId) {
+            return false;
+        }
+
+        $latestActiveAssignmentId = (int)$activeAssignments[0]['id'];
+        $conn->prepare("
+            UPDATE task_assignments
+            SET is_active = CASE WHEN id = ? THEN 1 ELSE 0 END
+            WHERE task_id = ?
+        ")->execute([$latestActiveAssignmentId, $taskId]);
+
+        return true;
+    }
+
+    private function insertActiveTaskAssignment(PDO $conn, int $taskId, int $userId, $assignedByUserId = null): void {
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $insertColumns = ['task_id', 'user_id', 'is_active'];
+        $insertValues = [$taskId, $userId, 1];
+
+        if (in_array('assigned_by', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_by';
+            $insertValues[] = $assignedByUserId;
+        } elseif (in_array('assigned_by_id', $assignmentColumns, true)) {
+            $insertColumns[] = 'assigned_by_id';
+            $insertValues[] = $assignedByUserId;
+        }
+
+        $timeColumns = ['assigned_at', 'created_at'];
+        foreach ($timeColumns as $timeColumn) {
+            if (in_array($timeColumn, $assignmentColumns, true)) {
+                $insertColumns[] = $timeColumn;
+            }
+        }
+
+        $placeholders = array_fill(0, count($insertValues), '?');
+        foreach ($timeColumns as $timeColumn) {
+            if (in_array($timeColumn, $assignmentColumns, true)) {
+                $placeholders[] = 'NOW()';
+            }
+        }
+
+        $columnList = implode(', ', $insertColumns);
+        $placeholderList = implode(', ', $placeholders);
+
+        $stmt = $conn->prepare("
+            INSERT INTO task_assignments ({$columnList})
+            VALUES ({$placeholderList})
+        ");
+        $stmt->execute($insertValues);
     }
 
     public function checkActiveTask($user_id) {
@@ -1492,7 +1547,7 @@ public function downloadFile() {
             $assignmentStmt = $conn->prepare("
                 SELECT id
                 FROM task_assignments
-                WHERE task_id = ? AND user_id = ?
+                WHERE task_id = ? AND user_id = ? AND is_active = 1
                 ORDER BY id DESC
                 LIMIT 1
             ");
@@ -1524,8 +1579,6 @@ public function downloadFile() {
             $conn->prepare("UPDATE tasks SET status_id = ?, task_start_time = COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()) WHERE id = ?")
                 ->execute([(int)$inProgressStatusId, (int)$data->task_id]);
 
-            $conn->prepare("UPDATE task_assignments SET is_active = 1 WHERE id = ?")
-                ->execute([$assignmentId]);
 
             $conn->commit();
             EmailService::sendTaskNotification((int)$data->task_id, 'status_update', 'Status moved to In Progress', (int)$user_id);
@@ -1582,7 +1635,7 @@ public function downloadFile() {
             $assignmentStmt = $conn->prepare("
                 SELECT id
                 FROM task_assignments
-                WHERE task_id = ? AND user_id = ?
+                WHERE task_id = ? AND user_id = ? AND is_active = 1
                 ORDER BY id DESC
                 LIMIT 1
             ");
