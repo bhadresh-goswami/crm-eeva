@@ -61,4 +61,41 @@ class ExpertDashboardAnalyticsController {
             ]);
         }
     }
+    public function recalculateDurations($user): void {
+        try {
+            $userId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+            if ($userId === null) {
+                http_response_code(401);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Unauthorized user',
+                    'updated' => 0,
+                    'skipped' => 0,
+                ]);
+                return;
+            }
+
+            $result = $this->analyticsService->recalculateCompletedTaskDurations((int)$userId);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Duration recalculation completed successfully',
+                'updated' => (int)($result['updated'] ?? 0),
+                'skipped' => (int)($result['skipped'] ?? 0),
+            ]);
+        } catch (Throwable $e) {
+            LoggerService::logError('ExpertDashboardAnalyticsController::recalculateDurations failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Failed to recalculate task durations',
+                'updated' => 0,
+                'skipped' => 0,
+            ]);
+        }
+    }
+
 }

@@ -297,6 +297,11 @@ elseif ($uri === "/expert/dashboard-analytics" && $method === "GET") {
     (new ExpertDashboardAnalyticsController())->index($user);
 }
 
+elseif ($uri === "/expert/recalculate-task-duration" && $method === "POST") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    (new ExpertDashboardAnalyticsController())->recalculateDurations($user);
+}
+
 // ===================================================
 // 📋 TASKS
 // ===================================================
