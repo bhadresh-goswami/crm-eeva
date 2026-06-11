@@ -2,6 +2,7 @@ declare module '../../../services/expertDashboardAnalyticsService' {
   import type { AxiosResponse } from 'axios'
 
   export function getExpertDashboardAnalytics(): Promise<AxiosResponse<unknown>>
+  export function recalculateExpertTaskDuration(): Promise<{ success: boolean; message?: string; updated: number; skipped: number }>
 }
 
 declare module '../../../components/dashboard/StatCard' {
@@ -23,15 +24,15 @@ declare module '../../../components/dashboard/DailyWorkingAnalyticsTable' {
   import type { JSX } from 'react'
 
   type DailySummary = {
-    average_hours?: number
-    total_hours?: number
+    average_minutes?: number
+    total_minutes?: number
     total_tasks?: number
     productivity?: number
   }
 
   type DailyRow = {
     work_date: string
-    worked_hours: number
+    total_minutes: number
     total_tasks: number
     interview_support: number
     mock_interview: number
@@ -48,6 +49,8 @@ declare module '../../../components/dashboard/DailyWorkingAnalyticsTable' {
   type DailyWorkingAnalyticsTableProps = {
     data?: { summary?: DailySummary; rows?: DailyRow[] }
     loading?: boolean
+    onRecalculateDuration?: () => void
+    recalculatingDuration?: boolean
   }
 
   const DailyWorkingAnalyticsTable: (props: DailyWorkingAnalyticsTableProps) => JSX.Element

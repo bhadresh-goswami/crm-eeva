@@ -7,7 +7,7 @@ export type DashboardCardMetric = {
 
 export type DailyRow = {
   work_date: string
-  worked_hours: number
+  total_minutes: number
   total_tasks: number
   interview_support: number
   mock_interview: number
@@ -22,8 +22,8 @@ export type DailyRow = {
 }
 
 export type DailySummary = {
-  average_hours?: number
-  total_hours?: number
+  average_minutes?: number
+  total_minutes?: number
   total_tasks?: number
   productivity?: number
 }
@@ -40,8 +40,18 @@ export type ApiResponse<T> = {
   data: T
 }
 
+export type RecalculateExpertDurationResponse = {
+  success: boolean
+  message?: string
+  updated: number
+  skipped: number
+}
+
 export const getExpertDashboardAnalytics = async () => {
   const response = await apiRequest<ApiResponse<AnalyticsPayload>>('/expert/dashboard-analytics')
-  console.log('Dashboard analytics response', response?.data)
   return response
 }
+
+export const recalculateExpertTaskDuration = async () => apiRequest<RecalculateExpertDurationResponse>('/expert/recalculate-task-duration', {
+  method: 'POST',
+})
