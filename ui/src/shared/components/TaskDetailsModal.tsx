@@ -116,7 +116,7 @@ const TaskDetailsModal = ({ isOpen, role, task, onClose, headerActions, comments
               <div className="task-details-modal__meta"><span className="task-details-modal__label">Assigned To</span><span className="task-details-modal__value">{task.assignedTo || '—'}</span></div>
               <div className="task-details-modal__meta"><span className="task-details-modal__label">Assigned By</span><span className="task-details-modal__value">{task.assignedBy || '—'}</span></div>
               <div className="task-details-modal__meta"><span className="task-details-modal__label">Date (IST)</span><span className="task-details-modal__value">{dateIst}</span></div>
-              <div className="task-details-modal__meta"><span className="task-details-modal__label">Time (IST / EST)</span><span className="task-details-modal__value">{dateIst} | {timeDual}</span></div>
+              <div className="task-details-modal__meta"><span className="task-details-modal__label">Time (IST / ET)</span><span className="task-details-modal__value">{dateIst} | {timeDual}</span></div>
             </div>
           </section>
 

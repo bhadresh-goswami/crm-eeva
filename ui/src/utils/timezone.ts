@@ -1,5 +1,5 @@
 const IST_ZONE = 'Asia/Kolkata'
-const EST_ZONE = 'America/New_York'
+const EASTERN_ZONE = 'America/New_York'
 
 export const parseISTDateTime = (dateValue?: string, timeValue?: string) => {
   if (!dateValue || !timeValue) return null
@@ -23,7 +23,7 @@ const toDate = (value: string | Date) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
-const formatInZone = (value: string | Date, zone: string) => {
+const formatInZone = (value: string | Date, zone: string, options: Intl.DateTimeFormatOptions = {}) => {
   const date = toDate(value)
   if (!date) return '—'
   return new Intl.DateTimeFormat('en-US', {
@@ -31,6 +31,7 @@ const formatInZone = (value: string | Date, zone: string) => {
     minute: '2-digit',
     hour12: true,
     timeZone: zone,
+    ...options,
   }).format(date)
 }
 
@@ -39,14 +40,12 @@ export const formatIST = (value: string | Date) => {
   return formatted === '—' ? formatted : `${formatted} IST`
 }
 
-export const formatEST = (value: string | Date) => {
-  const formatted = formatInZone(value, EST_ZONE)
-  return formatted === '—' ? formatted : `${formatted} EST`
-}
+export const formatEastern = (value: string | Date) => formatInZone(value, EASTERN_ZONE, { timeZoneName: 'short' })
+
 
 export const formatDualTimezone = (value: string | Date) => {
   const ist = formatIST(value)
-  const est = formatEST(value)
-  if (ist === '—' || est === '—') return '—'
-  return `${ist} / ${est}`
+  const eastern = formatEastern(value)
+  if (ist === '—' || eastern === '—') return '—'
+  return `${ist} / ${eastern}`
 }
