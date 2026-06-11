@@ -19,6 +19,8 @@ import TasksSummaryReport from '../modules/tasks/pages/TasksSummaryReport'
 import FeedbackReport from '../modules/tasks/pages/FeedbackReport'
 import CandidatePerformanceReport from '../modules/tasks/pages/CandidatePerformanceReport'
 import ExpertAvailabilityMatrixReportPage from '../modules/tasks/pages/ExpertAvailabilityMatrixReportPage'
+import PortalDashboardPage from '../modules/portal/pages/PortalDashboardPage'
+import PortalTasksPage from '../modules/portal/pages/PortalTasksPage'
 
 import UsersPage from '../modules/users/pages/UsersPage'
 import InvoiceListPage from '../modules/invoices/pages/InvoiceListPage'
@@ -67,8 +69,14 @@ const AppRoutes = () => {
           <Route element={<ProtectedRoute allowedRoles={['expert']} />}>
             <Route path="/expert/dashboard" element={<ExpertDashboard />} />
           </Route>
+          <Route element={<ProtectedRoute allowedRoles={['client', 'vendor']} />}>
+            <Route path="/portal/dashboard" element={<PortalDashboardPage />} />
+            <Route path="/portal/tasks" element={<PortalTasksPage />} />
+          </Route>
 
-          <Route path="/tasks" element={<TasksEntryPage />} />
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'manager', 'coordinator', 'expert', 'expertlead']} />}>
+            <Route path="/tasks" element={<TasksEntryPage />} />
+          </Route>
           <Route element={<ProtectedRoute allowedRoles={['expert', 'expertlead']} />}>
             <Route path="/tasks/expert-reports" element={<ExpertTaskReportsPage />} />
           </Route>
@@ -87,9 +95,11 @@ const AppRoutes = () => {
             <Route path="/reports/candidate-performance" element={<CandidatePerformanceReport />} />
             <Route path="/reports/expert-availability" element={<ExpertAvailabilityMatrixReportPage />} />
           </Route>
-          <Route path="/clients" element={<ClientsPage />} />
-          <Route path="/pocs" element={<PocsPage />} />
-          <Route path="/candidates" element={<CandidatesPage />} />
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'manager', 'coordinator', 'expertlead']} />}>
+            <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/pocs" element={<PocsPage />} />
+            <Route path="/candidates" element={<CandidatesPage />} />
+          </Route>
 
           <Route element={<ProtectedRoute allowedRoles={['admin', 'manager']} />}>
             <Route path="/invoices" element={<InvoiceListPage />} />

@@ -68,6 +68,15 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
       ]
     }
 
+    if (user.role === 'client' || user.role === 'vendor') {
+      return [
+        { title: 'Portal', items: [
+          { label: 'Dashboard', to: roleDashboardPath[user.role], icon: 'dashboard' },
+          { label: 'Tasks', to: '/portal/tasks', icon: 'tasks' },
+        ] },
+      ]
+    }
+
     if (user.role === 'admin') {
       return [
         {
