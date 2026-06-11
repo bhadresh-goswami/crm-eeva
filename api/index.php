@@ -412,7 +412,8 @@ elseif ($uri === "/tasks/bulk-status" && $method === "POST") {
 }
 elseif ($uri === "/tasks/bulk-assign" && $method === "POST") {
     authorize($user,['admin','manager','coordinator']);
-    (new TaskController())->bulkAssign();
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    (new TaskController())->bulkAssign($actorUserId);
 }
 elseif ($uri === "/tasks/bulk-price" && $method === "GET") {
     authorize($user,['admin','manager']);
