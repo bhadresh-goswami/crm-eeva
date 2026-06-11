@@ -440,20 +440,56 @@ class TaskController {
 
     $db = new Database();
     $conn = $db->connect();
+    $taskId = (int)$data->task_id;
 
-    $status_id = $conn->query("
-        SELECT id FROM task_status_master WHERE name='Cancelled'
-    ")->fetchColumn();
+    try {
+        $status_id = $conn->query("
+            SELECT id FROM task_status_master WHERE name='Cancelled'
+        ")->fetchColumn();
 
-    $stmt = $conn->prepare("
-        UPDATE tasks SET status_id=? WHERE id=?
-    ");
+        if (!$status_id) {
+            http_response_code(422);
+            echo json_encode(["success" => false, "message" => "Cancelled status not configured"]);
+            return;
+        }
 
-    $stmt->execute([$status_id, $data->task_id]);
+        $conn->beginTransaction();
+        $taskLockStmt = $conn->prepare("
+            SELECT id
+            FROM tasks
+            WHERE id = ?
+            FOR UPDATE
+        ");
+        $taskLockStmt->execute([$taskId]);
+        if ((int)$taskLockStmt->fetchColumn() <= 0) {
+            $conn->rollBack();
+            http_response_code(404);
+            echo json_encode(["success" => false, "message" => "Task not found"]);
+            return;
+        }
 
-    echo json_encode(["message" => "Task cancelled"]);
+        $stmt = $conn->prepare("
+            UPDATE tasks SET status_id=? WHERE id=?
+        ");
+        $stmt->execute([$status_id, $taskId]);
+
+        $this->deactivateTaskAssignments($conn, $taskId);
+
+        $conn->commit();
+        echo json_encode(["success" => true, "message" => "Task cancelled"]);
+    } catch (Exception $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        LoggerService::logError('Task cancellation failed', [
+            'task_id' => $taskId,
+            'error' => $e->getMessage(),
+        ]);
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
+    }
 }
-    public function bulkAssign() {
+    public function bulkAssign($assignedByUserId = null) {
 
     $data = json_decode(file_get_contents("php://input"));
 
@@ -471,6 +507,8 @@ class TaskController {
 
     $assigned = 0;
     $alreadyAssigned = 0;
+    $notifiedTaskIds = [];
+    $assignmentActorId = $assignedByUserId ?? ($data->assigned_by ?? null);
 
     try {
         $conn->beginTransaction();
@@ -495,18 +533,15 @@ class TaskController {
                 continue;
             }
 
-            $conn->prepare("
-                UPDATE task_assignments
-                SET is_active = 0
-                WHERE task_id = ?
-            ")->execute([$taskId]);
+            $this->deactivateTaskAssignments($conn, $taskId);
 
-            $this->insertActiveTaskAssignment($conn, $taskId, $userId, $data->assigned_by ?? null);
+            $this->insertActiveTaskAssignment($conn, $taskId, $userId, $assignmentActorId);
 
             $conn->prepare("
                 UPDATE tasks SET status_id=? WHERE id=?
             ")->execute([$status_id, $taskId]);
             $assigned++;
+            $notifiedTaskIds[] = $taskId;
         }
 
         $conn->commit();
@@ -520,11 +555,22 @@ class TaskController {
         return;
     }
 
+    $emailResults = [];
+    foreach ($notifiedTaskIds as $taskId) {
+        $emailResults[$taskId] = EmailService::sendTaskNotification($taskId, 'assigned', null, $assignmentActorId, (int)$data->user_id);
+    }
+
     $message = $assigned === 0 && $alreadyAssigned > 0
         ? "Task is already assigned to selected expert."
         : "Bulk assign done";
 
-    echo json_encode(["success" => true, "message" => $message, "assigned_count" => $assigned, "already_assigned_count" => $alreadyAssigned]);
+    echo json_encode([
+        "success" => true,
+        "message" => $message,
+        "assigned_count" => $assigned,
+        "already_assigned_count" => $alreadyAssigned,
+        "email_results" => $emailResults,
+    ]);
 }
     public function bulkUpdateStatus() {
 
@@ -548,15 +594,41 @@ class TaskController {
         return;
     }
 
-    $ids = implode(",", array_map('intval', $data->task_ids));
+    $taskIds = array_values(array_filter(array_map('intval', (array)$data->task_ids), static fn ($id) => $id > 0));
+    if (!$taskIds) {
+        echo json_encode(["error" => "Invalid data"]);
+        return;
+    }
 
-    $conn->exec("
-        UPDATE tasks 
-        SET status_id = $status_id 
-        WHERE id IN ($ids)
-    ");
+    try {
+        $conn->beginTransaction();
+        $placeholders = implode(',', array_fill(0, count($taskIds), '?'));
+        $lockStmt = $conn->prepare("SELECT id FROM tasks WHERE id IN ({$placeholders}) FOR UPDATE");
+        $lockStmt->execute($taskIds);
 
-    echo json_encode(["message" => "Tasks updated"]);
+        $updateStmt = $conn->prepare("UPDATE tasks SET status_id = ? WHERE id IN ({$placeholders})");
+        $updateStmt->execute(array_merge([(int)$status_id], $taskIds));
+
+        if (strtolower(trim((string)$data->status)) === 'cancelled') {
+            foreach ($taskIds as $taskId) {
+                $this->deactivateTaskAssignments($conn, $taskId);
+            }
+        }
+
+        $conn->commit();
+        echo json_encode(["success" => true, "message" => "Tasks updated"]);
+    } catch (Exception $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        LoggerService::logError('Bulk task status update failed', [
+            'status' => $data->status ?? null,
+            'task_ids' => $taskIds,
+            'error' => $e->getMessage(),
+        ]);
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
+    }
 }
 public function downloadFile() {
 
@@ -947,11 +1019,16 @@ public function downloadFile() {
 
                     $updateTaskMetaStmt->execute([$statusId, $date, $startTime, $endTime, $taskId]);
 
-                    if (!empty($updatedFields['assign_to'])) {
+                    $isCancellingTask = strtolower(trim((string)($updatedFields['status'] ?? ''))) === 'cancelled';
+                    if ($isCancellingTask) {
+                        $this->deactivateTaskAssignments($conn, $taskId);
+                    }
+
+                    if (!$isCancellingTask && !empty($updatedFields['assign_to'])) {
                         $assigneeStmt->execute([trim((string)$updatedFields['assign_to'])]);
                         $assigneeId = $assigneeStmt->fetchColumn();
                         if ($assigneeId && !$this->activateOnlyExistingAssignmentForSameUser($conn, $taskId, (int)$assigneeId)) {
-                            $conn->prepare("UPDATE task_assignments SET is_active = 0 WHERE task_id = ?")->execute([$taskId]);
+                            $this->deactivateTaskAssignments($conn, $taskId);
                             $this->insertActiveTaskAssignment($conn, $taskId, (int)$assigneeId);
                         }
                     }
@@ -1370,11 +1447,7 @@ public function downloadFile() {
                 return;
             }
 
-            $conn->prepare("
-                UPDATE task_assignments
-                SET is_active = 0
-                WHERE task_id = ?
-            ")->execute([$taskId]);
+            $this->deactivateTaskAssignments($conn, $taskId);
 
             $this->insertActiveTaskAssignment($conn, $taskId, $userId, $assignedByUserId);
 
@@ -1383,7 +1456,7 @@ public function downloadFile() {
             ")->execute([$status_id, $taskId]);
             $conn->commit();
 
-            $emailResult = EmailService::sendTaskNotification($taskId, 'assigned', null, $assignedByUserId);
+            $emailResult = EmailService::sendTaskNotification($taskId, 'assigned', null, $assignedByUserId, $userId);
 
             echo json_encode([
                 "success" => true,
@@ -1404,6 +1477,18 @@ public function downloadFile() {
             http_response_code(500);
             echo json_encode(["success" => false, "message" => "Something went wrong. Please try again."]);
         }
+    }
+
+    private function deactivateTaskAssignments(PDO $conn, int $taskId): void {
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $updatedAtClause = in_array('updated_at', $assignmentColumns, true) ? ', updated_at = NOW()' : '';
+
+        $stmt = $conn->prepare("
+            UPDATE task_assignments
+            SET is_active = 0{$updatedAtClause}
+            WHERE task_id = ?
+        ");
+        $stmt->execute([$taskId]);
     }
 
     private function activateOnlyExistingAssignmentForSameUser(PDO $conn, int $taskId, int $userId): bool {

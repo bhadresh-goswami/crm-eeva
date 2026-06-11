@@ -299,11 +299,7 @@ class DashboardController {
                 return;
             }
 
-            $conn->prepare("
-                UPDATE task_assignments
-                SET is_active = 0
-                WHERE task_id = ?
-            ")->execute([$taskId]);
+            $this->deactivateTaskAssignments($conn, $taskId);
 
             $this->insertActiveTaskAssignment($conn, $taskId, $expertId, $actorUserId);
 
@@ -321,7 +317,7 @@ class DashboardController {
             $stmt2->execute([$status_id, $taskId]);
             $conn->commit();
 
-            $emailResult = EmailService::sendTaskNotification($taskId, 'assigned', null, $actorUserId);
+            $emailResult = EmailService::sendTaskNotification($taskId, 'assigned', null, $actorUserId, $expertId);
 
             echo json_encode([
                 "success" => true,
@@ -345,6 +341,18 @@ class DashboardController {
                 "message" => "Something went wrong. Please try again."
             ]);
         }
+    }
+
+    private function deactivateTaskAssignments(PDO $conn, int $taskId): void {
+        $assignmentColumns = $this->getTableColumns($conn, 'task_assignments');
+        $updatedAtClause = in_array('updated_at', $assignmentColumns, true) ? ', updated_at = NOW()' : '';
+
+        $stmt = $conn->prepare("
+            UPDATE task_assignments
+            SET is_active = 0{$updatedAtClause}
+            WHERE task_id = ?
+        ");
+        $stmt->execute([$taskId]);
     }
 
     private function activateOnlyExistingAssignmentForSameUser(PDO $conn, int $taskId, int $userId): bool {

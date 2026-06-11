@@ -11,14 +11,14 @@ use PHPMailer\PHPMailer\PHPMailer;
 
 class EmailService
 {
-    public static function sendTaskNotification($taskId, $action, $comment = null, $actorUserId = null)
+    public static function sendTaskNotification($taskId, $action, $comment = null, $actorUserId = null, $assignedUserId = null)
     {
         try {
             $db = new Database();
             $conn = $db->connect();
 
             self::ensureThreadColumnExists($conn);
-            $task = self::fetchTaskSnapshot($conn, (int)$taskId);
+            $task = self::fetchTaskSnapshot($conn, (int)$taskId, $assignedUserId !== null ? (int)$assignedUserId : null);
             if (!$task) {
                 return [
                     'success' => true,
@@ -35,6 +35,12 @@ class EmailService
 
             $recipients = self::resolveRecipients($conn, $task, $actorUserId);
             if (empty($recipients['to']) && empty($recipients['cc'])) {
+                LoggerService::logError('Task email notification has no recipients', [
+                    'task_id' => (int)$taskId,
+                    'action' => (string)$action,
+                    'assigned_user_id' => $assignedUserId,
+                    'assigned_to_id' => $task['assigned_to_id'] ?? null,
+                ]);
                 return [
                     'success' => true,
                     'email_status' => 'failed',
@@ -91,10 +97,17 @@ class EmailService
         $conn->exec('ALTER TABLE tasks ADD COLUMN email_thread_id VARCHAR(255) NULL');
     }
 
-    private static function fetchTaskSnapshot(PDO $conn, int $taskId)
+    private static function fetchTaskSnapshot(PDO $conn, int $taskId, ?int $assignedUserId = null)
     {
-        $stmt = $conn->prepare("\n            SELECT\n                t.id,\n                t.title,\n                t.due_date,\n                t.start_time,\n                t.email_thread_id,\n                COALESCE(cand.name, '') AS candidate_name,\n                COALESCE(tt.name, '') AS support_type,\n                COALESCE(ts.name, '') AS status_name,\n                ta.user_id AS assigned_to_id,\n                COALESCE(assigned_to.name, '') AS assigned_to_name,\n                COALESCE(assigned_to.email, '') AS assigned_to_email,\n                assigned_to.team_lead_id AS assigned_to_team_lead_id\n            FROM tasks t\n            LEFT JOIN candidates cand ON cand.id = t.candidate_id\n            LEFT JOIN task_types tt ON tt.id = t.task_type_id\n            LEFT JOIN task_status_master ts ON ts.id = t.status_id\n            LEFT JOIN task_assignments ta ON ta.id = (\n                SELECT id FROM task_assignments WHERE task_id = t.id AND is_active = 1 ORDER BY id DESC LIMIT 1\n            )\n            LEFT JOIN users assigned_to ON assigned_to.id = ta.user_id\n            WHERE t.id = ?\n            LIMIT 1\n        ");
-        $stmt->execute([$taskId]);
+        $assignmentWhere = "task_id = t.id AND is_active = 1";
+        $params = [$taskId];
+        if ($assignedUserId !== null && $assignedUserId > 0) {
+            $assignmentWhere .= " AND user_id = ?";
+            $params = [$assignedUserId, $taskId];
+        }
+
+        $stmt = $conn->prepare("\n            SELECT\n                t.id,\n                t.title,\n                t.due_date,\n                t.start_time,\n                t.email_thread_id,\n                COALESCE(cand.name, '') AS candidate_name,\n                COALESCE(tt.name, '') AS support_type,\n                COALESCE(ts.name, '') AS status_name,\n                ta.user_id AS assigned_to_id,\n                COALESCE(assigned_to.name, '') AS assigned_to_name,\n                COALESCE(assigned_to.email, '') AS assigned_to_email,\n                assigned_to.team_lead_id AS assigned_to_team_lead_id\n            FROM tasks t\n            LEFT JOIN candidates cand ON cand.id = t.candidate_id\n            LEFT JOIN task_types tt ON tt.id = t.task_type_id\n            LEFT JOIN task_status_master ts ON ts.id = t.status_id\n            LEFT JOIN task_assignments ta ON ta.id = (\n                SELECT id FROM task_assignments WHERE {$assignmentWhere} ORDER BY id DESC LIMIT 1\n            )\n            LEFT JOIN users assigned_to ON assigned_to.id = ta.user_id\n            WHERE t.id = ?\n            LIMIT 1\n        ");
+        $stmt->execute($params);
 
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
@@ -177,6 +190,20 @@ class EmailService
         );
     }
 
+    private static function resolveLoginUrl(): string
+    {
+        if (!empty($_SERVER['HTTP_ORIGIN'])) {
+            return rtrim((string)$_SERVER['HTTP_ORIGIN'], '/') . '/login';
+        }
+
+        if (!empty($_SERVER['HTTP_HOST'])) {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            return $scheme . '://' . $_SERVER['HTTP_HOST'] . '/login';
+        }
+
+        return 'https://support.bsquareg-developers.com/login';
+    }
+
     private static function buildBody(array $task, string $action, $comment, $actorUserId)
     {
         $isFirstMail = in_array(strtolower($action), ['assigned', 'assign', 'task_assigned'], true);
@@ -190,23 +217,31 @@ class EmailService
             $dtEst->setTimezone($est);
 
             $assignedBy = $actorName !== '' ? $actorName : 'System';
+            $loginUrl = self::resolveLoginUrl();
             $html = '<p>Hello,</p>'
                 . '<p>A task has been assigned. Please find the details below:</p>'
                 . '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">'
+                . self::row('Task ID', $task['id'] ?? '-')
                 . self::row('Task Title', $task['title'] ?? '-')
                 . self::row('Candidate Name', $task['candidate_name'] ?? '-')
-                . self::row('Support Type', $task['support_type'] ?? '-')
-                . self::row('Status', $task['status_name'] ?? '-')
-                . self::row('IST Date & Time', $dtIst->format('d M Y h:i A'))
-                . self::row('EST Date & Time', $dtEst->format('d M Y h:i A'))
+                . self::row('Task Type', $task['support_type'] ?? '-')
+                . self::row('Due Date', $dtIst->format('d M Y'))
+                . self::row('Scheduled Time', $dtIst->format('h:i A') . ' IST / ' . $dtEst->format('h:i A') . ' EST')
                 . self::row('Assigned To', $task['assigned_to_name'] ?? '-')
                 . self::row('Assigned By', $assignedBy)
+                . self::row('Login URL', $loginUrl)
                 . '</table>'
                 . '<p>Regards,<br>BsquareG Support</p>';
 
             $plain = 'Task assigned: ' . ($task['title'] ?? '-') . PHP_EOL
+                . 'Task ID: ' . ($task['id'] ?? '-') . PHP_EOL
+                . 'Candidate: ' . ($task['candidate_name'] ?? '-') . PHP_EOL
+                . 'Task Type: ' . ($task['support_type'] ?? '-') . PHP_EOL
+                . 'Due Date: ' . $dtIst->format('d M Y') . PHP_EOL
+                . 'Scheduled Time: ' . $dtIst->format('h:i A') . ' IST / ' . $dtEst->format('h:i A') . ' EST' . PHP_EOL
                 . 'Assigned to: ' . ($task['assigned_to_name'] ?? '-') . PHP_EOL
-                . 'Assigned by: ' . $assignedBy;
+                . 'Assigned by: ' . $assignedBy . PHP_EOL
+                . 'Login URL: ' . $loginUrl;
 
             return [$html, $plain];
         }
