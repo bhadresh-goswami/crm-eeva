@@ -5,10 +5,12 @@ import { useAuth } from '../../../context/AuthContext'
 import PageContainer from '../../../shared/components/PageContainer'
 import {
   getExpertDashboardAnalytics,
+  recalculateExpertTaskDuration,
   type AnalyticsPayload,
 } from '../../../services/expertDashboardAnalyticsService'
 import StatCard from '../../../components/dashboard/StatCard'
 import DailyWorkingAnalyticsTable from '../../../components/dashboard/DailyWorkingAnalyticsTable'
+import { useAlert } from '../../../shared/alerts/useAlert'
 
 const emptyAnalytics: AnalyticsPayload = {
   daily_working_analytics: {
@@ -19,9 +21,11 @@ const emptyAnalytics: AnalyticsPayload = {
 
 const ExpertDashboard = () => {
   const { user } = useAuth()
+  const { showToast } = useAlert()
   const [tasks, setTasks] = useState<ExpertTaskItem[]>([])
   const [loading, setLoading] = useState(true)
   const [analyticsLoading, setAnalyticsLoading] = useState(true)
+  const [recalculatingDuration, setRecalculatingDuration] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [analytics, setAnalytics] = useState<AnalyticsPayload>(emptyAnalytics)
   const [dateRangeFilter, setDateRangeFilter] = useState<'7' | '10' | 'all'>('7')
@@ -61,6 +65,28 @@ const ExpertDashboard = () => {
     }
   }, [])
 
+
+  const handleRecalculateDuration = useCallback(async () => {
+    setRecalculatingDuration(true)
+    try {
+      const result = await recalculateExpertTaskDuration()
+      showToast({
+        type: 'success',
+        title: 'Duration recalculation completed.',
+        message: `Updated: ${result.updated} tasks
+Skipped: ${result.skipped} tasks`,
+      })
+      await Promise.all([loadAnalytics(), loadTasks(dateRangeFilter)])
+    } catch (recalculateError) {
+      showToast({
+        type: 'error',
+        message: recalculateError instanceof Error ? recalculateError.message : 'Failed to recalculate task durations.',
+      })
+    } finally {
+      setRecalculatingDuration(false)
+    }
+  }, [dateRangeFilter, loadAnalytics, loadTasks, showToast])
+
   useEffect(() => {
     let mounted = true
     const load = async () => {
@@ -88,6 +114,8 @@ const ExpertDashboard = () => {
           <DailyWorkingAnalyticsTable
             data={analytics.daily_working_analytics ?? emptyAnalytics.daily_working_analytics}
             loading={analyticsLoading}
+            onRecalculateDuration={handleRecalculateDuration}
+            recalculatingDuration={recalculatingDuration}
           />
         </div>
       </div>

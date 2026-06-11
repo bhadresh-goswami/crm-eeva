@@ -13,7 +13,7 @@ const FeedbackPendingReport = () => (
       { key: 'technicalExpert', label: 'Technical Expert' },
       { key: 'assignedBy', label: 'Assigned By' },
       { key: 'dueDate', label: 'Due Date' },
-      { key: 'estTime', label: 'EST Time' },
+      { key: 'schedule', label: 'Schedule' },
       { key: 'duration', label: 'Duration' },
       { key: 'action', label: 'Action' },
     ]}

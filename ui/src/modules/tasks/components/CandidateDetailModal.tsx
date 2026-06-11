@@ -26,7 +26,7 @@ const CandidateDetailModal = ({ open, candidateName, loading, rows, onClose, onF
               <table className="table table-hover table-bordered align-middle table-sm">
                 <thead className="table-light">
                   <tr>
-                    <th>Task ID</th><th>Client Company</th><th>Technical Expert</th><th>Task Type</th><th>Status</th><th>Interview Date</th><th>EST Time</th><th>Duration</th><th>Feedback Status</th><th>Overall Score</th><th>Feedback View</th>
+                    <th>Task ID</th><th>Client Company</th><th>Technical Expert</th><th>Task Type</th><th>Status</th><th>Interview Date</th><th>ET Time</th><th>Duration</th><th>Feedback Status</th><th>Overall Score</th><th>Feedback View</th>
                   </tr>
                 </thead>
                 <tbody>

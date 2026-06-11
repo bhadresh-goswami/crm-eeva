@@ -12,6 +12,7 @@ const FeedbackReport = () => (
       { key: 'assignedBy', label: 'Assigned By' },
       { key: 'clientCompany', label: 'Client Company' },
       { key: 'taskType', label: 'Task Type' },
+      { key: 'schedule', label: 'Schedule' },
       { key: 'feedbackSubmittedDate', label: 'Feedback Submitted Date' },
       { key: 'averageScore', label: 'Average Score' },
       { key: 'action', label: 'Action' },

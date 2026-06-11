@@ -297,6 +297,11 @@ elseif ($uri === "/expert/dashboard-analytics" && $method === "GET") {
     (new ExpertDashboardAnalyticsController())->index($user);
 }
 
+elseif ($uri === "/expert/recalculate-task-duration" && $method === "POST") {
+    authorize($user,['expert','technical expert','expertlead','technical lead']);
+    (new ExpertDashboardAnalyticsController())->recalculateDurations($user);
+}
+
 // ===================================================
 // 📋 TASKS
 // ===================================================
@@ -434,6 +439,10 @@ elseif ($uri === "/reports/candidate-performance-feedback" && $method === "GET")
     authorize($user,['admin','manager']);
     (new CandidatePerformanceReportController())->feedback();
 }
+elseif ($uri === "/reports/recalculate-task-duration" && $method === "POST") {
+    authorize($user,['admin']);
+    (new ManagerReportsController())->recalculateTaskDuration();
+}
 elseif ($uri === "/manager/reports/feedback-pending" && $method === "GET") {
     authorize($user,['admin','manager']);
     (new ManagerReportsController())->feedbackPending();
@@ -453,6 +462,10 @@ elseif ($uri === "/manager/reports/tasks-summary" && $method === "GET") {
 elseif ($uri === "/manager/reports/feedback-report" && $method === "GET") {
     authorize($user,['admin','manager']);
     (new ManagerReportsController())->feedbackReport();
+}
+elseif ($uri === "/manager/reports/expert-availability-matrix" && $method === "GET") {
+    authorize($user,['admin','manager','coordinator']);
+    (new ManagerReportsController())->expertAvailabilityMatrix();
 }
 elseif (preg_match('#^/manager/reports/task-details/(\d+)$#', $uri, $matches) && $method === "GET") {
     authorize($user,['admin','manager']);

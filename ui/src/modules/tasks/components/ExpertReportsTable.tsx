@@ -1,5 +1,5 @@
 import { BsArrowDownUp, BsChatSquareText, BsEye } from 'react-icons/bs'
-import { formatEST, formatIST, parseISTDateTime } from '../../../utils/timezone'
+import { formatEastern, formatIST } from '../../../utils/timezone'
 
 type Row = {
   id: number
@@ -15,8 +15,6 @@ type Row = {
   feedback_id: number | null
 }
 
-const IST_ZONE = 'Asia/Kolkata'
-const EST_ZONE = 'America/New_York'
 
 const parseISTDateTime = (dateValue?: string, timeValue?: string) => {
   if (!dateValue || !timeValue) return null
@@ -39,15 +37,6 @@ const parseISTDateTime = (dateValue?: string, timeValue?: string) => {
   return Number.isNaN(asDate.getTime()) ? null : asDate
 }
 
-const formatTime = (date: Date | null, zone: string, suffix: string) => {
-  if (!date) return '--'
-  return `${new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: zone,
-  }).format(date)} ${suffix}`
-}
 
 type Props = {
   items: Row[]
@@ -91,7 +80,7 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
           <thead className="table-light" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
             <tr>
               <th className="text-center text-nowrap" style={actionCellStyle}>Action</th>
-              {['task_date','expert_name','candidate_name','task_type','status_name','ist_time','est_time','duration'].map((col) => <th key={col} className="text-nowrap" role="button" onClick={() => onSort(col === 'ist_time' || col === 'est_time' ? 'task_date' : col)}>{col === 'ist_time' ? 'IST Time' : col === 'est_time' ? 'EST Time' : col.replaceAll('_',' ').replace(/\b\w/g, (c) => c.toUpperCase())} <BsArrowDownUp size={12} className={sortBy===col?'text-primary':''} /></th>)}
+              {['task_date','expert_name','candidate_name','task_type','status_name','ist_time','est_time','duration'].map((col) => <th key={col} className="text-nowrap" role="button" onClick={() => onSort(col === 'ist_time' || col === 'est_time' ? 'task_date' : col)}>{col === 'ist_time' ? 'IST Time' : col === 'est_time' ? 'ET Time' : col.replaceAll('_',' ').replace(/\b\w/g, (c) => c.toUpperCase())} <BsArrowDownUp size={12} className={sortBy===col?'text-primary':''} /></th>)}
               <th className="text-nowrap" style={{ minWidth: 96 }}>Feedback</th>
             </tr>
           </thead>
@@ -103,7 +92,7 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
                 ? `${formatIST(startDateTime)}${endDateTime ? ` - ${formatIST(endDateTime)}` : ''}`
                 : '--'
               const estTime = startDateTime
-                ? `${formatEST(startDateTime)}${endDateTime ? ` - ${formatEST(endDateTime)}` : ''}`
+                ? `${formatEastern(startDateTime)}${endDateTime ? ` - ${formatEastern(endDateTime)}` : ''}`
                 : '--'
               const computedDuration = Number(row.duration) > 0
                 ? Number(row.duration)

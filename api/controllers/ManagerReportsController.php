@@ -87,11 +87,74 @@ class ManagerReportsController {
         return " LIMIT :offset, :limit";
     }
 
-    private function runListReport(string $extraWhere = ''): void {
+    private function completedTaskWhere(): string {
+        return "LOWER(COALESCE(tsm.name, '')) = 'completed'";
+    }
+
+    private function scheduledTimeExpression(string $preferredColumn, string $fallbackColumn): string {
+        $candidates = [$preferredColumn, str_replace('scheduled_', 'assigned_', $preferredColumn), $fallbackColumn];
+        $expressions = [];
+        foreach ($candidates as $column) {
+            if ($this->hasColumn('tasks', $column)) {
+                $expressions[] = "t.{$column}";
+            }
+        }
+        return $expressions ? 'COALESCE(' . implode(', ', $expressions) . ')' : 'NULL';
+    }
+
+    private function bindListParams(PDOStatement $stmt, array $params): void {
+        foreach ($params as $k => $v) {
+            $type = in_array($k, [':offset', ':limit', ':candidate_id', ':expert_id', ':task_type_id', ':client_id', ':company_id', ':status_id'], true) ? PDO::PARAM_INT : PDO::PARAM_STR;
+            $stmt->bindValue($k, $v, $type);
+        }
+    }
+
+
+    private function formatEasternFromUtc(?string $value): string {
+        if ($value === null || trim($value) === '') return 'N/A';
+        try {
+            $dt = new DateTime(trim($value), new DateTimeZone('UTC'));
+            $dt->setTimezone(new DateTimeZone('America/New_York'));
+            return $dt->format('m-d-Y h:i A T');
+        } catch (Throwable $e) {
+            return 'N/A';
+        }
+    }
+
+    private function runListReport(string $extraWhere = '', string $baseWhere = '', bool $includeSchedule = false, bool $includePaginationMeta = false): void {
         try {
             $params = [];
-            $where = $this->applyFilters($params);
+            $where = $baseWhere !== '' ? $baseWhere : '1=1';
+            $filterWhere = $this->applyFilters($params);
+            if ($filterWhere !== '1=1') $where .= " AND {$filterWhere}";
             if ($extraWhere) $where .= " AND {$extraWhere}";
+            $scheduleSelect = '';
+            if ($includeSchedule) {
+                $scheduledStartExpr = $this->scheduledTimeExpression('scheduled_start_time', 'start_time');
+                $scheduledEndExpr = $this->scheduledTimeExpression('scheduled_end_time', 'end_time');
+                $scheduleSelect = ",
+                {$scheduledStartExpr} AS scheduled_start_time,
+                {$scheduledEndExpr} AS scheduled_end_time";
+            }
+            $paginationMeta = null;
+            if ($includePaginationMeta) {
+                $page = max(1, (int)($_GET['page'] ?? 1));
+                $limit = max(1, min(200, (int)($_GET['limit'] ?? 20)));
+                $countStmt = $this->conn->prepare("SELECT COUNT(DISTINCT t.id) " . $this->baseSelect() . " WHERE {$where}");
+                $this->bindListParams($countStmt, $params);
+                $countStmt->execute();
+                $totalRecords = (int)$countStmt->fetchColumn();
+                $totalPages = max(1, (int)ceil($totalRecords / $limit));
+                if ($page > $totalPages) {
+                    $page = $totalPages;
+                }
+                $params[':offset'] = ($page - 1) * $limit;
+                $params[':limit'] = $limit;
+                $limitClause = " LIMIT :offset, :limit";
+                $paginationMeta = ['total_records' => $totalRecords, 'total_pages' => $totalPages, 'page' => $page, 'limit' => $limit];
+            } else {
+                $limitClause = $this->paginateClause($params);
+            }
             $durationExpr = "CASE
                 WHEN t.duration IS NOT NULL THEN t.duration
                 WHEN t.start_time IS NOT NULL AND t.end_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, t.start_time, t.end_time), 0)
@@ -106,18 +169,12 @@ class ManagerReportsController {
                 COALESCE(u.name, feedback_expert.name, 'N/A') AS technical_expert,
                 DATE(t.due_date) AS due_date,
                 {$durationExpr} AS duration,
-                COALESCE(
-                    DATE_FORMAT(
-                        CONVERT_TZ(COALESCE(t.task_start_time, t.start_time), '+00:00', 'America/New_York'),
-                        '%m-%d-%Y %h:%i %p'
-                    ),
-                    'N/A'
-                ) AS est_time,
+                COALESCE(t.task_start_time, t.start_time) AS eastern_source_time,
                 COALESCE(tsm.name, 'N/A') AS status_name,
                 COALESCE(tsm.name, 'N/A') AS task_status,
                 COALESCE(assigned_by_user.name, 'N/A') AS assigned_by,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
-                DATE(tf.created_at) AS feedback_date,
+                DATE(tf.created_at) AS feedback_date{$scheduleSelect},
                 ROUND(((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) /
                     NULLIF(
                         (CASE WHEN tf.communication IS NOT NULL THEN 1 ELSE 0 END +
@@ -127,23 +184,83 @@ class ManagerReportsController {
                     )),2) AS average_score
                 " . $this->baseSelect() . "
                 WHERE {$where}
-                ORDER BY t.due_date DESC, t.id DESC" . $this->paginateClause($params);
+                ORDER BY t.due_date DESC, t.id DESC" . $limitClause;
             $stmt = $this->conn->prepare($sql);
-            foreach ($params as $k => $v) {
-                $type = in_array($k, [':offset', ':limit', ':candidate_id', ':expert_id', ':task_type_id', ':client_id', ':company_id', ':status_id'], true) ? PDO::PARAM_INT : PDO::PARAM_STR;
-                $stmt->bindValue($k, $v, $type);
-            }
+            $this->bindListParams($stmt, $params);
             $stmt->execute();
-            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = array_map(function (array $row) {
+                $row['est_time'] = $this->formatEasternFromUtc(isset($row['eastern_source_time']) ? (string)$row['eastern_source_time'] : null);
+                unset($row['eastern_source_time']);
+                return $row;
+            }, $rows);
+            $response = ['success' => true, 'data' => $rows];
+            if ($paginationMeta !== null) {
+                $response = array_merge($response, $paginationMeta, ['pagination' => $paginationMeta]);
+            }
+            echo json_encode($response);
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
     }
 
-    public function feedbackPending(): void { $this->runListReport('tf.id IS NULL'); }
+    public function recalculateTaskDuration(): void {
+        try {
+            $eligibleWhere = "duration = 0
+                AND start_time IS NOT NULL
+                AND end_time IS NOT NULL
+                AND due_date IS NOT NULL
+                AND start_time <> ''
+                AND end_time <> ''
+                AND status_id NOT IN (1,2,5)";
+            $skippedWhere = "duration = 0
+                AND (
+                    start_time IS NULL
+                    OR end_time IS NULL
+                    OR due_date IS NULL
+                    OR start_time = ''
+                    OR end_time = ''
+                    OR status_id IS NULL
+                    OR status_id IN (1,2,5)
+                )";
+
+            $skippedStmt = $this->conn->query("SELECT COUNT(*) FROM tasks WHERE {$skippedWhere}");
+            $skipped = (int)$skippedStmt->fetchColumn();
+
+            $sql = "UPDATE tasks
+                SET duration = CASE
+                    WHEN TIME(end_time) < TIME(start_time) THEN
+                        TIMESTAMPDIFF(
+                            MINUTE,
+                            CONCAT(DATE(due_date), ' ', TIME(start_time)),
+                            DATE_ADD(CONCAT(DATE(due_date), ' ', TIME(end_time)), INTERVAL 1 DAY)
+                        )
+                    ELSE
+                        TIMESTAMPDIFF(
+                            MINUTE,
+                            CONCAT(DATE(due_date), ' ', TIME(start_time)),
+                            CONCAT(DATE(due_date), ' ', TIME(end_time))
+                        )
+                    END
+                WHERE {$eligibleWhere}";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute();
+
+            echo json_encode([
+                'success' => true,
+                'updated' => $stmt->rowCount(),
+                'skipped' => $skipped,
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    public function feedbackPending(): void { $this->runListReport('tf.id IS NULL', $this->completedTaskWhere(), true, true); }
     public function tasksSummary(): void { $this->runListReport(); }
-    public function feedbackReport(): void { $this->runListReport('tf.id IS NOT NULL'); }
+    public function feedbackReport(): void { $this->runListReport('tf.id IS NOT NULL', $this->completedTaskWhere(), true, true); }
 
     public function techVsTasks(): void {
         try {
@@ -224,7 +341,7 @@ class ManagerReportsController {
                 COALESCE(tt.name, 'N/A') AS task_type,
                 COALESCE(tsm.name, 'N/A') AS task_status,
                 DATE(t.due_date) AS task_date,
-                COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_start_time, t.start_time), '+00:00', '-05:00'), '%m-%d-%Y %h:%i %p'), 'N/A') AS est_time,
+                COALESCE(t.task_start_time, t.start_time) AS eastern_source_time,
                 {$durationExpr} AS duration,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
                 COALESCE(tf.overall, 0) AS average_score,
@@ -239,7 +356,13 @@ class ManagerReportsController {
                 $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
             $stmt->execute();
-            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = array_map(function (array $row) {
+                $row['est_time'] = $this->formatEasternFromUtc(isset($row['eastern_source_time']) ? (string)$row['eastern_source_time'] : null);
+                unset($row['eastern_source_time']);
+                return $row;
+            }, $rows);
+            echo json_encode(['success' => true, 'data' => $rows]);
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -278,6 +401,77 @@ class ManagerReportsController {
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$row) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Task not found']); return; }
             echo json_encode(['success' => true, 'data' => $row]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
+    public function expertAvailabilityMatrix(): void {
+        try {
+            $date = (string)($_GET['date'] ?? date('Y-m-d'));
+            $expertId = isset($_GET['expert_id']) && $_GET['expert_id'] !== '' ? (int)$_GET['expert_id'] : null;
+            $taskTypeId = isset($_GET['task_type_id']) && $_GET['task_type_id'] !== '' ? (int)$_GET['task_type_id'] : null;
+            $status = strtolower(trim((string)($_GET['status'] ?? '')));
+
+            $startIst = new DateTime($date . ' 17:00:00', new DateTimeZone('Asia/Kolkata'));
+            $endIst = (clone $startIst)->modify('+13 hours');
+            $startUtc = (clone $startIst)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+            $endUtc = (clone $endIst)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+
+            $expertWhere = ["u.status = 'active'", "LOWER(COALESCE(r.name,'')) LIKE '%expert%'"];
+            $expertParams = [];
+            if ($expertId !== null) { $expertWhere[] = 'u.id = :expert_id'; $expertParams[':expert_id'] = $expertId; }
+            $expertsStmt = $this->conn->prepare("SELECT DISTINCT u.id, u.name FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE " . implode(' AND ', $expertWhere) . " ORDER BY u.name ASC");
+            foreach ($expertParams as $k => $v) { $expertsStmt->bindValue($k, $v, PDO::PARAM_INT); }
+            $expertsStmt->execute();
+            $experts = $expertsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $taskWhere = ['ta.user_id IS NOT NULL', 'COALESCE(ta.assigned_at, t.start_time, t.task_start_time, t.due_date) >= :start_utc', 'COALESCE(ta.assigned_at, t.start_time, t.task_start_time, t.due_date) < :end_utc'];
+            $params = [':start_utc' => $startUtc, ':end_utc' => $endUtc];
+            if ($expertId !== null) { $taskWhere[] = 'ta.user_id = :expert_id'; $params[':expert_id'] = $expertId; }
+            if ($taskTypeId !== null) { $taskWhere[] = 't.task_type_id = :task_type_id'; $params[':task_type_id'] = $taskTypeId; }
+            if ($status !== '') { $taskWhere[] = 'LOWER(REPLACE(tsm.name, " ", "_")) = :status'; $params[':status'] = $status; }
+
+            $taskSql = "SELECT ta.user_id expert_id, cd.name candidate_name, tt.name task_type, LOWER(REPLACE(COALESCE(tsm.name,'assigned'),' ','_')) status_key,
+                COALESCE(ta.assigned_at, t.start_time, t.task_start_time, t.due_date) as slot_utc
+                FROM tasks t
+                INNER JOIN task_assignments ta ON ta.task_id=t.id AND ta.is_active=1
+                LEFT JOIN candidates cd ON cd.id=t.candidate_id
+                LEFT JOIN task_types tt ON tt.id=t.task_type_id
+                LEFT JOIN task_status_master tsm ON tsm.id=t.status_id
+                WHERE " . implode(' AND ', $taskWhere) . " ORDER BY slot_utc ASC";
+            $stmt = $this->conn->prepare($taskSql);
+            foreach ($params as $k => $v) { $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
+            $stmt->execute();
+            $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $slots = [];
+            $cursor = clone $startIst;
+            while ($cursor < $endIst) {
+                $next = (clone $cursor)->modify('+30 minutes');
+                $slotKey = $cursor->format('Y-m-d H:i');
+                $slots[$slotKey] = ['slot_key' => $slotKey, 'ist_label' => $cursor->format('h:i A') . ' - ' . $next->format('h:i A') . ' IST', 'est_label' => (clone $cursor)->setTimezone(new DateTimeZone('America/New_York'))->format('h:i A T') . ' - ' . (clone $next)->setTimezone(new DateTimeZone('America/New_York'))->format('h:i A T'), 'tasks_by_expert' => []];
+                $cursor = $next;
+            }
+            foreach ($tasks as $task) {
+                $dt = new DateTime((string)$task['slot_utc'], new DateTimeZone('UTC'));
+                $dt->setTimezone(new DateTimeZone('Asia/Kolkata'));
+                $minute = ((int)$dt->format('i') >= 30) ? '30' : '00';
+                $key = $dt->format('Y-m-d H:') . $minute;
+                if (!isset($slots[$key])) continue;
+                $slots[$key]['tasks_by_expert'][(string)$task['expert_id']] = [
+                    'candidate_name' => (string)($task['candidate_name'] ?? 'N/A'),
+                    'task_type' => (string)($task['task_type'] ?? 'N/A'),
+                    'status_key' => (string)($task['status_key'] ?? 'assigned'),
+                ];
+            }
+
+            $filterTaskTypes = $this->conn->query("SELECT id, name FROM task_types WHERE status='active' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+            $statusOptions = [
+              ['key' => 'assigned', 'label' => 'Assigned'], ['key' => 'running', 'label' => 'Running'], ['key' => 'completed', 'label' => 'Completed'], ['key' => 'no_show', 'label' => 'No Show'], ['key' => 'rescheduled', 'label' => 'Rescheduled']
+            ];
+            echo json_encode(['success' => true, 'data' => ['date' => $date, 'experts' => $experts, 'slots' => array_values($slots), 'filters' => ['experts' => $experts, 'task_types' => $filterTaskTypes, 'statuses' => $statusOptions]]]);
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);

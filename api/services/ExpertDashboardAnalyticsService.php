@@ -18,8 +18,6 @@ class ExpertDashboardAnalyticsService {
             'daily_working_analytics' => $this->getDailyWorkingAnalytics($userId),
         ];
 
-        error_log(print_r($analyticsData, true));
-
         return $analyticsData;
     }
 
@@ -123,84 +121,157 @@ class ExpertDashboardAnalyticsService {
         return $counts;
     }
 
+    public function recalculateCompletedTaskDurations(int $userId): array {
+        $eligibleWhere = "ta.user_id = :logged_in_expert_id
+            AND LOWER(ts.name) = 'completed'
+            AND (
+                t.duration IS NULL
+                OR t.duration = 0
+                OR t.duration = ''
+            )
+            AND t.task_start_time IS NOT NULL
+            AND t.task_end_time IS NOT NULL
+            AND t.task_end_time > t.task_start_time";
+
+        $skippedWhere = "ta.user_id = :logged_in_expert_id
+            AND LOWER(ts.name) = 'completed'
+            AND (
+                t.duration IS NULL
+                OR t.duration = 0
+                OR t.duration = ''
+            )
+            AND (
+                t.task_start_time IS NULL
+                OR t.task_end_time IS NULL
+                OR t.task_end_time <= t.task_start_time
+            )";
+
+        $joinLatestAssignment = "
+            FROM tasks t
+            INNER JOIN task_assignments ta
+                ON ta.id = (
+                    SELECT ta2.id
+                    FROM task_assignments ta2
+                    WHERE ta2.task_id = t.id
+                    ORDER BY ta2.id DESC
+                    LIMIT 1
+                )
+            INNER JOIN task_status_master ts
+                ON ts.id = t.status_id
+        ";
+
+        $skippedStmt = $this->conn->prepare("SELECT COUNT(*) {$joinLatestAssignment} WHERE {$skippedWhere}");
+        $skippedStmt->execute([':logged_in_expert_id' => $userId]);
+        $skipped = (int)$skippedStmt->fetchColumn();
+
+        $sql = "UPDATE tasks t
+            INNER JOIN task_assignments ta
+                ON ta.id = (
+                    SELECT ta2.id
+                    FROM task_assignments ta2
+                    WHERE ta2.task_id = t.id
+                    ORDER BY ta2.id DESC
+                    LIMIT 1
+                )
+            INNER JOIN task_status_master ts
+                ON ts.id = t.status_id
+            SET t.duration = TIMESTAMPDIFF(
+                MINUTE,
+                t.task_start_time,
+                t.task_end_time
+            )
+            WHERE {$eligibleWhere}";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':logged_in_expert_id' => $userId]);
+
+        return [
+            'updated' => $stmt->rowCount(),
+            'skipped' => $skipped,
+        ];
+    }
+
     private function getDailyWorkingAnalytics(int $userId): array {
         $query = "
             SELECT
                 DATE(t.task_start_time) AS work_date,
-                ROUND(
-                    SUM(
-                        TIMESTAMPDIFF(
-                            MINUTE,
-                            t.task_start_time,
-                            t.task_end_time
-                        )
-                    ) / 60,
-                    2
-                ) AS worked_hours,
-                COUNT(DISTINCT t.id) AS total_tasks,
-                COUNT(DISTINCT CASE WHEN LOWER(tt.name) LIKE '%interview%' THEN t.id END) AS interview_support,
-                COUNT(DISTINCT CASE WHEN LOWER(tt.name) LIKE '%mock%' THEN t.id END) AS mock_interview,
-                COUNT(DISTINCT CASE WHEN LOWER(tt.name) LIKE '%resume%' THEN t.id END) AS resume_support,
-                COUNT(DISTINCT CASE WHEN LOWER(tt.name) LIKE '%linkedin%' THEN t.id END) AS linkedin_support,
-                COUNT(DISTINCT CASE
-                    WHEN LOWER(tt.name) NOT LIKE '%interview%'
-                     AND LOWER(tt.name) NOT LIKE '%mock%'
-                     AND LOWER(tt.name) NOT LIKE '%resume%'
-                     AND LOWER(tt.name) NOT LIKE '%linkedin%'
-                    THEN t.id
-                END) AS other_tasks,
-                COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'completed' THEN t.id END) AS completed_tasks,
-                COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'success' THEN t.id END) AS success_tasks,
-                COUNT(DISTINCT CASE WHEN LOWER(tsm.name) = 'rejected' THEN t.id END) AS rejected_tasks
-            FROM task_assignments ta
-            INNER JOIN tasks t ON t.id = ta.task_id
-            LEFT JOIN task_types tt ON tt.id = t.task_type_id
-            LEFT JOIN task_status_master tsm ON tsm.id = t.status_id
-            WHERE ta.user_id = :user_id
-              AND ta.is_active = 1
-              AND t.task_start_time IS NOT NULL
-              AND t.task_end_time IS NOT NULL
-              AND DATE(t.task_start_time) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-            GROUP BY DATE(t.task_start_time)
-            ORDER BY work_date DESC
+                SUM(COALESCE(t.duration, 0)) AS total_minutes,
+                COUNT(t.id) AS total_tasks,
+                SUM(CASE WHEN LOWER(tt.name) LIKE '%interview%' THEN 1 ELSE 0 END) AS interview_support,
+                SUM(CASE WHEN LOWER(tt.name) LIKE '%mock%' THEN 1 ELSE 0 END) AS mock_interview,
+                SUM(CASE WHEN LOWER(tt.name) LIKE '%resume%' OR LOWER(tt.name) LIKE '%ruc%' THEN 1 ELSE 0 END) AS resume_support,
+                SUM(CASE WHEN LOWER(tt.name) LIKE '%linkedin%' THEN 1 ELSE 0 END) AS linkedin_support,
+                SUM(CASE WHEN LOWER(tt.name) NOT LIKE '%interview%'
+                          AND LOWER(tt.name) NOT LIKE '%mock%'
+                          AND LOWER(tt.name) NOT LIKE '%resume%'
+                          AND LOWER(tt.name) NOT LIKE '%ruc%'
+                          AND LOWER(tt.name) NOT LIKE '%linkedin%'
+                    THEN 1 ELSE 0 END) AS other_tasks,
+                COUNT(t.id) AS completed,
+                0 AS success,
+                0 AS rejected,
+                100 AS productivity
+            FROM tasks t
+            INNER JOIN task_assignments ta
+                ON ta.id = (
+                    SELECT ta2.id
+                    FROM task_assignments ta2
+                    WHERE ta2.task_id = t.id
+                    ORDER BY ta2.id DESC
+                    LIMIT 1
+                )
+            INNER JOIN task_status_master ts
+                ON ts.id = t.status_id
+            LEFT JOIN task_types tt
+                ON tt.id = t.task_type_id
+            WHERE
+                ta.user_id = :logged_in_expert_id
+                AND LOWER(ts.name) = 'completed'
+                AND t.task_start_time IS NOT NULL
+                AND t.task_end_time IS NOT NULL
+                AND DATE(t.task_start_time) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            GROUP BY
+                DATE(t.task_start_time)
+            ORDER BY
+                work_date DESC
         ";
 
         $stmt = $this->conn->prepare($query);
-        $stmt->execute([':user_id' => $userId]);
+        $stmt->execute([':logged_in_expert_id' => $userId]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $mappedRows = array_map(static function (array $row): array {
-            $workedHours = (float)($row['worked_hours'] ?? 0);
-            $productivity = min(100, round(($workedHours / 8) * 100, 2));
-            $status = $workedHours >= 8 ? 'Excellent' : ($workedHours >= 5 ? 'Good' : 'Low');
+            $totalMinutes = (int)($row['total_minutes'] ?? 0);
+            $productivity = min(100, round(($totalMinutes / 480) * 100, 2));
+            $status = $totalMinutes >= 480 ? 'Excellent' : ($totalMinutes >= 300 ? 'Good' : 'Low');
 
             return [
                 'work_date' => (string)($row['work_date'] ?? ''),
-                'worked_hours' => $workedHours,
+                'total_minutes' => $totalMinutes,
                 'total_tasks' => (int)($row['total_tasks'] ?? 0),
                 'interview_support' => (int)($row['interview_support'] ?? 0),
                 'mock_interview' => (int)($row['mock_interview'] ?? 0),
                 'resume_support' => (int)($row['resume_support'] ?? 0),
                 'linkedin_support' => (int)($row['linkedin_support'] ?? 0),
                 'other_tasks' => (int)($row['other_tasks'] ?? 0),
-                'completed_tasks' => (int)($row['completed_tasks'] ?? 0),
-                'success_tasks' => (int)($row['success_tasks'] ?? 0),
-                'rejected_tasks' => (int)($row['rejected_tasks'] ?? 0),
+                'completed_tasks' => (int)($row['completed'] ?? 0),
+                'success_tasks' => (int)($row['success'] ?? 0),
+                'rejected_tasks' => (int)($row['rejected'] ?? 0),
                 'productivity' => $productivity,
                 'status' => $status,
             ];
         }, $rows);
 
         $daysCount = count($mappedRows);
-        $totalHours = array_sum(array_column($mappedRows, 'worked_hours'));
+        $totalMinutes = array_sum(array_column($mappedRows, 'total_minutes'));
         $totalTasks = array_sum(array_column($mappedRows, 'total_tasks'));
-        $averageHours = $daysCount > 0 ? round($totalHours / $daysCount, 2) : 0;
+        $averageMinutes = $daysCount > 0 ? (int)round($totalMinutes / $daysCount) : 0;
         $avgProductivity = $daysCount > 0 ? round(array_sum(array_column($mappedRows, 'productivity')) / $daysCount, 2) : 0;
 
         return [
             'summary' => [
-                'average_hours' => $averageHours,
-                'total_hours' => round($totalHours, 2),
+                'average_minutes' => $averageMinutes,
+                'total_minutes' => (int)$totalMinutes,
                 'total_tasks' => (int)$totalTasks,
                 'productivity' => $avgProductivity,
             ],
