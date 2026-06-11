@@ -14,7 +14,7 @@ const TasksSummaryReport = () => (
       { key: 'assignedBy', label: 'Assigned By' },
       { key: 'status', label: 'Status' },
       { key: 'dueDate', label: 'Due Date' },
-      { key: 'estTime', label: 'EST Time' },
+      { key: 'estTime', label: 'ET Time' },
       { key: 'averageScore', label: 'Average Score' },
       { key: 'action', label: 'Action' },
     ]}

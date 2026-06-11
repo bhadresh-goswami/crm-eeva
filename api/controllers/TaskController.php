@@ -390,8 +390,8 @@ class TaskController {
                 $fromEst = $convert($row['actual_from_time'] ?? null);
                 $toEst = $convert($row['actual_to_time'] ?? null);
 
-                $fromText = $fromEst ? $fromEst->format('h:i A') : null;
-                $toText = $toEst ? $toEst->format('h:i A') : null;
+                $fromText = $fromEst ? $fromEst->format('h:i A T') : null;
+                $toText = $toEst ? $toEst->format('h:i A T') : null;
 
                 return [
                     'id' => (int)$row['id'],
@@ -402,7 +402,7 @@ class TaskController {
                     'duration' => (int)($row['duration'] ?? 0),
                     'actual_from_time_est' => $fromText,
                     'actual_to_time_est' => $toText,
-                    'est_time_range' => ($fromText && $toText) ? "{$fromText} - {$toText} EST" : '--',
+                    'est_time_range' => ($fromText && $toText) ? "{$fromText} - {$toText}" : '--',
                     'has_feedback' => !empty($row['feedback_id']),
                     'feedback_id' => !empty($row['feedback_id']) ? (int)$row['feedback_id'] : null,
                 ];

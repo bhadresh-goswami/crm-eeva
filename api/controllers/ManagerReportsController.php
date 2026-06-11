@@ -109,6 +109,18 @@ class ManagerReportsController {
         }
     }
 
+
+    private function formatEasternFromUtc(?string $value): string {
+        if ($value === null || trim($value) === '') return 'N/A';
+        try {
+            $dt = new DateTime(trim($value), new DateTimeZone('UTC'));
+            $dt->setTimezone(new DateTimeZone('America/New_York'));
+            return $dt->format('m-d-Y h:i A T');
+        } catch (Throwable $e) {
+            return 'N/A';
+        }
+    }
+
     private function runListReport(string $extraWhere = '', string $baseWhere = '', bool $includeSchedule = false, bool $includePaginationMeta = false): void {
         try {
             $params = [];
@@ -157,13 +169,7 @@ class ManagerReportsController {
                 COALESCE(u.name, feedback_expert.name, 'N/A') AS technical_expert,
                 DATE(t.due_date) AS due_date,
                 {$durationExpr} AS duration,
-                COALESCE(
-                    DATE_FORMAT(
-                        CONVERT_TZ(COALESCE(t.task_start_time, t.start_time), '+00:00', 'America/New_York'),
-                        '%m-%d-%Y %h:%i %p'
-                    ),
-                    'N/A'
-                ) AS est_time,
+                COALESCE(t.task_start_time, t.start_time) AS eastern_source_time,
                 COALESCE(tsm.name, 'N/A') AS status_name,
                 COALESCE(tsm.name, 'N/A') AS task_status,
                 COALESCE(assigned_by_user.name, 'N/A') AS assigned_by,
@@ -182,7 +188,13 @@ class ManagerReportsController {
             $stmt = $this->conn->prepare($sql);
             $this->bindListParams($stmt, $params);
             $stmt->execute();
-            $response = ['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = array_map(function (array $row) {
+                $row['est_time'] = $this->formatEasternFromUtc(isset($row['eastern_source_time']) ? (string)$row['eastern_source_time'] : null);
+                unset($row['eastern_source_time']);
+                return $row;
+            }, $rows);
+            $response = ['success' => true, 'data' => $rows];
             if ($paginationMeta !== null) {
                 $response = array_merge($response, $paginationMeta, ['pagination' => $paginationMeta]);
             }
@@ -329,7 +341,7 @@ class ManagerReportsController {
                 COALESCE(tt.name, 'N/A') AS task_type,
                 COALESCE(tsm.name, 'N/A') AS task_status,
                 DATE(t.due_date) AS task_date,
-                COALESCE(DATE_FORMAT(CONVERT_TZ(COALESCE(t.task_start_time, t.start_time), '+00:00', '-05:00'), '%m-%d-%Y %h:%i %p'), 'N/A') AS est_time,
+                COALESCE(t.task_start_time, t.start_time) AS eastern_source_time,
                 {$durationExpr} AS duration,
                 CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
                 COALESCE(tf.overall, 0) AS average_score,
@@ -344,7 +356,13 @@ class ManagerReportsController {
                 $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
             $stmt->execute();
-            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = array_map(function (array $row) {
+                $row['est_time'] = $this->formatEasternFromUtc(isset($row['eastern_source_time']) ? (string)$row['eastern_source_time'] : null);
+                unset($row['eastern_source_time']);
+                return $row;
+            }, $rows);
+            echo json_encode(['success' => true, 'data' => $rows]);
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -416,13 +434,13 @@ class ManagerReportsController {
             if ($status !== '') { $taskWhere[] = 'LOWER(REPLACE(tsm.name, " ", "_")) = :status'; $params[':status'] = $status; }
 
             $taskSql = "SELECT ta.user_id expert_id, cd.name candidate_name, tt.name task_type, LOWER(REPLACE(COALESCE(tsm.name,'assigned'),' ','_')) status_key,
-                CONVERT_TZ(COALESCE(ta.assigned_at, t.start_time, t.task_start_time, t.due_date), '+00:00', '+05:30') as slot_ist
+                COALESCE(ta.assigned_at, t.start_time, t.task_start_time, t.due_date) as slot_utc
                 FROM tasks t
                 INNER JOIN task_assignments ta ON ta.task_id=t.id AND ta.is_active=1
                 LEFT JOIN candidates cd ON cd.id=t.candidate_id
                 LEFT JOIN task_types tt ON tt.id=t.task_type_id
                 LEFT JOIN task_status_master tsm ON tsm.id=t.status_id
-                WHERE " . implode(' AND ', $taskWhere) . " ORDER BY slot_ist ASC";
+                WHERE " . implode(' AND ', $taskWhere) . " ORDER BY slot_utc ASC";
             $stmt = $this->conn->prepare($taskSql);
             foreach ($params as $k => $v) { $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR); }
             $stmt->execute();
@@ -433,11 +451,12 @@ class ManagerReportsController {
             while ($cursor < $endIst) {
                 $next = (clone $cursor)->modify('+30 minutes');
                 $slotKey = $cursor->format('Y-m-d H:i');
-                $slots[$slotKey] = ['slot_key' => $slotKey, 'ist_label' => $cursor->format('h:i A') . ' - ' . $next->format('h:i A') . ' IST', 'est_label' => (clone $cursor)->setTimezone(new DateTimeZone('America/New_York'))->format('h:i A') . ' - ' . (clone $next)->setTimezone(new DateTimeZone('America/New_York'))->format('h:i A') . ' EST', 'tasks_by_expert' => []];
+                $slots[$slotKey] = ['slot_key' => $slotKey, 'ist_label' => $cursor->format('h:i A') . ' - ' . $next->format('h:i A') . ' IST', 'est_label' => (clone $cursor)->setTimezone(new DateTimeZone('America/New_York'))->format('h:i A T') . ' - ' . (clone $next)->setTimezone(new DateTimeZone('America/New_York'))->format('h:i A T'), 'tasks_by_expert' => []];
                 $cursor = $next;
             }
             foreach ($tasks as $task) {
-                $dt = new DateTime((string)$task['slot_ist'], new DateTimeZone('Asia/Kolkata'));
+                $dt = new DateTime((string)$task['slot_utc'], new DateTimeZone('UTC'));
+                $dt->setTimezone(new DateTimeZone('Asia/Kolkata'));
                 $minute = ((int)$dt->format('i') >= 30) ? '30' : '00';
                 $key = $dt->format('Y-m-d H:') . $minute;
                 if (!isset($slots[$key])) continue;

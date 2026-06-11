@@ -3,7 +3,7 @@ import { BsArrowClockwise, BsArrowDownUp, BsEye } from 'react-icons/bs'
 import { getTaskFilterOptions, getManagerReportList, getManagerReportTaskDetails, recalculateTaskDuration, type ManagerReportFilters } from '../api/tasksApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import { getClients } from '../../clients/api/clientsApi'
-import { formatEST, formatIST, parseISTDateTime } from '../../../utils/timezone'
+import { formatEastern, formatIST, parseISTDateTime } from '../../../utils/timezone'
 import { useAuth } from '../../../context/AuthContext'
 
 export type ReportColumn = { key: string; label: string }
@@ -21,8 +21,6 @@ type Option = { id: number; name: string }
 type PaginationState = { totalRecords: number; totalPages: number; page: number; limit: number }
 
 const normalizeReportValue = (value: unknown) => value === undefined || value === null ? '' : String(value).trim()
-
-const stripTimezoneSuffix = (value: string, suffix: string) => value.endsWith(` ${suffix}`) ? value.slice(0, -suffix.length - 1) : value
 
 const getReportScheduleDate = (row: Record<string, unknown>) => {
   const dueDate = normalizeReportValue(row.due_date ?? row.task_date)
@@ -42,12 +40,12 @@ const getReportScheduleText = (row: Record<string, unknown>) => {
   const endDate = endTime ? parseISTDateTime(scheduleDate, endTime) : null
   if (!startDate && !endDate) return '--'
 
-  const istStart = startDate ? stripTimezoneSuffix(formatIST(startDate), 'IST') : '--'
-  const istEnd = endDate ? stripTimezoneSuffix(formatIST(endDate), 'IST') : '--'
-  const estStart = startDate ? stripTimezoneSuffix(formatEST(startDate), 'EST') : '--'
-  const estEnd = endDate ? stripTimezoneSuffix(formatEST(endDate), 'EST') : '--'
+  const istStart = startDate ? formatIST(startDate) : '--'
+  const istEnd = endDate ? formatIST(endDate) : '--'
+  const estStart = startDate ? formatEastern(startDate) : '--'
+  const estEnd = endDate ? formatEastern(endDate) : '--'
 
-  return `IST: ${istStart} - ${istEnd}\nEST: ${estStart} - ${estEnd}`
+  return `IST: ${istStart} - ${istEnd}\nET: ${estStart} - ${estEnd}`
 }
 
 const renderReportSchedule = (row: Record<string, unknown>) => {
@@ -58,7 +56,7 @@ const renderReportSchedule = (row: Record<string, unknown>) => {
   return (
     <div className="manager-schedule-cell">
       <div><strong>IST:</strong> {istLine.replace('IST: ', '')}</div>
-      <div><strong>EST:</strong> {estLine.replace('EST: ', '')}</div>
+      <div><strong>ET:</strong> {estLine.replace('ET: ', '')}</div>
     </div>
   )
 }
