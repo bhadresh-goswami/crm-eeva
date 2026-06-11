@@ -1757,8 +1757,9 @@ public function downloadFile() {
                 WHERE id = ?
             ")->execute([(int)$statusId, (int)$data->task_id]);
 
-            $conn->prepare("UPDATE task_assignments SET is_active = 0 WHERE id = ?")
-                ->execute([$assignmentId]);
+            if (strtolower(trim((string)$data->status)) === 'cancelled') {
+                $this->deactivateTaskAssignments($conn, (int)$data->task_id);
+            }
 
             $commentStmt = $conn->prepare("
                 INSERT INTO task_comments (task_id, user_id, comment, created_at)
