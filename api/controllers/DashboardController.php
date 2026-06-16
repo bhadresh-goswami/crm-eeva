@@ -60,6 +60,28 @@ class DashboardController {
               )
         ")->fetchColumn();
 
+        $data['pending_payment_amount'] = $conn->query("
+            SELECT COALESCE(SUM(GREATEST(COALESCE(t.total_amount, 0) - COALESCE(pay.total_paid, 0), 0)), 0)
+            FROM tasks t
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN (
+                SELECT task_id, MAX(invoice_id) AS invoice_id
+                FROM invoice_items
+                GROUP BY task_id
+            ) task_invoice_map ON task_invoice_map.task_id = t.id
+            LEFT JOIN invoices inv ON inv.id = COALESCE(t.invoice_id, task_invoice_map.invoice_id)
+            LEFT JOIN (
+                SELECT invoice_id, COALESCE(SUM(amount_paid), 0) AS total_paid
+                FROM invoice_payments
+                GROUP BY invoice_id
+            ) pay ON pay.invoice_id = inv.id
+            WHERE LOWER(COALESCE(ts.name, '')) = 'completed'
+              AND (
+                GREATEST(COALESCE(t.total_amount, 0) - COALESCE(pay.total_paid, 0), 0) > 0
+                OR COALESCE(t.total_amount, 0) = 0
+              )
+        ")->fetchColumn();
+
         $data['blocked_invoices'] = $conn->query("
             SELECT COUNT(DISTINCT t.client_id)
             FROM tasks t

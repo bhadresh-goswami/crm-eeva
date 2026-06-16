@@ -15,7 +15,7 @@ import {
   type ManagerTaskStatus,
 } from '../api/dashboardApi'
 import { getTasksLastUpdate } from '../../tasks/api/tasksApi'
-import { FaBell, FaChartLine, FaCheckCircle, FaClock, FaRupeeSign, FaUserCircle, FaWallet } from 'react-icons/fa'
+import { FaBell, FaChartLine, FaCheckCircle, FaClock, FaRupeeSign, FaUserCircle } from 'react-icons/fa'
 import KPIStatCard from '../../../components/dashboard/KPIStatCard'
 import StatusBadge from '../../../components/dashboard/StatusBadge'
 
@@ -222,10 +222,9 @@ const ManagerDashboard = () => {
       { label: 'Total Revenue', value: `₹${liveTasks.reduce((sum, task) => sum + Number(task.amount ?? 0), 0).toFixed(0)}`, tone: 'success' },
       { label: 'Completed Tasks', value: summaryData.completedTasks, tab: 'completed' as const, tone: 'success' },
       { label: 'Pending Tasks', value: summaryData.pendingTasks, tab: 'pending' as const, tone: 'warning' },
-      { label: 'Pending Payments', value: summaryData.pendingPaymentUpdates ?? 0, tone: 'danger' },
       { label: 'Success Rate', value: `${kpi.productivity}%`, tone: 'default' },
     ],
-    [kpi.productivity, liveTasks, summaryData.completedTasks, summaryData.pendingPaymentUpdates, summaryData.pendingTasks],
+    [kpi.productivity, liveTasks, summaryData.completedTasks, summaryData.pendingTasks],
   )
 
   const criticalAlerts = useMemo(() => {
@@ -289,8 +288,7 @@ const ManagerDashboard = () => {
           : cards.map((card) => {
               const icon = card.label === 'Total Revenue' ? <FaRupeeSign />
                 : card.label === 'Completed Tasks' ? <FaCheckCircle />
-                  : card.label === 'Pending Tasks' ? <FaClock />
-                    : card.label === 'Pending Payments' ? <FaWallet /> : <FaChartLine />
+                  : card.label === 'Pending Tasks' ? <FaClock /> : <FaChartLine />
               const helperText = card.label === 'Success Rate' ? 'Completion trend for active pipeline' : 'Updated from live task data'
               return <KPIStatCard key={card.label} title={card.label} value={card.value} icon={icon} helperText={helperText} accent={card.tone === 'default' ? 'primary' : card.tone as 'success' | 'warning' | 'danger'} onClick={card.tab ? () => setActiveTab(card.tab) : undefined} />
             })}
@@ -372,10 +370,19 @@ const ManagerDashboard = () => {
         </div>
       </div>
 
-      <div className="card section">
-        <h3 className="tasks-activity__title">Team Workload</h3>
-        <p className="card-text">View coordinator workload distribution and performance.</p>
-        <NavLink className="button" to="/manager/reports/team-workload">View Report</NavLink>
+      <div className="manager-kpi-grid section">
+        <div className="card">
+          <h3 className="tasks-activity__title">Team Workload Report</h3>
+          <p className="card-text">View coordinator workload distribution and performance.</p>
+          <NavLink className="button" to="/manager/reports/team-workload">View Report</NavLink>
+        </div>
+        <div className="card">
+          <h3 className="tasks-activity__title">Pending Payments</h3>
+          <p className="card-text">Track unpaid invoices and pending collections.</p>
+          <p className="card-text">Total Pending Payments Count: {summaryData.pendingPaymentUpdates ?? 0}</p>
+          <p className="card-text">Total Pending Amount: ₹{(summaryData.pendingPaymentAmount ?? 0).toFixed(2)}</p>
+          <NavLink className="button" to="/manager/reports/pending-payments">View Report</NavLink>
+        </div>
       </div>
 
       <AnimatedModal
