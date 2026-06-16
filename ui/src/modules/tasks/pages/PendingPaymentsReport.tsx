@@ -192,8 +192,8 @@ const PendingPaymentsReport = () => {
 
 const NavAction = () => (
   <span className="pending-payments-report__actions">
-    <NavLink className="pending-payments-report__icon-btn pending-payments-report__icon-btn--view" to="/tasks/payment-correction" aria-label="View payment correction" title="View"><BsEye /></NavLink>
-    <NavLink className="pending-payments-report__icon-btn pending-payments-report__icon-btn--edit" to="/tasks/payment-correction" aria-label="Edit payment correction" title="Edit"><BsPencilFill /></NavLink>
+    <NavLink className="pending-payments-report__icon-btn pending-payments-report__icon-btn--view" to="/tasks/payment-correction" aria-label="View payment correction"><BsEye /></NavLink>
+    <NavLink className="pending-payments-report__icon-btn pending-payments-report__icon-btn--edit" to="/tasks/payment-correction" aria-label="Edit payment correction"><BsPencilFill /></NavLink>
   </span>
 )
 
