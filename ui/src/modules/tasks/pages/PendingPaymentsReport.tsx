@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { NavLink } from 'react-router-dom'
 import { BsArrowDownUp, BsDownload, BsEye, BsPencilFill } from 'react-icons/bs'
 import PageContainer from '../../../shared/components/PageContainer'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
+import { useAuth } from '../../../context/AuthContext'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { getBulkPriceTasks, type BulkPriceTaskRecord } from '../api/tasksApi'
 import './bulkPrice.css'
@@ -39,6 +41,7 @@ const getDuration = (task: BulkPriceTaskRecord) => {
 }
 
 const PendingPaymentsReport = () => {
+  const { user } = useAuth()
   const [clients, setClients] = useState<ClientItem[]>([])
   const [tasks, setTasks] = useState<BulkPriceTaskRecord[]>([])
   const [summary, setSummary] = useState({ total_pending_tasks: 0, total_pending_amount: 0 })
@@ -136,7 +139,8 @@ const PendingPaymentsReport = () => {
   }
 
   return (
-    <PageContainer title="Pending Payments Report" description="Track unpaid invoices and pending collections.">
+    <PageContainer title={user?.role === 'manager' ? undefined : "Pending Payments Report"} description={user?.role === 'manager' ? undefined : "Track unpaid invoices and pending collections."}>
+      {user?.role === 'manager' ? <ManagerWorkspaceHeader title="Business insights and operational analytics." subtitle="Analyze workload, productivity, task trends, and performance metrics." /> : null}
       <section className="pending-payments-report__summary" aria-label="Pending payments summary">
         <article className="pending-payments-report__metric" style={{ '--metric-accent': '#f59e0b' } as CSSProperties}>
           <p className="pending-payments-report__metric-label">Pending Payments</p>

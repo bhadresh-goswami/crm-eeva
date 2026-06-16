@@ -12,6 +12,7 @@ import {
 import CandidateFormModal from '../components/CandidateFormModal'
 import CandidatesTable from '../components/CandidatesTable'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
 
 const normalizeErrorMessage = (error: unknown, fallback: string) => {
   const message = error instanceof Error ? error.message : fallback
@@ -186,23 +187,27 @@ const CandidatesPage = () => {
 
   return (
     <section>
-      <div className="users-page__header">
-        <div>
-          <h2 className="page-title">Candidate Management</h2>
-          <p className="page-description">Manage candidates with validation, duplicate prevention and modal CRUD.</p>
+      {user?.role === 'manager' ? (
+        <ManagerWorkspaceHeader
+          title="Control users and operational workflows."
+          subtitle="Manage resources, configurations, assignments, and organizational processes."
+          actions={(
+            <button className="button button--primary" onClick={() => { setFormMode('create'); setSelectedCandidate(null); setModalError(null); setIsFormOpen(true) }}>
+              Create Candidate
+            </button>
+          )}
+        />
+      ) : (
+        <div className="users-page__header">
+          <div>
+            <h2 className="page-title">Candidate Management</h2>
+            <p className="page-description">Manage candidates with validation, duplicate prevention and modal CRUD.</p>
+          </div>
+          <button className="button button--primary" onClick={() => { setFormMode('create'); setSelectedCandidate(null); setModalError(null); setIsFormOpen(true) }}>
+            Create Candidate
+          </button>
         </div>
-        <button
-          className="button button--primary"
-          onClick={() => {
-            setFormMode('create')
-            setSelectedCandidate(null)
-            setModalError(null)
-            setIsFormOpen(true)
-          }}
-        >
-          Create Candidate
-        </button>
-      </div>
+      )}
 
       <div className="cards-grid clients-kpi-grid">
         <article className="card">
