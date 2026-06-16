@@ -14,13 +14,17 @@ const getRoleLabel = (role?: string) => {
   return 'Expert'
 }
 
-const ExpertWorkspaceHeader = () => {
+type ExpertWorkspaceHeaderProps = {
+  title?: string
+}
+
+const ExpertWorkspaceHeader = ({ title = 'Welcome back, focus on delivery and quality.' }: ExpertWorkspaceHeaderProps) => {
   const { user, sessionStatus } = useAuth()
 
   return (
     <ManagerWorkspaceHeader
       eyebrow="Technical Expert Workspace"
-      title="Welcome back, focus on delivery and quality."
+      title={title}
       breakStatusLabel={sessionBreakLabel[sessionStatus] ?? 'Active'}
       roleLabel={getRoleLabel(user?.role)}
     />
