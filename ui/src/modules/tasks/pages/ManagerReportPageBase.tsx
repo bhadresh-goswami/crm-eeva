@@ -14,6 +14,7 @@ type ReportPageProps = {
   subtitle?: string
   columns: ReportColumn[]
   endpoint: string
+  showTitleCard?: boolean
 }
 
 type SortConfig = { key: string; direction: 'asc' | 'desc' }
@@ -62,7 +63,7 @@ const renderReportSchedule = (row: Record<string, unknown>) => {
   )
 }
 
-const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPageProps) => {
+const ManagerReportPageBase = ({ title, subtitle, columns, endpoint, showTitleCard = false }: ReportPageProps) => {
   const { showToast } = useAlert()
   const { user } = useAuth()
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'task_id', direction: 'asc' })
@@ -167,6 +168,16 @@ Skipped: ${result.skipped} tasks`,
       estTime: ['est_time'],
       schedule: ['scheduled_start_time', 'scheduled_end_time'],
       duration: ['duration'],
+      taskStartTime: ['task_start_time', 'start_time'],
+      clientName: ['client_name', 'company_name', 'client_company'],
+      expertName: ['expert_name', 'technical_expert'],
+      communication: ['communication'],
+      technical: ['technical'],
+      confidence: ['confidence'],
+      projectExplanation: ['project_explanation'],
+      overall: ['overall'],
+      areaOfImprovements: ['area_of_improvements'],
+      comments: ['comments', 'initial_comment'],
     }
     const aliases = mapping[key] ?? [key]
     for (const alias of aliases) if (row[alias] !== undefined && row[alias] !== null && row[alias] !== '') return row[alias]
@@ -185,6 +196,7 @@ Skipped: ${result.skipped} tasks`,
   return (
     <div className="page-container">
       {user?.role === 'manager' ? <ManagerWorkspaceHeader title="Business insights and operational analytics." subtitle="Analyze workload, productivity, task trends, and performance metrics." actions={<button className="btn btn-outline-secondary btn-sm" onClick={() => void load()}>Refresh</button>} /> : <div className="page-container__header"><div><h1 className="page-title mb-1">{title}</h1><p className="page-description mb-0">{subtitle ?? 'Live manager reporting dashboard.'}</p></div><div className="d-flex gap-2">{user?.role === 'admin' ? <button className="btn btn-warning btn-sm d-inline-flex align-items-center gap-1" type="button" onClick={() => void handleRecalculateDuration()} disabled={recalculatingDuration}>{recalculatingDuration ? <span className="spinner-border spinner-border-sm" aria-hidden="true" /> : <BsArrowClockwise size={15} />}<span>{recalculatingDuration ? 'Recalculating...' : 'Recalculate Duration'}</span></button> : null}<button className="btn btn-outline-secondary btn-sm" onClick={() => void load()}>Refresh</button></div></div>}
+      {showTitleCard ? <div className="card"><h1 className="page-title mb-1">{title}</h1>{subtitle ? <p className="page-description mb-0">{subtitle}</p> : null}</div> : null}
       <small className="text-muted">{lastUpdated ? `Last updated: ${lastUpdated.toLocaleString()}` : 'Last updated: --'}</small>
       <div className="card"><h3 className="card-title mb-3">Filters</h3><div className="row g-2 g-md-3">
         <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Candidate</label><select className="form-select" value={filters.candidate_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, page: 1, candidate_id: e.target.value }))}><option value="">All Candidate</option>{options.candidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>

@@ -64,6 +64,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           { label: 'Tech Vs Tasks', to: '/reports/tech-vs-tasks', icon: 'reports' },
           { label: 'Tasks Summary', to: '/reports/tasks-summary', icon: 'reports' },
           { label: 'Feedback Report', to: '/reports/feedback-report', icon: 'reports' },
+          { label: 'Feedback For Client', to: '/reports/feedback-for-client', icon: 'reports' },
           { label: 'Candidate Performance Report', to: '/reports/candidate-performance', icon: 'reports' },
           { label: "Today's Expert Availability Report", to: '/reports/expert-availability', icon: 'reports' },
         ] },
