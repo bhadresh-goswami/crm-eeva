@@ -60,7 +60,6 @@ const isOverdueTask = (task: DashboardTask) => {
 
 const ManagerDashboard = () => {
   const { showToast, showAlert } = useAlert()
-  const navigate = useNavigate()
   const [summaryData, setSummaryData] = useState<DashboardSummary>(defaultSummary)
   const [tasksData, setTasksData] = useState<DashboardTask[]>([])
   const [liveTasks, setLiveTasks] = useState<DashboardTask[]>([])
