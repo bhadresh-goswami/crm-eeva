@@ -1298,3 +1298,31 @@ body { background: #f4f7fb; }
 
 @media (max-width:1200px){.manager-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media (max-width:768px){.manager-kpi-grid{grid-template-columns:1fr}.manager-hero{flex-direction:column;align-items:flex-start}}
+
+.pending-feedback-summary {
+  margin-top: -0.4rem;
+}
+
+.pending-feedback-summary__grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  margin-bottom: 0;
+}
+
+.pending-feedback-summary__card {
+  border: 1px solid #e5e7eb;
+  border-left-width: 5px;
+  background: #fff;
+}
+
+.pending-feedback-summary__card--success { border-left-color: var(--bs-success); }
+.pending-feedback-summary__card--warning { border-left-color: var(--bs-warning); }
+.pending-feedback-summary__card--danger { border-left-color: var(--bs-danger); }
+
+.pending-feedback-summary__expert {
+  color: #0f172a;
+  font-weight: 700;
+  margin-top: 0.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
