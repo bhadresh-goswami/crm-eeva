@@ -5,7 +5,7 @@ import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceH
 import { useAuth } from '../../../context/AuthContext'
 import { getManagerTasksByStatus, type DashboardTask, type ManagerTaskStatus } from '../../dashboard/api/dashboardApi'
 
-type WorkloadRow = {
+type WorkloadCounts = {
   coordinatorName: string
   assignedTasks: number
   pendingTasks: number
@@ -13,10 +13,19 @@ type WorkloadRow = {
   completedTasks: number
   overdueTasks: number
   totalActiveTasks: number
-  workloadPercentage: number
 }
 
-type SortKey = keyof WorkloadRow
+type WorkloadHealth = {
+  label: 'Good' | 'Moderate' | 'Under Utilized'
+  className: string
+}
+
+type WorkloadRow = WorkloadCounts & {
+  workloadPercentage: number
+  workloadHealth: WorkloadHealth
+}
+
+type SortKey = keyof WorkloadCounts | 'workloadPercentage'
 
 type SortState = {
   key: SortKey
@@ -25,9 +34,9 @@ type SortState = {
 
 const statuses: ManagerTaskStatus[] = ['pending', 'assigned', 'in_progress', 'completed', 'cancelled']
 const pageSizes = [10, 25, 50, 100]
-
 const isOverdueTask = (task: DashboardTask) => {
-  if (!task.dueDate || ['completed', 'cancelled'].includes(task.status)) return false
+  const normalizedStatus = task.status.toLowerCase().trim()
+  if (!task.dueDate || ['completed', 'cancelled'].includes(normalizedStatus)) return false
   const due = new Date(task.dueDate.slice(0, 10))
   const today = new Date()
   due.setHours(0, 0, 0, 0)
@@ -36,6 +45,17 @@ const isOverdueTask = (task: DashboardTask) => {
 }
 
 const csvEscape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`
+
+const getWorkloadHealth = (percentage: number): WorkloadHealth => {
+  if (percentage >= 70) return { label: 'Good', className: 'bg-success-subtle text-success' }
+  if (percentage >= 40) return { label: 'Moderate', className: 'bg-warning-subtle text-warning' }
+  return { label: 'Under Utilized', className: 'bg-danger-subtle text-danger' }
+}
+
+const getWorkloadPercentage = (activeTasks: number, highestActiveTasks: number) => {
+  if (highestActiveTasks <= 0) return 0
+  return Math.round((activeTasks / highestActiveTasks) * 100)
+}
 
 const TeamWorkloadReport = () => {
   const { user } = useAuth()
@@ -87,8 +107,8 @@ const TeamWorkloadReport = () => {
     return Array.from(names).sort((a, b) => a.localeCompare(b))
   }, [tasks])
 
-  const rows = useMemo(() => {
-    const map = new Map<string, WorkloadRow>()
+  const workloadCounts = useMemo(() => {
+    const map = new Map<string, WorkloadCounts>()
 
     filteredTasks.forEach((task) => {
       const name = task.assignedToName?.trim() || 'Unassigned'
@@ -100,26 +120,35 @@ const TeamWorkloadReport = () => {
         completedTasks: 0,
         overdueTasks: 0,
         totalActiveTasks: 0,
-        workloadPercentage: 0,
       }
 
-      if (task.status === 'assigned') row.assignedTasks += 1
-      if (task.status === 'pending') row.pendingTasks += 1
-      if (task.status === 'in progress' || task.status === 'in_progress') row.inProgressTasks += 1
-      if (task.status === 'completed') row.completedTasks += 1
+      const normalizedStatus = task.status.toLowerCase().trim()
+      if (normalizedStatus === 'assigned') row.assignedTasks += 1
+      if (normalizedStatus === 'pending') row.pendingTasks += 1
+      if (normalizedStatus === 'in progress' || normalizedStatus === 'in_progress') row.inProgressTasks += 1
+      if (normalizedStatus === 'completed') row.completedTasks += 1
       if (isOverdueTask(task)) row.overdueTasks += 1
-      row.totalActiveTasks = row.assignedTasks + row.pendingTasks + row.inProgressTasks
-      row.workloadPercentage = Math.min(100, row.totalActiveTasks * 20)
+      row.totalActiveTasks = row.assignedTasks + row.pendingTasks + row.inProgressTasks + row.overdueTasks
       map.set(name, row)
     })
 
     return Array.from(map.values())
   }, [filteredTasks])
 
-  const visibleRows = useMemo(() => {
+  const visibleRows = useMemo<WorkloadRow[]>(() => {
     const normalizedSearch = search.trim().toLowerCase()
-    return rows.filter((row) => !normalizedSearch || row.coordinatorName.toLowerCase().includes(normalizedSearch))
-  }, [rows, search])
+    const filteredRows = workloadCounts.filter((row) => !normalizedSearch || row.coordinatorName.toLowerCase().includes(normalizedSearch))
+    const highestActiveTasks = Math.max(0, ...filteredRows.map((row) => row.totalActiveTasks))
+
+    return filteredRows.map((row) => {
+      const workloadPercentage = getWorkloadPercentage(row.totalActiveTasks, highestActiveTasks)
+      return {
+        ...row,
+        workloadPercentage,
+        workloadHealth: getWorkloadHealth(workloadPercentage),
+      }
+    })
+  }, [workloadCounts, search])
 
   const sortedRows = useMemo(() => [...visibleRows].sort((a, b) => {
     const aValue = a[sort.key]
@@ -240,7 +269,12 @@ const TeamWorkloadReport = () => {
                   <td>{row.completedTasks}</td>
                   <td>{row.overdueTasks}</td>
                   <td>{row.totalActiveTasks}</td>
-                  <td>{row.workloadPercentage}%</td>
+                  <td>
+                    <span className="d-inline-flex align-items-center gap-2">
+                      <span>{row.workloadPercentage}%</span>
+                      <span className={`badge ${row.workloadHealth.className}`}>{row.workloadHealth.label}</span>
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
