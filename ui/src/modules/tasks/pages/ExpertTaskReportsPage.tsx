@@ -72,6 +72,12 @@ const ExpertTaskReportsPage = () => {
   return (
     <PageContainer>
       <ExpertWorkspaceHeader />
+      <div className="page-container__header">
+        <div>
+          <h2 className="page-title">{`Expert Task Reports${user?.name ? ` - ${user.name}` : ''}`}</h2>
+          <p className="page-description">Professional expert personal activity report.</p>
+        </div>
+      </div>
       <div style={{ backgroundColor: '#f8fafc', fontSize: '0.95rem', maxWidth: '100%', overflowX: 'hidden' }} className="px-2 px-md-2 py-2">
         <ExpertReportsFilterCard
           filters={filters}

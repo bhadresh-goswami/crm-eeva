@@ -37,6 +37,14 @@ const FeedbackReportPage = () => {
   return (
     <PageContainer title={isExpertRole ? undefined : "Feedback Report"} description={isExpertRole ? undefined : "All submitted feedback data across tasks."}>
       {isExpertRole ? <ExpertWorkspaceHeader /> : null}
+      {isExpertRole ? (
+        <div className="page-container__header">
+          <div>
+            <h2 className="page-title">Feedback Report</h2>
+            <p className="page-description">All submitted feedback data across tasks.</p>
+          </div>
+        </div>
+      ) : null}
       <div className="card shadow-sm"><div className="card-body">
         <div className="mb-3"><input className="form-control" placeholder="Filter by candidate/company" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
         <div className="table-responsive"><table className="table table-bordered table-hover table-sm align-middle">

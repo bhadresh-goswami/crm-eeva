@@ -133,6 +133,14 @@ const ReportsTasksPage = () => {
     <PageContainer title={user?.role === 'manager' || isExpertRole ? undefined : "Task Reports"} description={user?.role === 'manager' || isExpertRole ? undefined : "Role-based reporting across task status, schedule and assignments."}>
       {user?.role === 'manager' ? <ManagerWorkspaceHeader title="Business insights and operational analytics." subtitle="Analyze workload, productivity, task trends, and performance metrics." /> : null}
       {isExpertRole ? <ExpertWorkspaceHeader /> : null}
+      {isExpertRole ? (
+        <div className="page-container__header">
+          <div>
+            <h2 className="page-title">Task Reports</h2>
+            <p className="page-description">Role-based reporting across task status, schedule and assignments.</p>
+          </div>
+        </div>
+      ) : null}
       <div className="card shadow-sm mb-4">
         <div className="card-body">
           <div className="row g-3 align-items-end">
