@@ -17,6 +17,7 @@ import FeedbackPendingReport from '../modules/tasks/pages/FeedbackPendingReport'
 import TechVsTasksReport from '../modules/tasks/pages/TechVsTasksReport'
 import TasksSummaryReport from '../modules/tasks/pages/TasksSummaryReport'
 import FeedbackReport from '../modules/tasks/pages/FeedbackReport'
+import FeedbackForClientReport from '../modules/tasks/pages/FeedbackForClientReport'
 import CandidatePerformanceReport from '../modules/tasks/pages/CandidatePerformanceReport'
 import ExpertAvailabilityMatrixReportPage from '../modules/tasks/pages/ExpertAvailabilityMatrixReportPage'
 import TeamWorkloadReport from '../modules/tasks/pages/TeamWorkloadReport'
@@ -88,6 +89,7 @@ const AppRoutes = () => {
             <Route path="/reports/tech-vs-tasks" element={<TechVsTasksReport />} />
             <Route path="/reports/tasks-summary" element={<TasksSummaryReport />} />
             <Route path="/reports/feedback-report" element={<FeedbackReport />} />
+            <Route path="/reports/feedback-for-client" element={<FeedbackForClientReport />} />
             <Route path="/reports/candidate-performance" element={<CandidatePerformanceReport />} />
             <Route path="/reports/expert-availability" element={<ExpertAvailabilityMatrixReportPage />} />
           </Route>
