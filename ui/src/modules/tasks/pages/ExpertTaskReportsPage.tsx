@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
+import ExpertWorkspaceHeader from '../../../shared/components/ExpertWorkspaceHeader'
 import FeedbackModal from '../components/FeedbackModal'
 import ExpertReportsFilterCard from '../components/ExpertReportsFilterCard'
 import ExpertReportsTable from '../components/ExpertReportsTable'
@@ -69,7 +70,8 @@ const ExpertTaskReportsPage = () => {
   }
 
   return (
-    <PageContainer title={`Expert Task Reports${user?.name ? ` - ${user.name}` : ''}`} description="Professional expert personal activity report.">
+    <PageContainer>
+      <ExpertWorkspaceHeader />
       <div style={{ backgroundColor: '#f8fafc', fontSize: '0.95rem', maxWidth: '100%', overflowX: 'hidden' }} className="px-2 px-md-2 py-2">
         <ExpertReportsFilterCard
           filters={filters}
