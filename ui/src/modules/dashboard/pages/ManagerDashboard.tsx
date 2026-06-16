@@ -230,41 +230,18 @@ const ManagerDashboard = () => {
   )
 
   const dashboardAlerts = useMemo(() => {
+    const isUnassigned = (task: DashboardTask) => !task.assignedToName || task.assignedToName === 'Unassigned'
     const counts = {
       inProgress: liveTasks.filter((task) => task.status === 'in_progress').length,
-      completed: liveTasks.filter((task) => task.status === 'completed').length,
-      pending: liveTasks.filter((task) => task.status === 'pending').length,
-      overdue: liveTasks.filter(isOverdueTask).length,
-      unassigned: liveTasks.filter((task) => !task.assignedToName || task.assignedToName === 'Unassigned').length,
+      unassigned: liveTasks.filter(isUnassigned).length,
     }
 
     const rows = liveTasks
-      .filter((task) => task.status !== 'cancelled')
+      .filter((task) => task.status === 'in_progress' || isUnassigned(task))
       .map((task) => {
-        const unassigned = !task.assignedToName || task.assignedToName === 'Unassigned'
-        const overdue = isOverdueTask(task)
-        const alertType = overdue
-          ? 'Overdue Tasks'
-          : unassigned
-            ? 'Unassigned Tasks'
-            : task.status === 'pending'
-              ? 'Pending Tasks'
-              : task.status === 'in_progress'
-                ? 'Tasks Requiring Attention'
-                : task.status === 'completed'
-                  ? 'Completed Tasks'
-                  : 'Tasks Requiring Attention'
-        const alertMessage = overdue
-          ? 'Task date has passed and the task is not completed.'
-          : unassigned
-            ? 'Task is not assigned to an expert.'
-            : task.status === 'pending'
-              ? 'Task is pending and requires scheduling attention.'
-              : task.status === 'in_progress'
-                ? 'Task is currently in progress.'
-                : task.status === 'completed'
-                  ? 'Task has been completed.'
-                  : 'Task requires manager attention.'
+        const unassigned = isUnassigned(task)
+        const alertType = unassigned ? 'Unassigned Tasks' : 'Tasks Requiring Attention'
+        const alertMessage = unassigned ? 'Task is not assigned to an expert.' : 'Task is currently in progress.'
 
         return { task, alertType, alertMessage }
       })
@@ -414,9 +391,6 @@ const ManagerDashboard = () => {
         <h3 className="modal-title">Dashboard Alerts</h3>
         <div className="dashboard-action-group section">
           <span className="crm-status-badge crm-status-badge--pending">{String(dashboardAlerts.counts.inProgress).padStart(2, '0')} In Progress</span>
-          <span className="crm-status-badge crm-status-badge--completed">{String(dashboardAlerts.counts.completed).padStart(2, '0')} Completed</span>
-          <span className="crm-status-badge crm-status-badge--pending">{String(dashboardAlerts.counts.pending).padStart(2, '0')} Pending</span>
-          <span className="crm-status-badge crm-status-badge--cancelled">{String(dashboardAlerts.counts.overdue).padStart(2, '0')} Overdue</span>
           <span className="crm-status-badge crm-status-badge--pending">{String(dashboardAlerts.counts.unassigned).padStart(2, '0')} Unassigned</span>
         </div>
         <div className="roles-table__wrapper" style={{ maxHeight: '55vh', overflowY: 'auto' }}>

@@ -23,7 +23,7 @@ const ManagerWorkspaceHeader = ({ title, subtitle, actions, notificationCount = 
       {actions}
       <button className="header__icon-btn" type="button" aria-label="Notifications" onClick={onNotificationsClick}>
         <FaBell />
-        {notificationCount > 0 ? <span className="crm-status-badge crm-status-badge--pending">{notificationCount}</span> : null}
+        {notificationCount > 0 ? <span className="crm-status-badge crm-status-badge--pending notification-badge--blink">{notificationCount}</span> : null}
       </button>
       <span className="crm-status-badge crm-status-badge--pending">Break status: Active</span>
       <span className="manager-avatar"><FaUserCircle /> Manager</span>
