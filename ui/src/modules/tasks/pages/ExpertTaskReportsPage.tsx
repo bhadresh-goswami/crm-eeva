@@ -98,8 +98,18 @@ const ExpertTaskReportsPage = () => {
           sortBy={filters.sort_by}
           sortOrder={filters.sort_order}
           onSort={onSort}
-          onAddFeedback={(id: number) => { setModalMode('ADD'); setTaskId(id) }}
-          onViewFeedback={(id: number) => { setModalMode('VIEW'); setTaskId(id) }}
+          onAddFeedback={(id: number) => {
+            const row = items.find((item: any) => Number(item.id) === Number(id)) as any
+            if (String(row?.status_name || '').trim().toLowerCase() !== 'completed' || row?.has_feedback) return
+            setModalMode('ADD')
+            setTaskId(id)
+          }}
+          onViewFeedback={(id: number) => {
+            const row = items.find((item: any) => Number(item.id) === Number(id)) as any
+            if (String(row?.status_name || '').trim().toLowerCase() !== 'completed' || !row?.has_feedback) return
+            setModalMode('VIEW')
+            setTaskId(id)
+          }}
         />
         <ExpertReportsPagination
           page={pagination.current_page}

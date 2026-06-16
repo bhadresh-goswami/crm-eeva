@@ -88,7 +88,37 @@ class FeedbackController {
         try {
             $conn->beginTransaction();
 
-            $duplicateStmt = $conn->prepare("SELECT id, created_at FROM task_feedback WHERE task_id = ? LIMIT 1 FOR UPDATE");
+            $taskStatusStmt = $conn->prepare("
+                SELECT COALESCE(ts.name, '') AS status_name
+                FROM tasks t
+                LEFT JOIN task_status_master ts ON ts.id = t.status_id
+                WHERE t.id = ?
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $taskStatusStmt->execute([$taskId]);
+            $taskStatus = trim((string)$taskStatusStmt->fetchColumn());
+            if ($taskStatus === '') {
+                $conn->rollBack();
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Task not found'
+                ]);
+                return;
+            }
+
+            if (strtolower($taskStatus) !== 'completed') {
+                $conn->rollBack();
+                http_response_code(422);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Feedback can only be submitted for completed tasks.'
+                ]);
+                return;
+            }
+
+            $duplicateStmt = $conn->prepare("SELECT id FROM task_feedback WHERE task_id = ? LIMIT 1 FOR UPDATE");
             $duplicateStmt->execute([$taskId]);
             $existingFeedback = $duplicateStmt->fetch(PDO::FETCH_ASSOC);
             if ($existingFeedback) {
@@ -259,11 +289,13 @@ class FeedbackController {
             ";
 
             $params = [];
+            $where = ["LOWER(COALESCE(ts.name, '')) = 'completed'"];
             if (in_array(strtolower($role), ['expert', 'technical expert', 'expertlead', 'technical lead'], true)) {
-                $query .= " WHERE ta.user_id = ? ";
+                $where[] = "ta.user_id = ?";
                 $params[] = (int)$requestUserId;
             }
 
+            $query .= " WHERE " . implode(' AND ', $where);
             $query .= " ORDER BY tf.id DESC";
 
             $stmt = $conn->prepare($query);
