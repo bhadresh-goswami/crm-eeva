@@ -21,6 +21,9 @@ type SortConfig = { key: string; direction: 'asc' | 'desc' }
 
 type Option = { id: number; name: string }
 type PaginationState = { totalRecords: number; totalPages: number; page: number; limit: number }
+type PendingFeedbackSummaryItem = { expertName: string; count: number }
+
+const FEEDBACK_PENDING_ENDPOINT = '/manager/reports/feedback-pending'
 
 const normalizeReportValue = (value: unknown) => value === undefined || value === null ? '' : String(value).trim()
 
@@ -70,6 +73,8 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint, showTitleCa
   const [filters, setFilters] = useState<ManagerReportFilters>({ page: 1, limit: 10 })
   const [options, setOptions] = useState<{ candidates: Option[]; assignees: Option[]; taskTypes: Option[]; clients: Option[] }>({ candidates: [], assignees: [], taskTypes: [], clients: [] })
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [summaryRows, setSummaryRows] = useState<Record<string, unknown>[]>([])
+  const [summaryLoading, setSummaryLoading] = useState(false)
   const [pagination, setPagination] = useState<PaginationState>({ totalRecords: 0, totalPages: 0, page: 1, limit: 10 })
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
   const [details, setDetails] = useState<Record<string, unknown>>({})
@@ -79,11 +84,31 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint, showTitleCa
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
+  const loadSummary = async (payload: ManagerReportFilters) => {
+    if (endpoint !== FEEDBACK_PENDING_ENDPOINT) return
+    setSummaryLoading(true)
+    try {
+      const firstPage = await getManagerReportList(endpoint, { ...payload, page: 1, limit: 200 })
+      const allRows = firstPage.items.map((r) => (r as Record<string, unknown>))
+      for (let page = 2; page <= firstPage.total_pages; page += 1) {
+        const result = await getManagerReportList(endpoint, { ...payload, page, limit: 200 })
+        allRows.push(...result.items.map((r) => (r as Record<string, unknown>)))
+      }
+      setSummaryRows(allRows)
+    } catch (e) {
+      setSummaryRows([])
+      showToast({ type: 'error', message: e instanceof Error ? e.message : 'Failed to load pending feedback summary' })
+    } finally {
+      setSummaryLoading(false)
+    }
+  }
+
   const load = async (override?: ManagerReportFilters) => {
     setLoading(true)
     setError(null)
     try {
       const payload = { ...filters, ...override }
+      if (endpoint === FEEDBACK_PENDING_ENDPOINT) void loadSummary(payload)
       const result = await getManagerReportList(endpoint, payload)
       const requestedPage = Number(payload.page ?? 1)
       if (result.items.length === 0 && requestedPage > 1 && result.total_pages > 0) {
@@ -132,6 +157,22 @@ Skipped: ${result.skipped} tasks`,
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint])
+
+  const pendingFeedbackSummary = useMemo<PendingFeedbackSummaryItem[]>(() => {
+    if (endpoint !== FEEDBACK_PENDING_ENDPOINT) return []
+    const counts = new Map<string, number>()
+    summaryRows.forEach((row) => {
+      const expertName = normalizeReportValue(row.technical_expert) || 'N/A'
+      counts.set(expertName, (counts.get(expertName) ?? 0) + 1)
+    })
+    return Array.from(counts, ([expertName, count]) => ({ expertName, count })).sort((a, b) => b.count - a.count || a.expertName.localeCompare(b.expertName))
+  }, [endpoint, summaryRows])
+
+  const getPendingSummaryTone = (count: number) => {
+    if (count === 0) return 'success'
+    if (count <= 5) return 'warning'
+    return 'danger'
+  }
 
   const sortedRows = useMemo(() => {
     const rowsCopy = [...rows]
@@ -207,6 +248,31 @@ Skipped: ${result.skipped} tasks`,
         <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">To Date</label><input type="date" className="form-control" value={filters.to_date ?? ''} onChange={(e) => setFilters((p) => ({ ...p, page: 1, to_date: e.target.value }))} /></div>
         <div className="col-12 d-flex gap-2 justify-content-end mt-2"><button className="btn btn-primary btn-sm" type="button" onClick={() => { setFilters((p) => ({ ...p, page: 1 })); void load({ page: 1 }) }}>Apply Filter</button><button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => { setFilters({ page: 1, limit: 10 }); void load({ page: 1, limit: 10 }) }}>Reset</button></div>
       </div></div>
+
+      {endpoint === FEEDBACK_PENDING_ENDPOINT ? <div className="pending-feedback-summary card">
+        <div className="d-flex flex-column flex-md-row justify-content-between gap-2 mb-3">
+          <div>
+            <h3 className="card-title mb-1">Expert-wise Pending Feedback Summary</h3>
+            <p className="text-muted mb-0">Counts are grouped from the same filtered pending feedback report records.</p>
+          </div>
+          <span className="badge bg-primary-subtle text-primary align-self-start">{pagination.totalRecords} Total Pending</span>
+        </div>
+        {summaryLoading ? <div className="dashboard-cards pending-feedback-summary__grid">{[0, 1, 2, 3].map((item) => <div key={item} className="metric-card skeleton-card" />)}</div> : pendingFeedbackSummary.length === 0 ? <div className="text-center text-muted py-3">No pending feedback found.</div> : <div className="dashboard-cards pending-feedback-summary__grid">
+          {pendingFeedbackSummary.map((item) => {
+            const tone = getPendingSummaryTone(item.count)
+            return (
+              <div key={item.expertName} className={`metric-card pending-feedback-summary__card pending-feedback-summary__card--${tone}`}>
+                <div className="dashboard-card__label">Technical Expert</div>
+                <div className="pending-feedback-summary__expert" title={item.expertName}>{item.expertName}</div>
+                <div className="d-flex align-items-end justify-content-between gap-2 mt-3">
+                  <div className="dashboard-card__value mb-0">{item.count}</div>
+                  <span className={`badge bg-${tone}-subtle text-${tone}${tone === 'warning' ? '-emphasis' : ''}`}>Pending Feedbacks</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>}
+      </div> : null}
 
       <div className="table-card"><div className="d-flex justify-content-end p-2"><button className="btn btn-success btn-sm" onClick={() => {
         const head = columns.filter((c) => c.key !== 'action').map((c) => c.label).join(',')
