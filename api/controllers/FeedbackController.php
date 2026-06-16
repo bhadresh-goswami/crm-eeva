@@ -13,7 +13,7 @@ class FeedbackController {
         return $id > 0 ? $id : null;
     }
 
-    private function markInProgressTaskCompleted(PDO $conn, int $taskId): void {
+    private function markInProgressTaskCompleted(PDO $conn, int $taskId, ?string $completedAt = null): void {
         $completedStatusId = $this->getStatusIdByName($conn, 'Completed');
         $inProgressStatusId = $this->getStatusIdByName($conn, 'In Progress');
 
@@ -21,7 +21,7 @@ class FeedbackController {
             return;
         }
 
-        $taskStmt = $conn->prepare("SELECT status_id, task_start_time, task_end_time FROM tasks WHERE id = ? LIMIT 1 FOR UPDATE");
+        $taskStmt = $conn->prepare("SELECT status_id FROM tasks WHERE id = ? LIMIT 1 FOR UPDATE");
         $taskStmt->execute([$taskId]);
         $task = $taskStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -29,20 +29,18 @@ class FeedbackController {
             return;
         }
 
-        $endTimeExpression = "COALESCE(task_end_time, COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()))";
-        $durationExpression = "CASE
-            WHEN task_start_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, task_start_time, {$endTimeExpression}), 0)
-            ELSE duration
-        END";
-
+        $completionTime = trim((string)$completedAt) !== '' ? $completedAt : null;
         $updateStmt = $conn->prepare("
             UPDATE tasks
             SET status_id = ?,
-                task_end_time = {$endTimeExpression},
-                duration = {$durationExpression}
+                task_end_time = COALESCE(task_end_time, COALESCE(?, NOW())),
+                duration = CASE
+                    WHEN task_start_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, task_start_time, COALESCE(task_end_time, COALESCE(?, NOW()))), 0)
+                    ELSE duration
+                END
             WHERE id = ?
         ");
-        $updateStmt->execute([$completedStatusId, $taskId]);
+        $updateStmt->execute([$completedStatusId, $completionTime, $completionTime, $taskId]);
     }
     private function getTableColumns(PDO $conn, string $tableName): array {
         $stmt = $conn->prepare("SHOW COLUMNS FROM {$tableName}");
@@ -90,10 +88,12 @@ class FeedbackController {
         try {
             $conn->beginTransaction();
 
-            $duplicateStmt = $conn->prepare("SELECT id FROM task_feedback WHERE task_id = ? LIMIT 1 FOR UPDATE");
+            $duplicateStmt = $conn->prepare("SELECT id, created_at FROM task_feedback WHERE task_id = ? LIMIT 1 FOR UPDATE");
             $duplicateStmt->execute([$taskId]);
-            if ((int)$duplicateStmt->fetchColumn() > 0) {
-                $conn->rollBack();
+            $existingFeedback = $duplicateStmt->fetch(PDO::FETCH_ASSOC);
+            if ($existingFeedback) {
+                $this->markInProgressTaskCompleted($conn, $taskId, (string)($existingFeedback['created_at'] ?? ''));
+                $conn->commit();
                 http_response_code(409);
                 echo json_encode([
                     'success' => false,
@@ -156,7 +156,11 @@ class FeedbackController {
             $insertStmt = $conn->prepare($insertSql);
             $insertStmt->execute($values);
 
-            $this->markInProgressTaskCompleted($conn, $taskId);
+            $feedbackTimeStmt = $conn->prepare("SELECT created_at FROM task_feedback WHERE id = ? LIMIT 1");
+            $feedbackTimeStmt->execute([(int)$conn->lastInsertId()]);
+            $feedbackCreatedAt = (string)$feedbackTimeStmt->fetchColumn();
+
+            $this->markInProgressTaskCompleted($conn, $taskId, $feedbackCreatedAt);
 
             $conn->commit();
 
