@@ -3,6 +3,59 @@
 require_once dirname(__DIR__) . "/config/database.php";
 
 class ExpertReportsController {
+    private function getStatusIdByName(PDO $conn, string $name): ?int {
+        $stmt = $conn->prepare("SELECT id FROM task_status_master WHERE LOWER(name) = LOWER(?) LIMIT 1");
+        $stmt->execute([$name]);
+        $id = (int)$stmt->fetchColumn();
+
+        return $id > 0 ? $id : null;
+    }
+
+    private function repairFeedbackCompletedTasks(PDO $conn, int $expertUserId): void {
+        $completedStatusId = $this->getStatusIdByName($conn, 'Completed');
+        $inProgressStatusId = $this->getStatusIdByName($conn, 'In Progress');
+
+        if ($completedStatusId === null || $inProgressStatusId === null) {
+            return;
+        }
+
+        $selectStmt = $conn->prepare("
+            SELECT t.id, COALESCE(tf.created_at, NOW()) AS completed_at
+            FROM tasks t
+            INNER JOIN task_assignments ta ON ta.id = (
+                SELECT ta2.id FROM task_assignments ta2
+                WHERE ta2.task_id = t.id
+                  AND ta2.is_active = 1
+                ORDER BY ta2.id DESC LIMIT 1
+            )
+            INNER JOIN task_feedback tf ON tf.task_id = t.id
+            WHERE ta.user_id = ?
+              AND t.status_id = ?
+        ");
+        $selectStmt->execute([$expertUserId, $inProgressStatusId]);
+        $rows = $selectStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!$rows) {
+            return;
+        }
+
+        $updateStmt = $conn->prepare("
+            UPDATE tasks
+            SET status_id = ?,
+                task_end_time = COALESCE(task_end_time, ?),
+                duration = CASE
+                    WHEN task_start_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, task_start_time, COALESCE(task_end_time, ?)), 0)
+                    ELSE duration
+                END
+            WHERE id = ?
+        ");
+
+        foreach ($rows as $row) {
+            $completedAt = (string)($row['completed_at'] ?? '');
+            $updateStmt->execute([$completedStatusId, $completedAt, $completedAt, (int)$row['id']]);
+        }
+    }
+
     public function index($authUser): void {
         try {
             $db = new Database();
@@ -14,6 +67,8 @@ class ExpertReportsController {
                 echo json_encode(['success' => false, 'message' => 'Unauthorized']);
                 return;
             }
+
+            $this->repairFeedbackCompletedTasks($conn, $expertUserId);
 
             $page = max(1, (int)($_GET['page'] ?? 1));
             $limit = max(1, min(100, (int)($_GET['limit'] ?? 20)));

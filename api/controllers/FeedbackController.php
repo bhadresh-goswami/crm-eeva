@@ -4,6 +4,44 @@ require_once dirname(__DIR__) . "/config/database.php";
 require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class FeedbackController {
+
+    private function getStatusIdByName(PDO $conn, string $name): ?int {
+        $stmt = $conn->prepare("SELECT id FROM task_status_master WHERE LOWER(name) = LOWER(?) LIMIT 1");
+        $stmt->execute([$name]);
+        $id = (int)$stmt->fetchColumn();
+
+        return $id > 0 ? $id : null;
+    }
+
+    private function markInProgressTaskCompleted(PDO $conn, int $taskId, ?string $completedAt = null): void {
+        $completedStatusId = $this->getStatusIdByName($conn, 'Completed');
+        $inProgressStatusId = $this->getStatusIdByName($conn, 'In Progress');
+
+        if ($completedStatusId === null || $inProgressStatusId === null) {
+            return;
+        }
+
+        $taskStmt = $conn->prepare("SELECT status_id FROM tasks WHERE id = ? LIMIT 1 FOR UPDATE");
+        $taskStmt->execute([$taskId]);
+        $task = $taskStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$task || (int)($task['status_id'] ?? 0) !== $inProgressStatusId) {
+            return;
+        }
+
+        $completionTime = trim((string)$completedAt) !== '' ? $completedAt : null;
+        $updateStmt = $conn->prepare("
+            UPDATE tasks
+            SET status_id = ?,
+                task_end_time = COALESCE(task_end_time, COALESCE(?, NOW())),
+                duration = CASE
+                    WHEN task_start_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, task_start_time, COALESCE(task_end_time, COALESCE(?, NOW()))), 0)
+                    ELSE duration
+                END
+            WHERE id = ?
+        ");
+        $updateStmt->execute([$completedStatusId, $completionTime, $completionTime, $taskId]);
+    }
     private function getTableColumns(PDO $conn, string $tableName): array {
         $stmt = $conn->prepare("SHOW COLUMNS FROM {$tableName}");
         $stmt->execute();
@@ -82,8 +120,10 @@ class FeedbackController {
 
             $duplicateStmt = $conn->prepare("SELECT id FROM task_feedback WHERE task_id = ? LIMIT 1 FOR UPDATE");
             $duplicateStmt->execute([$taskId]);
-            if ((int)$duplicateStmt->fetchColumn() > 0) {
-                $conn->rollBack();
+            $existingFeedback = $duplicateStmt->fetch(PDO::FETCH_ASSOC);
+            if ($existingFeedback) {
+                $this->markInProgressTaskCompleted($conn, $taskId, (string)($existingFeedback['created_at'] ?? ''));
+                $conn->commit();
                 http_response_code(409);
                 echo json_encode([
                     'success' => false,
@@ -145,6 +185,12 @@ class FeedbackController {
 
             $insertStmt = $conn->prepare($insertSql);
             $insertStmt->execute($values);
+
+            $feedbackTimeStmt = $conn->prepare("SELECT created_at FROM task_feedback WHERE id = ? LIMIT 1");
+            $feedbackTimeStmt->execute([(int)$conn->lastInsertId()]);
+            $feedbackCreatedAt = (string)$feedbackTimeStmt->fetchColumn();
+
+            $this->markInProgressTaskCompleted($conn, $taskId, $feedbackCreatedAt);
 
             $conn->commit();
 
