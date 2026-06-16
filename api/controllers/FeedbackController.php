@@ -4,6 +4,46 @@ require_once dirname(__DIR__) . "/config/database.php";
 require_once dirname(__DIR__) . "/services/LoggerService.php";
 
 class FeedbackController {
+
+    private function getStatusIdByName(PDO $conn, string $name): ?int {
+        $stmt = $conn->prepare("SELECT id FROM task_status_master WHERE LOWER(name) = LOWER(?) LIMIT 1");
+        $stmt->execute([$name]);
+        $id = (int)$stmt->fetchColumn();
+
+        return $id > 0 ? $id : null;
+    }
+
+    private function markInProgressTaskCompleted(PDO $conn, int $taskId): void {
+        $completedStatusId = $this->getStatusIdByName($conn, 'Completed');
+        $inProgressStatusId = $this->getStatusIdByName($conn, 'In Progress');
+
+        if ($completedStatusId === null || $inProgressStatusId === null) {
+            return;
+        }
+
+        $taskStmt = $conn->prepare("SELECT status_id, task_start_time, task_end_time FROM tasks WHERE id = ? LIMIT 1 FOR UPDATE");
+        $taskStmt->execute([$taskId]);
+        $task = $taskStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$task || (int)($task['status_id'] ?? 0) !== $inProgressStatusId) {
+            return;
+        }
+
+        $endTimeExpression = "COALESCE(task_end_time, COALESCE(CONVERT_TZ(UTC_TIMESTAMP(), 'UTC', 'Asia/Kolkata'), NOW()))";
+        $durationExpression = "CASE
+            WHEN task_start_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, task_start_time, {$endTimeExpression}), 0)
+            ELSE duration
+        END";
+
+        $updateStmt = $conn->prepare("
+            UPDATE tasks
+            SET status_id = ?,
+                task_end_time = {$endTimeExpression},
+                duration = {$durationExpression}
+            WHERE id = ?
+        ");
+        $updateStmt->execute([$completedStatusId, $taskId]);
+    }
     private function getTableColumns(PDO $conn, string $tableName): array {
         $stmt = $conn->prepare("SHOW COLUMNS FROM {$tableName}");
         $stmt->execute();
@@ -115,6 +155,8 @@ class FeedbackController {
 
             $insertStmt = $conn->prepare($insertSql);
             $insertStmt->execute($values);
+
+            $this->markInProgressTaskCompleted($conn, $taskId);
 
             $conn->commit();
 

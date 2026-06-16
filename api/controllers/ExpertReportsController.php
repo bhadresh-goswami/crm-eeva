@@ -61,7 +61,10 @@ class ExpertReportsController {
                     COALESCE(c.name, '') AS candidate_name,
                     COALESCE(ex.name, '') AS expert_name,
                     COALESCE(tt.name, '') AS task_type,
-                    COALESCE(ts.name, '') AS status_name,
+                    CASE
+                        WHEN tf.id IS NOT NULL AND LOWER(COALESCE(ts.name, '')) = 'in progress' THEN 'Completed'
+                        ELSE COALESCE(ts.name, '')
+                    END AS status_name,
                     COALESCE(t.start_time, '') AS ist_start_time,
                     COALESCE(t.end_time, '') AS ist_end_time,
                     COALESCE(t.duration, 0) AS duration,
