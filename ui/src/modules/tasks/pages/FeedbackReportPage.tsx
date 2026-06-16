@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
+import ExpertWorkspaceHeader from '../../../shared/components/ExpertWorkspaceHeader'
+import { useAuth } from '../../../context/AuthContext'
 import { getAllFeedback } from '../api/feedbackApi'
 
 type Row = Record<string, unknown>
 
 const FeedbackReportPage = () => {
+  const { user } = useAuth()
+  const role = String(user?.role ?? '').toLowerCase()
+  const isExpertRole = ['expert', 'technical expert', 'expertlead', 'technical lead'].includes(role)
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
@@ -30,7 +35,16 @@ const FeedbackReportPage = () => {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
 
   return (
-    <PageContainer title="Feedback Report" description="All submitted feedback data across tasks.">
+    <PageContainer title={isExpertRole ? undefined : "Feedback Report"} description={isExpertRole ? undefined : "All submitted feedback data across tasks."}>
+      {isExpertRole ? <ExpertWorkspaceHeader /> : null}
+      {isExpertRole ? (
+        <div className="page-container__header">
+          <div>
+            <h2 className="page-title">Feedback Report</h2>
+            <p className="page-description">All submitted feedback data across tasks.</p>
+          </div>
+        </div>
+      ) : null}
       <div className="card shadow-sm"><div className="card-body">
         <div className="mb-3"><input className="form-control" placeholder="Filter by candidate/company" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
         <div className="table-responsive"><table className="table table-bordered table-hover table-sm align-middle">

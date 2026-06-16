@@ -3,6 +3,7 @@ import ExpertTaskTable from '../components/ExpertTaskTable'
 import { getExpertTasks, sendDailyReportNow, type ExpertTaskItem } from '../api/expertTasksApi'
 import { useAuth } from '../../../context/AuthContext'
 import { useAlert } from '../../../shared/alerts/useAlert'
+import ExpertWorkspaceHeader from '../../../shared/components/ExpertWorkspaceHeader'
 
 const ExpertTasksPage = () => {
   const { user } = useAuth()
@@ -40,6 +41,7 @@ const ExpertTasksPage = () => {
 
   return (
     <section style={{ display: 'grid', gap: '1rem' }}>
+      <ExpertWorkspaceHeader />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Last 7 Days Tasks</h1>
         <button
