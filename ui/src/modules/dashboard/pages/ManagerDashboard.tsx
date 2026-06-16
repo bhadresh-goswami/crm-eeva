@@ -271,6 +271,14 @@ const ManagerDashboard = () => {
       <ManagerWorkspaceHeader
         title="Welcome back, focus on delivery and quality."
         subtitle="Monitor task execution, team productivity, pending actions, and operational performance from one place."
+        actions={(
+          <>
+            <button className="button" type="button" onClick={() => (window.location.href = '/tasks')}>Create Task</button>
+            <button className="button" type="button" onClick={() => setActiveTab('assigned')}>Bulk Assign</button>
+            <button className="button" type="button" onClick={() => setActiveTab('assigned')}>Reassign Tasks</button>
+            <button className="button" type="button" onClick={() => window.print()}>Export Data</button>
+          </>
+        )}
       />
 
       <div className="manager-kpi-grid section">
@@ -291,15 +299,6 @@ const ManagerDashboard = () => {
         <p className="card-text">Overdue: {criticalAlerts.overdue.length} • Upcoming (30m): {criticalAlerts.upcoming.length} • Unassigned: {criticalAlerts.unassigned.length}</p>
       </div>
 
-      <div className="card section">
-        <h3 className="tasks-activity__title">Quick Actions</h3>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="button" type="button" onClick={() => (window.location.href = '/tasks')}>Create Task</button>
-          <button className="button" type="button" onClick={() => setActiveTab('assigned')}>Bulk Assign</button>
-          <button className="button" type="button" onClick={() => setActiveTab('assigned')}>Reassign Tasks</button>
-          <button className="button" type="button" onClick={() => window.print()}>Export Data</button>
-        </div>
-      </div>
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
