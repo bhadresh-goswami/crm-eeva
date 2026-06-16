@@ -230,18 +230,36 @@ const ManagerDashboard = () => {
   )
 
   const dashboardAlerts = useMemo(() => {
-    const isUnassigned = (task: DashboardTask) => !task.assignedToName || task.assignedToName === 'Unassigned'
+    const normalizedStatus = (task: DashboardTask) => task.status.replace(/_/g, ' ').trim().toLowerCase()
+    const isPendingAssignment = (task: DashboardTask) => normalizedStatus(task) === 'pending'
+    const isUpcoming = (task: DashboardTask) => {
+      if (!task.dueDate) return true
+      const taskDate = task.dueDate.slice(0, 10)
+      const taskDateTime = task.startTime ? new Date(`${taskDate}T${task.startTime.slice(0, 5)}:00`) : new Date(taskDate)
+      if (Number.isNaN(taskDateTime.getTime())) return true
+      return taskDateTime >= new Date()
+    }
+    const isScheduled = (task: DashboardTask) => normalizedStatus(task) === 'assigned' && isUpcoming(task)
+    const isInProgress = (task: DashboardTask) => normalizedStatus(task) === 'in progress'
     const counts = {
-      inProgress: liveTasks.filter((task) => task.status === 'in_progress').length,
-      unassigned: liveTasks.filter(isUnassigned).length,
+      pendingAssignment: liveTasks.filter(isPendingAssignment).length,
+      scheduled: liveTasks.filter(isScheduled).length,
+      inProgress: liveTasks.filter(isInProgress).length,
     }
 
     const rows = liveTasks
-      .filter((task) => task.status === 'in_progress' || isUnassigned(task))
+      .filter((task) => isPendingAssignment(task) || isScheduled(task) || isInProgress(task))
       .map((task) => {
-        const unassigned = isUnassigned(task)
-        const alertType = unassigned ? 'Unassigned Tasks' : 'Tasks Requiring Attention'
-        const alertMessage = unassigned ? 'Task is not assigned to an expert.' : 'Task is currently in progress.'
+        const alertType = isPendingAssignment(task)
+          ? 'Pending Assignment'
+          : isScheduled(task)
+            ? 'Scheduled'
+            : 'In Progress'
+        const alertMessage = isPendingAssignment(task)
+          ? 'Task created but not assigned.'
+          : isScheduled(task)
+            ? 'Task scheduled and awaiting execution.'
+            : 'Task currently in progress.'
 
         return { task, alertType, alertMessage }
       })
@@ -390,8 +408,9 @@ const ManagerDashboard = () => {
       >
         <h3 className="modal-title">Dashboard Alerts</h3>
         <div className="dashboard-action-group section">
-          <span className="crm-status-badge crm-status-badge--pending">{String(dashboardAlerts.counts.inProgress).padStart(2, '0')} In Progress</span>
-          <span className="crm-status-badge crm-status-badge--pending">{String(dashboardAlerts.counts.unassigned).padStart(2, '0')} Unassigned</span>
+          <span className="crm-status-badge crm-status-badge--pending">Pending Assignment : {dashboardAlerts.counts.pendingAssignment}</span>
+          <span className="crm-status-badge crm-status-badge--pending">Scheduled : {dashboardAlerts.counts.scheduled}</span>
+          <span className="crm-status-badge crm-status-badge--pending">In Progress : {dashboardAlerts.counts.inProgress}</span>
         </div>
         <div className="roles-table__wrapper" style={{ maxHeight: '55vh', overflowY: 'auto' }}>
           <table className="roles-table dashboard-table dashboard-table-modern">
@@ -404,13 +423,14 @@ const ManagerDashboard = () => {
                 <th>Task Status</th>
                 <th>Assigned To</th>
                 <th>Task Date</th>
+                <th>Start Time</th>
                 <th>Alert Message</th>
               </tr>
             </thead>
             <tbody>
               {dashboardAlerts.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="dashboard-empty">No dashboard alerts found</td>
+                  <td colSpan={9} className="dashboard-empty">No dashboard alerts found</td>
                 </tr>
               ) : dashboardAlerts.rows.map(({ task, alertType, alertMessage }) => (
                 <tr key={`${alertType}-${task.id}`}>
@@ -421,6 +441,7 @@ const ManagerDashboard = () => {
                   <td><StatusBadge status={task.status} /></td>
                   <td>{task.assignedToName || 'Unassigned'}</td>
                   <td>{task.dueDate?.slice(0, 10) || '—'}</td>
+                  <td>{formatToAmPm(task.startTime)}</td>
                   <td>{alertMessage}</td>
                 </tr>
               ))}
