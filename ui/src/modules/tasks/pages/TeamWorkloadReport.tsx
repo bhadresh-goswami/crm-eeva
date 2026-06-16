@@ -17,11 +17,12 @@ type WorkloadCounts = {
 }
 
 type WorkloadHealth = {
-  label: 'Good' | 'Moderate' | 'Under Utilized'
+  label: 'Well Utilized' | 'Moderately Utilized' | 'Under Utilized'
   className: string
 }
 
 type WorkloadRow = WorkloadCounts & {
+  expectedCapacityMinutes: number
   workloadPercentage: number
   workloadHealth: WorkloadHealth
 }
@@ -34,6 +35,8 @@ type SortState = {
 }
 
 const pageSizes = [10, 25, 50, 100]
+const minutesPerWorkingDay = 480
+const minimumMonthlyWorkingDays = 20
 const isOverdueTask = (task: TaskRecord) => {
   const normalizedStatus = task.status.toLowerCase().trim()
   if (!task.due_date || ['completed', 'cancelled'].includes(normalizedStatus)) return false
@@ -47,14 +50,56 @@ const isOverdueTask = (task: TaskRecord) => {
 const csvEscape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`
 
 const getWorkloadHealth = (percentage: number): WorkloadHealth => {
-  if (percentage >= 70) return { label: 'Good', className: 'bg-success-subtle text-success' }
-  if (percentage >= 40) return { label: 'Moderate', className: 'bg-warning-subtle text-warning' }
+  if (percentage >= 80) return { label: 'Well Utilized', className: 'bg-success-subtle text-success' }
+  if (percentage >= 60) return { label: 'Moderately Utilized', className: 'bg-warning-subtle text-warning' }
   return { label: 'Under Utilized', className: 'bg-danger-subtle text-danger' }
 }
 
-const getWorkloadPercentage = (workMinutes: number, highestWorkMinutes: number) => {
-  if (highestWorkMinutes <= 0) return 0
-  return Math.round((workMinutes / highestWorkMinutes) * 100)
+const getWorkloadPercentage = (workMinutes: number, expectedCapacityMinutes: number) => {
+  if (expectedCapacityMinutes <= 0) return 0
+  return Math.round((workMinutes / expectedCapacityMinutes) * 100)
+}
+
+const parseDateOnly = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+const getWorkingDaysInclusive = (start: Date, end: Date) => {
+  const current = new Date(start)
+  current.setHours(0, 0, 0, 0)
+  const last = new Date(end)
+  last.setHours(0, 0, 0, 0)
+  let workingDays = 0
+
+  while (current <= last) {
+    const day = current.getDay()
+    if (day !== 0 && day !== 6) workingDays += 1
+    current.setDate(current.getDate() + 1)
+  }
+
+  return workingDays
+}
+
+const isFullMonthRange = (start: Date, end: Date) => (
+  start.getFullYear() === end.getFullYear() &&
+  start.getMonth() === end.getMonth() &&
+  start.getDate() === 1 &&
+  end.getDate() === new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate()
+)
+
+const getExpectedCapacityMinutes = (fromDate: string, toDate: string) => {
+  const start = parseDateOnly(fromDate)
+  const end = parseDateOnly(toDate)
+
+  if (start && end && start <= end) {
+    const workingDays = getWorkingDaysInclusive(start, end)
+    const capacityDays = isFullMonthRange(start, end) ? Math.max(minimumMonthlyWorkingDays, workingDays) : workingDays
+    return capacityDays * minutesPerWorkingDay
+  }
+
+  return minimumMonthlyWorkingDays * minutesPerWorkingDay
 }
 
 const getTaskDurationMinutes = (task: TaskRecord) => {
@@ -110,6 +155,8 @@ const TeamWorkloadReport = () => {
     return Array.from(names).sort((a, b) => a.localeCompare(b))
   }, [tasks])
 
+  const expectedCapacityMinutes = useMemo(() => getExpectedCapacityMinutes(fromDate, toDate), [fromDate, toDate])
+
   const workloadCounts = useMemo(() => {
     const map = new Map<string, WorkloadCounts>()
 
@@ -143,17 +190,17 @@ const TeamWorkloadReport = () => {
   const visibleRows = useMemo<WorkloadRow[]>(() => {
     const normalizedSearch = search.trim().toLowerCase()
     const filteredRows = workloadCounts.filter((row) => !normalizedSearch || row.coordinatorName.toLowerCase().includes(normalizedSearch))
-    const highestWorkMinutes = Math.max(0, ...filteredRows.map((row) => row.totalWorkMinutes))
 
     return filteredRows.map((row) => {
-      const workloadPercentage = getWorkloadPercentage(row.totalWorkMinutes, highestWorkMinutes)
+      const workloadPercentage = getWorkloadPercentage(row.totalWorkMinutes, expectedCapacityMinutes)
       return {
         ...row,
+        expectedCapacityMinutes,
         workloadPercentage,
         workloadHealth: getWorkloadHealth(workloadPercentage),
       }
     })
-  }, [workloadCounts, search])
+  }, [expectedCapacityMinutes, workloadCounts, search])
 
   const sortedRows = useMemo(() => [...visibleRows].sort((a, b) => {
     const aValue = a[sort.key]
@@ -174,7 +221,7 @@ const TeamWorkloadReport = () => {
   }
 
   const exportRows = (extension: 'csv' | 'xls') => {
-    const headers = ['Coordinator Name', 'Assigned Tasks', 'Pending Tasks', 'In Progress Tasks', 'Completed Tasks', 'Overdue Tasks', 'Total Active Tasks', 'Total Work Minutes', 'Workload Percentage']
+    const headers = ['Coordinator Name', 'Assigned Tasks', 'Pending Tasks', 'In Progress Tasks', 'Completed Tasks', 'Overdue Tasks', 'Total Active Tasks', 'Total Work Minutes', 'Expected Capacity Minutes', 'Workload Percentage']
     const body = sortedRows.map((row) => [
       row.coordinatorName,
       row.assignedTasks,
@@ -184,6 +231,7 @@ const TeamWorkloadReport = () => {
       row.overdueTasks,
       row.totalActiveTasks,
       row.totalWorkMinutes,
+      row.expectedCapacityMinutes,
       `${row.workloadPercentage}%`,
     ])
     const csv = [headers, ...body].map((line) => line.map(csvEscape).join(',')).join('\n')
@@ -279,8 +327,8 @@ const TeamWorkloadReport = () => {
                   <td>{row.totalWorkMinutes}</td>
                   <td>
                     <span className="d-inline-flex align-items-center gap-2">
-                      <span>{row.workloadPercentage}%</span>
-                      <span className={`badge ${row.workloadHealth.className}`}>{row.workloadHealth.label}</span>
+                      <span title={`Worked: ${row.totalWorkMinutes} min | Expected: ${row.expectedCapacityMinutes} min`}>{row.workloadPercentage}%</span>
+                      <span className={`badge ${row.workloadHealth.className}`} title={`Worked: ${row.totalWorkMinutes} min | Expected: ${row.expectedCapacityMinutes} min`}>{row.workloadHealth.label}</span>
                     </span>
                   </td>
                 </tr>
