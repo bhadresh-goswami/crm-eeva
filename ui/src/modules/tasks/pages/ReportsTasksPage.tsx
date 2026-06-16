@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
 import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
+import ExpertWorkspaceHeader from '../../../shared/components/ExpertWorkspaceHeader'
 import { useAuth } from '../../../context/AuthContext'
 import { getTaskAssignmentReport, getTaskReport, getTaskTypes, type TaskRecord, type TaskTypeOption } from '../api/tasksApi'
 import { getExpertTasks } from '../api/expertTasksApi'
@@ -129,8 +130,9 @@ const ReportsTasksPage = () => {
   }
 
   return (
-    <PageContainer title={user?.role === 'manager' ? undefined : "Task Reports"} description={user?.role === 'manager' ? undefined : "Role-based reporting across task status, schedule and assignments."}>
+    <PageContainer title={user?.role === 'manager' || isExpertRole ? undefined : "Task Reports"} description={user?.role === 'manager' || isExpertRole ? undefined : "Role-based reporting across task status, schedule and assignments."}>
       {user?.role === 'manager' ? <ManagerWorkspaceHeader title="Business insights and operational analytics." subtitle="Analyze workload, productivity, task trends, and performance metrics." /> : null}
+      {isExpertRole ? <ExpertWorkspaceHeader title="Reports" /> : null}
       <div className="card shadow-sm mb-4">
         <div className="card-body">
           <div className="row g-3 align-items-end">

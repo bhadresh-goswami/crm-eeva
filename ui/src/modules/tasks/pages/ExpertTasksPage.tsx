@@ -3,6 +3,7 @@ import ExpertTaskTable from '../components/ExpertTaskTable'
 import { getExpertTasks, sendDailyReportNow, type ExpertTaskItem } from '../api/expertTasksApi'
 import { useAuth } from '../../../context/AuthContext'
 import { useAlert } from '../../../shared/alerts/useAlert'
+import ExpertWorkspaceHeader from '../../../shared/components/ExpertWorkspaceHeader'
 
 const ExpertTasksPage = () => {
   const { user } = useAuth()
@@ -40,8 +41,8 @@ const ExpertTasksPage = () => {
 
   return (
     <section style={{ display: 'grid', gap: '1rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <h1 className="page-title" style={{ marginBottom: 0 }}>Last 7 Days Tasks</h1>
+      <ExpertWorkspaceHeader title="Tasks" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
         <button
           className="button button--primary"
           type="button"
@@ -71,7 +72,6 @@ const ExpertTasksPage = () => {
           {sendingReport ? 'Sending...' : 'Send Report Now'}
         </button>
       </div>
-      <p className="page-description">Shows assigned and completed tasks for the selected week, including tasks assigned directly to you and to your team.</p>
       <ExpertTaskTable
         tasks={tasks}
         loading={loading}

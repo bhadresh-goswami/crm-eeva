@@ -3,6 +3,7 @@ import ExpertTaskTable from '../../tasks/components/ExpertTaskTable'
 import { getExpertTasks, type ExpertTaskItem } from '../../tasks/api/expertTasksApi'
 import { useAuth } from '../../../context/AuthContext'
 import PageContainer from '../../../shared/components/PageContainer'
+import ExpertWorkspaceHeader from '../../../shared/components/ExpertWorkspaceHeader'
 import {
   getExpertDashboardAnalytics,
   recalculateExpertTaskDuration,
@@ -100,7 +101,8 @@ Skipped: ${result.skipped} tasks`,
   }, [dateRangeFilter, loadAnalytics, loadTasks])
 
   return (
-    <PageContainer title="Technical Expert Dashboard" description="Active assigned tasks only.">
+    <PageContainer>
+      <ExpertWorkspaceHeader title="Technical Expert Dashboard" />
       <style>{`.stat-card-hover{transition:all .2s ease}.stat-card-hover:hover{transform:translateY(-3px)}`}</style>
       <div className="row g-3 section">
         <div className="col-12 col-md-6 col-xl-3"><StatCard title="Assigned Tasks" count={analytics.cards?.assigned?.count ?? 0} changePercentage={analytics.cards?.assigned?.change_percentage ?? 0} color="blue" loading={analyticsLoading} /></div>
