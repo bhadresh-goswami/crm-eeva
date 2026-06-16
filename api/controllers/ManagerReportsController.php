@@ -174,7 +174,11 @@ class ManagerReportsController {
                 COALESCE(tsm.name, 'N/A') AS status_name,
                 COALESCE(tsm.name, 'N/A') AS task_status,
                 COALESCE(assigned_by_user.name, 'N/A') AS assigned_by,
-                CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
+                CASE
+                    WHEN LOWER(COALESCE(tsm.name, '')) = 'completed' AND tf.id IS NOT NULL THEN 'Submitted'
+                    WHEN LOWER(COALESCE(tsm.name, '')) = 'completed' THEN 'Pending'
+                    ELSE 'Not Available'
+                END AS feedback_status,
                 DATE(tf.created_at) AS feedback_date{$scheduleSelect},
                 ROUND(((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) /
                     NULLIF(
@@ -344,7 +348,11 @@ class ManagerReportsController {
                 DATE(t.due_date) AS task_date,
                 COALESCE(t.task_start_time, t.start_time) AS eastern_source_time,
                 {$durationExpr} AS duration,
-                CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
+                CASE
+                    WHEN LOWER(COALESCE(tsm.name, '')) = 'completed' AND tf.id IS NOT NULL THEN 'Submitted'
+                    WHEN LOWER(COALESCE(tsm.name, '')) = 'completed' THEN 'Pending'
+                    ELSE 'Not Available'
+                END AS feedback_status,
                 COALESCE(tf.overall, 0) AS average_score,
                 COALESCE(assigned_by_user.name, 'N/A') AS assigned_by
                 " . $this->baseSelect() . "

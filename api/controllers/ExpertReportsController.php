@@ -65,9 +65,13 @@ class ExpertReportsController {
                     COALESCE(t.start_time, '') AS ist_start_time,
                     COALESCE(t.end_time, '') AS ist_end_time,
                     COALESCE(t.duration, 0) AS duration,
-                    CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
+                    CASE
+                        WHEN LOWER(COALESCE(ts.name, '')) = 'completed' AND tf.id IS NOT NULL THEN 'Submitted'
+                        WHEN LOWER(COALESCE(ts.name, '')) = 'completed' THEN 'Pending'
+                        ELSE 'Not Available'
+                    END AS feedback_status,
                     t.created_at,
-                    tf.id AS feedback_id
+                    CASE WHEN LOWER(COALESCE(ts.name, '')) = 'completed' THEN tf.id ELSE NULL END AS feedback_id
                 {$baseFrom}
                 ORDER BY DATE(t.due_date) DESC, t.created_at DESC
                 LIMIT {$limit} OFFSET {$offset}
