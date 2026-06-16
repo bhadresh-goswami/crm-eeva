@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import { useAlert } from '../../../shared/alerts/useAlert'
@@ -14,7 +15,7 @@ import {
   type ManagerTaskStatus,
 } from '../api/dashboardApi'
 import { getTasksLastUpdate } from '../../tasks/api/tasksApi'
-import { FaBell, FaChartLine, FaCheckCircle, FaClock, FaEye, FaRupeeSign, FaPen, FaUserCircle, FaWallet } from 'react-icons/fa'
+import { FaBell, FaChartLine, FaCheckCircle, FaClock, FaRupeeSign, FaUserCircle, FaWallet } from 'react-icons/fa'
 import KPIStatCard from '../../../components/dashboard/KPIStatCard'
 import StatusBadge from '../../../components/dashboard/StatusBadge'
 
@@ -59,6 +60,7 @@ const isOverdueTask = (task: DashboardTask) => {
 
 const ManagerDashboard = () => {
   const { showToast, showAlert } = useAlert()
+  const navigate = useNavigate()
   const [summaryData, setSummaryData] = useState<DashboardSummary>(defaultSummary)
   const [tasksData, setTasksData] = useState<DashboardTask[]>([])
   const [liveTasks, setLiveTasks] = useState<DashboardTask[]>([])
@@ -227,11 +229,6 @@ const ManagerDashboard = () => {
     [kpi.productivity, liveTasks, summaryData.completedTasks, summaryData.pendingPaymentUpdates, summaryData.pendingTasks],
   )
 
-  const pendingPaymentRows = useMemo(() => liveTasks
-    .filter((task) => task.status === 'completed' && (Number(task.amount ?? 0) <= 0 || (task.paymentStatus ?? '') === 'pending'))
-    .slice(0, 10), [liveTasks])
-
-
   const criticalAlerts = useMemo(() => {
     const now = new Date()
     const in30 = new Date(now.getTime() + 30 * 60 * 1000)
@@ -243,23 +240,6 @@ const ManagerDashboard = () => {
     const unassigned = liveTasks.filter((task) => !task.assignedToName || task.assignedToName === 'Unassigned')
     const overdue = liveTasks.filter(isOverdueTask)
     return { overdue, upcoming, unassigned }
-  }, [liveTasks])
-
-  const teamWorkload = useMemo(() => {
-    const map = new Map<string, { assigned: number; pending: number; overdue: number }>()
-    liveTasks.forEach((task) => {
-      const owner = task.assignedToName?.trim() || 'Unassigned'
-      const row = map.get(owner) ?? { assigned: 0, pending: 0, overdue: 0 }
-      if (task.status === 'assigned') row.assigned += 1
-      if (task.status === 'pending') row.pending += 1
-      if (isOverdueTask(task)) row.overdue += 1
-      map.set(owner, row)
-    })
-    return Array.from(map.entries()).map(([name, row]) => {
-      const total = row.assigned + row.pending + row.overdue
-      const load = Math.min(100, total * 20)
-      return { name, ...row, load }
-    })
   }, [liveTasks])
 
   const handleAssign = async () => {
@@ -317,47 +297,8 @@ const ManagerDashboard = () => {
             })}
       </div>
       <div className="card section">
-        <h3 className="tasks-activity__title">Pending Payments</h3>
-        <div className="table-responsive">
-          <table className="table table-striped align-middle mb-0">
-            <thead><tr><th>Date</th><th>Client</th><th>Candidate</th><th>Amount</th><th>Status</th><th>Duration</th><th>Actions</th></tr></thead>
-            <tbody>
-              {pendingPaymentRows.length === 0 ? <tr><td colSpan={7}>No pending payments.</td></tr> : pendingPaymentRows.map((task) => (
-                <tr key={`pending-${task.id}`}>
-                  <td>{task.dueDate?.slice(0, 10) || '-'}</td>
-                  <td>{task.client || '-'}</td>
-                  <td>{task.candidate || '-'}</td>
-                  <td>₹{Number(task.amount ?? 0)}</td>
-                  <td><StatusBadge status={task.paymentStatus || 'pending'} /></td>
-                  <td>{task.duration ? `${task.duration} mins` : '-'}</td>
-                  <td><div className="dashboard-action-group"><button className="dashboard-action-btn dashboard-action-btn--view" title="View" onClick={() => setDetailTask(task)}><FaEye /></button><button className="dashboard-action-btn dashboard-action-btn--edit" title="Edit" onClick={() => setActiveTab('completed')}><FaPen /></button></div></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="card section">
         <h3 className="tasks-activity__title">Critical Alerts</h3>
         <p className="card-text">Overdue: {criticalAlerts.overdue.length} • Upcoming (30m): {criticalAlerts.upcoming.length} • Unassigned: {criticalAlerts.unassigned.length}</p>
-      </div>
-
-      <div className="card section">
-        <h3 className="tasks-activity__title">Team Workload</h3>
-        <div className="roles-table__wrapper">
-          <table className="roles-table">
-            <thead><tr><th>Coordinator</th><th>Assigned</th><th>Pending</th><th>Overdue</th><th>Load %</th></tr></thead>
-            <tbody>
-              {teamWorkload.map((row) => (
-                <tr key={row.name}>
-                  <td>{row.name}</td><td>{row.assigned}</td><td>{row.pending}</td><td>{row.overdue}</td>
-                  <td><div style={{ background: '#e5e7eb', borderRadius: 999, height: 8 }}><div style={{ width: `${row.load}%`, height: '100%', borderRadius: 999, background: row.load > 80 ? '#ef4444' : '#3b82f6' }} /></div></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
 
       <div className="card section">
@@ -430,6 +371,12 @@ const ManagerDashboard = () => {
           </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="card section">
+        <h3 className="tasks-activity__title">Team Workload</h3>
+        <p className="card-text">View coordinator workload distribution and performance.</p>
+        <button className="button" type="button" onClick={() => navigate('/manager/reports/team-workload')}>View Report</button>
       </div>
 
       <AnimatedModal
