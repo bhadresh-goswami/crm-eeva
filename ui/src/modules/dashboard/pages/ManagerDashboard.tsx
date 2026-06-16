@@ -79,6 +79,7 @@ const ManagerDashboard = () => {
   const isAssignModalOpen = Boolean(assigningTask)
 
   const [detailTask, setDetailTask] = useState<DashboardTask | null>(null)
+  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false)
   const [lastKnownTaskUpdate, setLastKnownTaskUpdate] = useState<string | null>(null)
 
   const loadSummary = async () => {
@@ -228,17 +229,42 @@ const ManagerDashboard = () => {
     [kpi.productivity, liveTasks, summaryData.completedTasks, summaryData.pendingTasks],
   )
 
-  const criticalAlerts = useMemo(() => {
-    const now = new Date()
-    const in30 = new Date(now.getTime() + 30 * 60 * 1000)
-    const upcoming = liveTasks.filter((task) => {
-      if (!task.dueDate || !task.startTime || ['completed', 'cancelled'].includes(task.status)) return false
-      const ts = new Date(`${task.dueDate.slice(0, 10)}T${task.startTime.slice(0, 5)}:00`)
-      return ts >= now && ts <= in30
-    })
-    const unassigned = liveTasks.filter((task) => !task.assignedToName || task.assignedToName === 'Unassigned')
-    const overdue = liveTasks.filter(isOverdueTask)
-    return { overdue, upcoming, unassigned }
+  const dashboardAlerts = useMemo(() => {
+    const normalizedStatus = (task: DashboardTask) => task.status.replace(/_/g, ' ').trim().toLowerCase()
+    const isPendingAssignment = (task: DashboardTask) => normalizedStatus(task) === 'pending'
+    const isUpcoming = (task: DashboardTask) => {
+      if (!task.dueDate) return true
+      const taskDate = task.dueDate.slice(0, 10)
+      const taskDateTime = task.startTime ? new Date(`${taskDate}T${task.startTime.slice(0, 5)}:00`) : new Date(taskDate)
+      if (Number.isNaN(taskDateTime.getTime())) return true
+      return taskDateTime >= new Date()
+    }
+    const isScheduled = (task: DashboardTask) => normalizedStatus(task) === 'assigned' && isUpcoming(task)
+    const isInProgress = (task: DashboardTask) => normalizedStatus(task) === 'in progress'
+    const counts = {
+      pendingAssignment: liveTasks.filter(isPendingAssignment).length,
+      scheduled: liveTasks.filter(isScheduled).length,
+      inProgress: liveTasks.filter(isInProgress).length,
+    }
+
+    const rows = liveTasks
+      .filter((task) => isPendingAssignment(task) || isScheduled(task) || isInProgress(task))
+      .map((task) => {
+        const alertType = isPendingAssignment(task)
+          ? 'Pending Assignment'
+          : isScheduled(task)
+            ? 'Scheduled'
+            : 'In Progress'
+        const alertMessage = isPendingAssignment(task)
+          ? 'Task created but not assigned.'
+          : isScheduled(task)
+            ? 'Task scheduled and awaiting execution.'
+            : 'Task currently in progress.'
+
+        return { task, alertType, alertMessage }
+      })
+
+    return { counts, rows }
   }, [liveTasks])
 
   const handleAssign = async () => {
@@ -271,6 +297,8 @@ const ManagerDashboard = () => {
       <ManagerWorkspaceHeader
         title="Welcome back, focus on delivery and quality."
         subtitle="Monitor task execution, team productivity, pending actions, and operational performance from one place."
+        notificationCount={dashboardAlerts.rows.length}
+        onNotificationsClick={() => setIsAlertsModalOpen(true)}
         actions={(
           <>
             <button className="button" type="button" onClick={() => (window.location.href = '/tasks')}>Create Task</button>
@@ -294,11 +322,6 @@ const ManagerDashboard = () => {
               return <KPIStatCard key={card.label} title={card.label} value={card.value} icon={icon} helperText={helperText} accent={card.tone === 'default' ? 'primary' : card.tone as 'success' | 'warning' | 'danger'} onClick={card.tab ? () => setActiveTab(card.tab) : undefined} />
             })}
       </div>
-      <div className="card section">
-        <h3 className="tasks-activity__title">Critical Alerts</h3>
-        <p className="card-text">Overdue: {criticalAlerts.overdue.length} • Upcoming (30m): {criticalAlerts.upcoming.length} • Unassigned: {criticalAlerts.unassigned.length}</p>
-      </div>
-
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
@@ -376,6 +399,56 @@ const ManagerDashboard = () => {
           <NavLink className="button" to="/manager/reports/pending-payments">View Report</NavLink>
         </div>
       </div>
+
+
+      <AnimatedModal
+        isOpen={isAlertsModalOpen}
+        onClose={() => setIsAlertsModalOpen(false)}
+        title="Dashboard Alerts"
+      >
+        <h3 className="modal-title">Dashboard Alerts</h3>
+        <div className="dashboard-action-group section">
+          <span className="crm-status-badge crm-status-badge--pending">Pending Assignment : {dashboardAlerts.counts.pendingAssignment}</span>
+          <span className="crm-status-badge crm-status-badge--pending">Scheduled : {dashboardAlerts.counts.scheduled}</span>
+          <span className="crm-status-badge crm-status-badge--pending">In Progress : {dashboardAlerts.counts.inProgress}</span>
+        </div>
+        <div className="roles-table__wrapper" style={{ maxHeight: '55vh', overflowY: 'auto' }}>
+          <table className="roles-table dashboard-table dashboard-table-modern">
+            <thead>
+              <tr>
+                <th>Alert Type</th>
+                <th>Candidate Name</th>
+                <th>Company</th>
+                <th>Task Type</th>
+                <th>Task Status</th>
+                <th>Assigned To</th>
+                <th>Task Date</th>
+                <th>Start Time</th>
+                <th>Alert Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dashboardAlerts.rows.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="dashboard-empty">No dashboard alerts found</td>
+                </tr>
+              ) : dashboardAlerts.rows.map(({ task, alertType, alertMessage }) => (
+                <tr key={`${alertType}-${task.id}`}>
+                  <td>{alertType}</td>
+                  <td>{task.candidate || '—'}</td>
+                  <td>{task.client || '—'}</td>
+                  <td>{task.supportType || task.title || '—'}</td>
+                  <td><StatusBadge status={task.status} /></td>
+                  <td>{task.assignedToName || 'Unassigned'}</td>
+                  <td>{task.dueDate?.slice(0, 10) || '—'}</td>
+                  <td>{formatToAmPm(task.startTime)}</td>
+                  <td>{alertMessage}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </AnimatedModal>
 
       <AnimatedModal
         isOpen={isAssignModalOpen}
