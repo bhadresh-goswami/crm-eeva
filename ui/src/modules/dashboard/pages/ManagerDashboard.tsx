@@ -79,6 +79,7 @@ const ManagerDashboard = () => {
   const isAssignModalOpen = Boolean(assigningTask)
 
   const [detailTask, setDetailTask] = useState<DashboardTask | null>(null)
+  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false)
   const [lastKnownTaskUpdate, setLastKnownTaskUpdate] = useState<string | null>(null)
 
   const loadSummary = async () => {
@@ -228,17 +229,47 @@ const ManagerDashboard = () => {
     [kpi.productivity, liveTasks, summaryData.completedTasks, summaryData.pendingTasks],
   )
 
-  const criticalAlerts = useMemo(() => {
-    const now = new Date()
-    const in30 = new Date(now.getTime() + 30 * 60 * 1000)
-    const upcoming = liveTasks.filter((task) => {
-      if (!task.dueDate || !task.startTime || ['completed', 'cancelled'].includes(task.status)) return false
-      const ts = new Date(`${task.dueDate.slice(0, 10)}T${task.startTime.slice(0, 5)}:00`)
-      return ts >= now && ts <= in30
-    })
-    const unassigned = liveTasks.filter((task) => !task.assignedToName || task.assignedToName === 'Unassigned')
-    const overdue = liveTasks.filter(isOverdueTask)
-    return { overdue, upcoming, unassigned }
+  const dashboardAlerts = useMemo(() => {
+    const counts = {
+      inProgress: liveTasks.filter((task) => task.status === 'in_progress').length,
+      completed: liveTasks.filter((task) => task.status === 'completed').length,
+      pending: liveTasks.filter((task) => task.status === 'pending').length,
+      overdue: liveTasks.filter(isOverdueTask).length,
+      unassigned: liveTasks.filter((task) => !task.assignedToName || task.assignedToName === 'Unassigned').length,
+    }
+
+    const rows = liveTasks
+      .filter((task) => task.status !== 'cancelled')
+      .map((task) => {
+        const unassigned = !task.assignedToName || task.assignedToName === 'Unassigned'
+        const overdue = isOverdueTask(task)
+        const alertType = overdue
+          ? 'Overdue Tasks'
+          : unassigned
+            ? 'Unassigned Tasks'
+            : task.status === 'pending'
+              ? 'Pending Tasks'
+              : task.status === 'in_progress'
+                ? 'Tasks Requiring Attention'
+                : task.status === 'completed'
+                  ? 'Completed Tasks'
+                  : 'Tasks Requiring Attention'
+        const alertMessage = overdue
+          ? 'Task date has passed and the task is not completed.'
+          : unassigned
+            ? 'Task is not assigned to an expert.'
+            : task.status === 'pending'
+              ? 'Task is pending and requires scheduling attention.'
+              : task.status === 'in_progress'
+                ? 'Task is currently in progress.'
+                : task.status === 'completed'
+                  ? 'Task has been completed.'
+                  : 'Task requires manager attention.'
+
+        return { task, alertType, alertMessage }
+      })
+
+    return { counts, rows }
   }, [liveTasks])
 
   const handleAssign = async () => {
@@ -271,6 +302,8 @@ const ManagerDashboard = () => {
       <ManagerWorkspaceHeader
         title="Welcome back, focus on delivery and quality."
         subtitle="Monitor task execution, team productivity, pending actions, and operational performance from one place."
+        notificationCount={dashboardAlerts.rows.length}
+        onNotificationsClick={() => setIsAlertsModalOpen(true)}
         actions={(
           <>
             <button className="button" type="button" onClick={() => (window.location.href = '/tasks')}>Create Task</button>
@@ -294,11 +327,6 @@ const ManagerDashboard = () => {
               return <KPIStatCard key={card.label} title={card.label} value={card.value} icon={icon} helperText={helperText} accent={card.tone === 'default' ? 'primary' : card.tone as 'success' | 'warning' | 'danger'} onClick={card.tab ? () => setActiveTab(card.tab) : undefined} />
             })}
       </div>
-      <div className="card section">
-        <h3 className="tasks-activity__title">Critical Alerts</h3>
-        <p className="card-text">Overdue: {criticalAlerts.overdue.length} • Upcoming (30m): {criticalAlerts.upcoming.length} • Unassigned: {criticalAlerts.unassigned.length}</p>
-      </div>
-
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
@@ -376,6 +404,56 @@ const ManagerDashboard = () => {
           <NavLink className="button" to="/manager/reports/pending-payments">View Report</NavLink>
         </div>
       </div>
+
+
+      <AnimatedModal
+        isOpen={isAlertsModalOpen}
+        onClose={() => setIsAlertsModalOpen(false)}
+        title="Dashboard Alerts"
+      >
+        <h3 className="modal-title">Dashboard Alerts</h3>
+        <div className="dashboard-action-group section">
+          <span className="crm-status-badge crm-status-badge--pending">{String(dashboardAlerts.counts.inProgress).padStart(2, '0')} In Progress</span>
+          <span className="crm-status-badge crm-status-badge--completed">{String(dashboardAlerts.counts.completed).padStart(2, '0')} Completed</span>
+          <span className="crm-status-badge crm-status-badge--pending">{String(dashboardAlerts.counts.pending).padStart(2, '0')} Pending</span>
+          <span className="crm-status-badge crm-status-badge--cancelled">{String(dashboardAlerts.counts.overdue).padStart(2, '0')} Overdue</span>
+          <span className="crm-status-badge crm-status-badge--pending">{String(dashboardAlerts.counts.unassigned).padStart(2, '0')} Unassigned</span>
+        </div>
+        <div className="roles-table__wrapper" style={{ maxHeight: '55vh', overflowY: 'auto' }}>
+          <table className="roles-table dashboard-table dashboard-table-modern">
+            <thead>
+              <tr>
+                <th>Alert Type</th>
+                <th>Candidate Name</th>
+                <th>Company</th>
+                <th>Task Type</th>
+                <th>Task Status</th>
+                <th>Assigned To</th>
+                <th>Task Date</th>
+                <th>Alert Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dashboardAlerts.rows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="dashboard-empty">No dashboard alerts found</td>
+                </tr>
+              ) : dashboardAlerts.rows.map(({ task, alertType, alertMessage }) => (
+                <tr key={`${alertType}-${task.id}`}>
+                  <td>{alertType}</td>
+                  <td>{task.candidate || '—'}</td>
+                  <td>{task.client || '—'}</td>
+                  <td>{task.supportType || task.title || '—'}</td>
+                  <td><StatusBadge status={task.status} /></td>
+                  <td>{task.assignedToName || 'Unassigned'}</td>
+                  <td>{task.dueDate?.slice(0, 10) || '—'}</td>
+                  <td>{alertMessage}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </AnimatedModal>
 
       <AnimatedModal
         isOpen={isAssignModalOpen}
