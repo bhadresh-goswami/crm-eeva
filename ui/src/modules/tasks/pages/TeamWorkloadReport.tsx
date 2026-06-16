@@ -3,7 +3,7 @@ import { BsArrowDownUp, BsDownload } from 'react-icons/bs'
 import PageContainer from '../../../shared/components/PageContainer'
 import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
 import { useAuth } from '../../../context/AuthContext'
-import { getManagerTasksByStatus, type DashboardTask, type ManagerTaskStatus } from '../../dashboard/api/dashboardApi'
+import { getTasks, type TaskRecord } from '../api/tasksApi'
 
 type WorkloadCounts = {
   coordinatorName: string
@@ -13,6 +13,7 @@ type WorkloadCounts = {
   completedTasks: number
   overdueTasks: number
   totalActiveTasks: number
+  totalWorkMinutes: number
 }
 
 type WorkloadHealth = {
@@ -32,12 +33,11 @@ type SortState = {
   direction: 'asc' | 'desc'
 }
 
-const statuses: ManagerTaskStatus[] = ['pending', 'assigned', 'in_progress', 'completed', 'cancelled']
 const pageSizes = [10, 25, 50, 100]
-const isOverdueTask = (task: DashboardTask) => {
+const isOverdueTask = (task: TaskRecord) => {
   const normalizedStatus = task.status.toLowerCase().trim()
-  if (!task.dueDate || ['completed', 'cancelled'].includes(normalizedStatus)) return false
-  const due = new Date(task.dueDate.slice(0, 10))
+  if (!task.due_date || ['completed', 'cancelled'].includes(normalizedStatus)) return false
+  const due = new Date(task.due_date.slice(0, 10))
   const today = new Date()
   due.setHours(0, 0, 0, 0)
   today.setHours(0, 0, 0, 0)
@@ -52,14 +52,19 @@ const getWorkloadHealth = (percentage: number): WorkloadHealth => {
   return { label: 'Under Utilized', className: 'bg-danger-subtle text-danger' }
 }
 
-const getWorkloadPercentage = (activeTasks: number, highestActiveTasks: number) => {
-  if (highestActiveTasks <= 0) return 0
-  return Math.round((activeTasks / highestActiveTasks) * 100)
+const getWorkloadPercentage = (workMinutes: number, highestWorkMinutes: number) => {
+  if (highestWorkMinutes <= 0) return 0
+  return Math.round((workMinutes / highestWorkMinutes) * 100)
+}
+
+const getTaskDurationMinutes = (task: TaskRecord) => {
+  const duration = Number(task.duration)
+  return Number.isFinite(duration) && duration > 0 ? duration : 0
 }
 
 const TeamWorkloadReport = () => {
   const { user } = useAuth()
-  const [tasks, setTasks] = useState<DashboardTask[]>([])
+  const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -74,9 +79,7 @@ const TeamWorkloadReport = () => {
     try {
       setLoading(true)
       setError(null)
-      const grouped = await Promise.all(statuses.map((status) => getManagerTasksByStatus(status)))
-      const unique = Array.from(new Map(grouped.flat().map((task) => [task.id, task])).values())
-      setTasks(unique)
+      setTasks(await getTasks())
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load team workload report.')
       setTasks([])
@@ -94,16 +97,16 @@ const TeamWorkloadReport = () => {
   }, [search, coordinator, fromDate, toDate, pageSize])
 
   const filteredTasks = useMemo(() => tasks.filter((task) => {
-    const taskDate = task.dueDate?.slice(0, 10) || ''
+    const taskDate = task.due_date?.slice(0, 10) || ''
     if (fromDate && taskDate < fromDate) return false
     if (toDate && taskDate > toDate) return false
-    const owner = task.assignedToName?.trim() || 'Unassigned'
+    const owner = task.assigned_to_name?.trim() || 'Unassigned'
     if (coordinator !== 'all' && owner !== coordinator) return false
     return true
   }), [coordinator, fromDate, tasks, toDate])
 
   const coordinatorOptions = useMemo(() => {
-    const names = new Set(tasks.map((task) => task.assignedToName?.trim() || 'Unassigned'))
+    const names = new Set(tasks.map((task) => task.assigned_to_name?.trim() || 'Unassigned'))
     return Array.from(names).sort((a, b) => a.localeCompare(b))
   }, [tasks])
 
@@ -111,7 +114,7 @@ const TeamWorkloadReport = () => {
     const map = new Map<string, WorkloadCounts>()
 
     filteredTasks.forEach((task) => {
-      const name = task.assignedToName?.trim() || 'Unassigned'
+      const name = task.assigned_to_name?.trim() || 'Unassigned'
       const row = map.get(name) ?? {
         coordinatorName: name,
         assignedTasks: 0,
@@ -120,6 +123,7 @@ const TeamWorkloadReport = () => {
         completedTasks: 0,
         overdueTasks: 0,
         totalActiveTasks: 0,
+        totalWorkMinutes: 0,
       }
 
       const normalizedStatus = task.status.toLowerCase().trim()
@@ -129,6 +133,7 @@ const TeamWorkloadReport = () => {
       if (normalizedStatus === 'completed') row.completedTasks += 1
       if (isOverdueTask(task)) row.overdueTasks += 1
       row.totalActiveTasks = row.assignedTasks + row.pendingTasks + row.inProgressTasks + row.overdueTasks
+      row.totalWorkMinutes += getTaskDurationMinutes(task)
       map.set(name, row)
     })
 
@@ -138,10 +143,10 @@ const TeamWorkloadReport = () => {
   const visibleRows = useMemo<WorkloadRow[]>(() => {
     const normalizedSearch = search.trim().toLowerCase()
     const filteredRows = workloadCounts.filter((row) => !normalizedSearch || row.coordinatorName.toLowerCase().includes(normalizedSearch))
-    const highestActiveTasks = Math.max(0, ...filteredRows.map((row) => row.totalActiveTasks))
+    const highestWorkMinutes = Math.max(0, ...filteredRows.map((row) => row.totalWorkMinutes))
 
     return filteredRows.map((row) => {
-      const workloadPercentage = getWorkloadPercentage(row.totalActiveTasks, highestActiveTasks)
+      const workloadPercentage = getWorkloadPercentage(row.totalWorkMinutes, highestWorkMinutes)
       return {
         ...row,
         workloadPercentage,
@@ -169,7 +174,7 @@ const TeamWorkloadReport = () => {
   }
 
   const exportRows = (extension: 'csv' | 'xls') => {
-    const headers = ['Coordinator Name', 'Assigned Tasks', 'Pending Tasks', 'In Progress Tasks', 'Completed Tasks', 'Overdue Tasks', 'Total Active Tasks', 'Workload Percentage']
+    const headers = ['Coordinator Name', 'Assigned Tasks', 'Pending Tasks', 'In Progress Tasks', 'Completed Tasks', 'Overdue Tasks', 'Total Active Tasks', 'Total Work Minutes', 'Workload Percentage']
     const body = sortedRows.map((row) => [
       row.coordinatorName,
       row.assignedTasks,
@@ -178,6 +183,7 @@ const TeamWorkloadReport = () => {
       row.completedTasks,
       row.overdueTasks,
       row.totalActiveTasks,
+      row.totalWorkMinutes,
       `${row.workloadPercentage}%`,
     ])
     const csv = [headers, ...body].map((line) => line.map(csvEscape).join(',')).join('\n')
@@ -247,6 +253,7 @@ const TeamWorkloadReport = () => {
                   ['completedTasks', 'Completed Tasks'],
                   ['overdueTasks', 'Overdue Tasks'],
                   ['totalActiveTasks', 'Total Active Tasks'],
+                  ['totalWorkMinutes', 'Total Work Minutes'],
                   ['workloadPercentage', 'Workload Percentage'],
                 ].map(([key, label]) => (
                   <th key={key}>
@@ -257,9 +264,9 @@ const TeamWorkloadReport = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center">Loading...</td></tr>
+                <tr><td colSpan={9} className="text-center">Loading...</td></tr>
               ) : pagedRows.length === 0 ? (
-                <tr><td colSpan={8} className="text-center">No workload data found.</td></tr>
+                <tr><td colSpan={9} className="text-center">No workload data found.</td></tr>
               ) : pagedRows.map((row) => (
                 <tr key={row.coordinatorName}>
                   <td>{row.coordinatorName}</td>
@@ -269,6 +276,7 @@ const TeamWorkloadReport = () => {
                   <td>{row.completedTasks}</td>
                   <td>{row.overdueTasks}</td>
                   <td>{row.totalActiveTasks}</td>
+                  <td>{row.totalWorkMinutes}</td>
                   <td>
                     <span className="d-inline-flex align-items-center gap-2">
                       <span>{row.workloadPercentage}%</span>
