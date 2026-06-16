@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
+import { useAuth } from '../../../context/AuthContext'
 import { getTaskAssignmentReport, getTaskReport, getTaskTypes, type TaskRecord, type TaskTypeOption } from '../api/tasksApi'
 import { getExpertTasks } from '../api/expertTasksApi'
-import { useAuth } from '../../../context/AuthContext'
 
 const ReportsTasksPage = () => {
+  const { user } = useAuth()
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -13,7 +15,6 @@ const ReportsTasksPage = () => {
   const [toDate, setToDate] = useState('')
   const [taskTypeId, setTaskTypeId] = useState('')
   const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([])
-  const { user } = useAuth()
   const role = String(user?.role ?? '').toLowerCase()
   const isExpertRole = ['expert', 'technical expert', 'expertlead', 'technical lead'].includes(role)
 
@@ -128,7 +129,8 @@ const ReportsTasksPage = () => {
   }
 
   return (
-    <PageContainer title="Task Reports" description="Role-based reporting across task status, schedule and assignments.">
+    <PageContainer title={user?.role === 'manager' ? undefined : "Task Reports"} description={user?.role === 'manager' ? undefined : "Role-based reporting across task status, schedule and assignments."}>
+      {user?.role === 'manager' ? <ManagerWorkspaceHeader title="Business insights and operational analytics." subtitle="Analyze workload, productivity, task trends, and performance metrics." /> : null}
       <div className="card shadow-sm mb-4">
         <div className="card-body">
           <div className="row g-3 align-items-end">

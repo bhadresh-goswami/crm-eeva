@@ -5,6 +5,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { apiFetch } from '../../../api/client'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import AssignTaskModal from '../../../shared/components/AssignTaskModal'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
 import {
   assignTask,
   bulkAssignTasks,
@@ -776,19 +777,38 @@ const TasksPage = () => {
 
   return (
     <section>
-      <div className="users-page__header">
-        <h2 className="page-title">Task Management</h2>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="button" onClick={() => setIsCancelledModalOpen(true)}>
-            Cancelled Tasks
-          </button>
-          {canManage ? (
-            <button className="button button--primary" onClick={openCreate}>
-              + Add Task
+      {user?.role === 'manager' ? (
+        <ManagerWorkspaceHeader
+          title="Manage assignments and task execution."
+          subtitle="Track task progress, monitor schedules, and ensure timely delivery across all coordinators and experts."
+          actions={(
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className="button" onClick={() => setIsCancelledModalOpen(true)}>
+                Cancelled Tasks
+              </button>
+              {canManage ? (
+                <button className="button button--primary" onClick={openCreate}>
+                  + Add Task
+                </button>
+              ) : null}
+            </div>
+          )}
+        />
+      ) : (
+        <div className="users-page__header">
+          <h2 className="page-title">Task Management</h2>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button className="button" onClick={() => setIsCancelledModalOpen(true)}>
+              Cancelled Tasks
             </button>
-          ) : null}
+            {canManage ? (
+              <button className="button button--primary" onClick={openCreate}>
+                + Add Task
+              </button>
+            ) : null}
+          </div>
         </div>
-      </div>
+      )}
 
       {success ? <p className="roles-success roles-feedback">{success}</p> : null}
 

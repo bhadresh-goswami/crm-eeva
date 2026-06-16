@@ -4,6 +4,7 @@ import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import PageContainer from '../../../shared/components/PageContainer'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
 import {
   assignManagerTask,
   getManagerAvailableExperts,
@@ -15,7 +16,7 @@ import {
   type ManagerTaskStatus,
 } from '../api/dashboardApi'
 import { getTasksLastUpdate } from '../../tasks/api/tasksApi'
-import { FaBell, FaChartLine, FaCheckCircle, FaClock, FaRupeeSign, FaUserCircle } from 'react-icons/fa'
+import { FaChartLine, FaCheckCircle, FaClock, FaRupeeSign } from 'react-icons/fa'
 import KPIStatCard from '../../../components/dashboard/KPIStatCard'
 import StatusBadge from '../../../components/dashboard/StatusBadge'
 
@@ -266,19 +267,11 @@ const ManagerDashboard = () => {
 
 
   return (
-    <PageContainer title="Manager Dashboard" description="Live dashboard summary and task assignment workflow.">
-      <section className="manager-hero section">
-        <div>
-          <p className="manager-hero__eyebrow">Manager Workspace</p>
-          <h3 className="manager-hero__title">Welcome back, focus on delivery and quality.</h3>
-          <p className="manager-hero__meta">{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-        </div>
-        <div className="manager-hero__actions">
-          <button className="header__icon-btn" type="button" aria-label="Notifications"><FaBell /></button>
-          <span className="crm-status-badge crm-status-badge--pending">Break status: Active</span>
-          <span className="manager-avatar"><FaUserCircle /> Manager</span>
-        </div>
-      </section>
+    <PageContainer>
+      <ManagerWorkspaceHeader
+        title="Welcome back, focus on delivery and quality."
+        subtitle="Monitor task execution, team productivity, pending actions, and operational performance from one place."
+      />
 
       <div className="manager-kpi-grid section">
         {loadingSummary

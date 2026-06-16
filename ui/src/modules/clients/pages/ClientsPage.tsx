@@ -18,8 +18,11 @@ import {
   type ClientItem,
   type PocItem,
 } from '../api/clientsApi'
+import { useAuth } from '../../../context/AuthContext'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
 
 const ClientsPage = () => {
+  const { user } = useAuth()
   const [clients, setClients] = useState<ClientItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [pageError, setPageError] = useState<string | null>(null)
@@ -242,29 +245,37 @@ const ClientsPage = () => {
 
   return (
     <section>
-      <div className="users-page__header">
-        <div>
-          <h2 className="page-title">{isPocTab ? 'POC Management' : 'Client Management'}</h2>
-          <p className="page-description">Modern CRM with advanced filters, sorting, pagination and modal CRUD.</p>
+      {user?.role === 'manager' ? (
+        <ManagerWorkspaceHeader
+          title="Control users and operational workflows."
+          subtitle="Manage resources, configurations, assignments, and organizational processes."
+          actions={isPocTab ? (
+            <button className="button button--primary" onClick={() => { setPocFormMode('create'); setSelectedPoc(null); setPocModalError(null); setIsPocFormOpen(true) }}>
+              Create POC
+            </button>
+          ) : (
+            <button className="button button--primary" onClick={() => { setFormMode('create'); setSelectedClient(null); setModalError(null); setIsFormOpen(true) }}>
+              Create Client
+            </button>
+          )}
+        />
+      ) : (
+        <div className="users-page__header">
+          <div>
+            <h2 className="page-title">{isPocTab ? 'POC Management' : 'Client Management'}</h2>
+            <p className="page-description">Modern CRM with advanced filters, sorting, pagination and modal CRUD.</p>
+          </div>
+          {isPocTab ? (
+            <button className="button button--primary" onClick={() => { setPocFormMode('create'); setSelectedPoc(null); setPocModalError(null); setIsPocFormOpen(true) }}>
+              Create POC
+            </button>
+          ) : (
+            <button className="button button--primary" onClick={() => { setFormMode('create'); setSelectedClient(null); setModalError(null); setIsFormOpen(true) }}>
+              Create Client
+            </button>
+          )}
         </div>
-        {isPocTab ? (
-          <button className="button button--primary" onClick={() => { setPocFormMode('create'); setSelectedPoc(null); setPocModalError(null); setIsPocFormOpen(true) }}>
-            Create POC
-          </button>
-        ) : (
-          <button
-            className="button button--primary"
-            onClick={() => {
-              setFormMode('create')
-              setSelectedClient(null)
-              setModalError(null)
-              setIsFormOpen(true)
-            }}
-          >
-            Create Client
-          </button>
-        )}
-      </div>
+      )}
 
       <div className="roles-pagination__actions" style={{ marginBottom: '0.75rem' }}>
         <button className={isPocTab ? 'button' : 'button button--primary'} onClick={() => navigateTab('/clients')}>Clients</button>

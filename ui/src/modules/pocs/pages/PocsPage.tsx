@@ -12,8 +12,11 @@ import {
   type ClientOption,
   type PocItem,
 } from '../api/pocApi'
+import { useAuth } from '../../../context/AuthContext'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
 
 const PocsPage = () => {
+  const { user } = useAuth()
   const [pocs, setPocs] = useState<PocItem[]>([])
   const [clients, setClients] = useState<ClientOption[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -156,15 +159,23 @@ const PocsPage = () => {
 
   return (
     <section>
-      <div className="users-page__header">
-        <div>
-          <h2 className="page-title">POC Management</h2>
-          <p className="page-description">Manage client points of contact with modal CRUD and smart table controls.</p>
+      {user?.role === 'manager' ? (
+        <ManagerWorkspaceHeader
+          title="Control users and operational workflows."
+          subtitle="Manage resources, configurations, assignments, and organizational processes."
+          actions={<button className="button button--primary" onClick={openCreateModal}>Create POC</button>}
+        />
+      ) : (
+        <div className="users-page__header">
+          <div>
+            <h2 className="page-title">POC Management</h2>
+            <p className="page-description">Manage client points of contact with modal CRUD and smart table controls.</p>
+          </div>
+          <button className="button button--primary" onClick={openCreateModal}>
+            Create POC
+          </button>
         </div>
-        <button className="button button--primary" onClick={openCreateModal}>
-          Create POC
-        </button>
-      </div>
+      )}
 
       {pageError ? <p className="auth-card__error roles-feedback">{pageError}</p> : null}
       {successMessage ? <p className="roles-success roles-feedback">{successMessage}</p> : null}

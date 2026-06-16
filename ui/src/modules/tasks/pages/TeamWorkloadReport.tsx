@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BsArrowDownUp, BsDownload } from 'react-icons/bs'
 import PageContainer from '../../../shared/components/PageContainer'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
+import { useAuth } from '../../../context/AuthContext'
 import { getManagerTasksByStatus, type DashboardTask, type ManagerTaskStatus } from '../../dashboard/api/dashboardApi'
 
 type WorkloadRow = {
@@ -36,6 +38,7 @@ const isOverdueTask = (task: DashboardTask) => {
 const csvEscape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`
 
 const TeamWorkloadReport = () => {
+  const { user } = useAuth()
   const [tasks, setTasks] = useState<DashboardTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -158,7 +161,8 @@ const TeamWorkloadReport = () => {
   }
 
   return (
-    <PageContainer title="Team Workload Report" description="Coordinator workload distribution and performance.">
+    <PageContainer title={user?.role === 'manager' ? undefined : "Team Workload Report"} description={user?.role === 'manager' ? undefined : "Coordinator workload distribution and performance."}>
+      {user?.role === 'manager' ? <ManagerWorkspaceHeader title="Business insights and operational analytics." subtitle="Analyze workload, productivity, task trends, and performance metrics." /> : null}
       <div className="filter-card mb-3">
         <div className="row g-3 align-items-end">
           <div className="col-12 col-md-3">
