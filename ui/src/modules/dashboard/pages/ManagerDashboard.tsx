@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import { useAlert } from '../../../shared/alerts/useAlert'
@@ -376,7 +376,7 @@ const ManagerDashboard = () => {
       <div className="card section">
         <h3 className="tasks-activity__title">Team Workload</h3>
         <p className="card-text">View coordinator workload distribution and performance.</p>
-        <button className="button" type="button" onClick={() => navigate('/manager/reports/team-workload')}>View Report</button>
+        <NavLink className="button" to="/manager/reports/team-workload">View Report</NavLink>
       </div>
 
       <AnimatedModal
