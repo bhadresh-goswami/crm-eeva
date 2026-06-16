@@ -32,6 +32,7 @@ const defaultSummary: DashboardSummary = {
 const tabLabels: Record<ManagerTaskStatus, string> = {
   pending: 'Pending',
   assigned: 'Assigned',
+  in_progress: 'In Progress',
   completed: 'Completed',
   cancelled: 'Cancelled',
 }
@@ -107,7 +108,7 @@ const ManagerDashboard = () => {
 
   const loadLiveTasks = async () => {
     try {
-      const statuses: ManagerTaskStatus[] = ['assigned', 'pending', 'completed', 'cancelled']
+      const statuses: ManagerTaskStatus[] = ['assigned', 'pending', 'in_progress', 'completed', 'cancelled']
       const grouped = await Promise.all(statuses.map((status) => getManagerTasksByStatus(status)))
       const merged = grouped.flat()
       const unique = Array.from(new Map(merged.map((task) => [task.id, task])).values())
@@ -230,10 +231,6 @@ const ManagerDashboard = () => {
     .filter((task) => task.status === 'completed' && (Number(task.amount ?? 0) <= 0 || (task.paymentStatus ?? '') === 'pending'))
     .slice(0, 10), [liveTasks])
 
-  const liveActivityTasks = useMemo(
-    () => liveTasks.filter((task) => ['pending', 'assigned'].includes(task.status)).slice(0, 6),
-    [liveTasks],
-  )
 
   const criticalAlerts = useMemo(() => {
     const now = new Date()
@@ -392,25 +389,6 @@ const ManagerDashboard = () => {
       {tasksError ? <p className="dashboard-notice">{tasksError}</p> : null}
 
       <div className="manager-dashboard-layout">
-        <aside className="activity-panel section">
-          <div className="activity-panel__header">
-            <h3 className="tasks-activity__title">Live Activity Feed</h3>
-            <span className="activity-live"><span className="activity-live__dot" /> Live</span>
-          </div>
-          {liveActivityTasks.length === 0 ? <p className="card-text">No live tasks running.</p> : null}
-          <div className="activity-timeline">
-            {liveActivityTasks.map((task) => (
-              <article className="activity-timeline__item" key={`activity-${task.id}`}>
-                <span className="activity-timeline__dot" />
-                <div className="activity-timeline__card">
-                  <p className="activity-timeline__title">{task.candidate || 'Candidate'} → {task.client || 'Company'} → Assigned to {task.assignedToName || 'Unassigned'} at {task.startTime ? formatToAmPm(task.startTime) : '—'}</p>
-                  <p className="activity-timeline__meta">{task.dueDate?.slice(0, 10) || '—'}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </aside>
-
         <div className="roles-table__wrapper dashboard-table-wrap">
           <h3 className="tasks-activity__title">Tasks Overview</h3>
           <table className="roles-table dashboard-table dashboard-table-modern">

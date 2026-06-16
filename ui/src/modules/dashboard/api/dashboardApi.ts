@@ -40,7 +40,7 @@ export type DashboardSummary = {
   pendingPaymentUpdates?: number
 }
 
-type TaskStatus = 'pending' | 'assigned' | 'cancelled' | 'completed'
+type TaskStatus = 'pending' | 'assigned' | 'in_progress' | 'cancelled' | 'completed'
 export type ManagerTaskStatus = TaskStatus
 
 const asArray = <T>(payload: unknown): T[] => {
@@ -130,6 +130,7 @@ const normalizeSummary = (response: Record<string, unknown>) => ({
 const managerStatusMap: Record<ManagerTaskStatus, string> = {
   pending: 'Pending',
   assigned: 'Assigned',
+  in_progress: 'In Progress',
   completed: 'Completed',
   cancelled: 'Cancelled',
 }
