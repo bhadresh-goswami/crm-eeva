@@ -59,6 +59,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
         ] },
         { title: 'Reports', items: [
           { label: 'Team Workload', to: '/manager/reports/team-workload', icon: 'reports' },
+          { label: 'Pending Payments Report', to: '/manager/reports/pending-payments', icon: 'reports' },
           { label: 'Feedback Pending Report', to: '/reports/feedback-pending', icon: 'reports' },
           { label: 'Tech Vs Tasks', to: '/reports/tech-vs-tasks', icon: 'reports' },
           { label: 'Tasks Summary', to: '/reports/tasks-summary', icon: 'reports' },
