@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import { useAlert } from '../../../shared/alerts/useAlert'
@@ -62,7 +62,6 @@ const isOverdueTask = (task: DashboardTask) => {
 
 const ManagerDashboard = () => {
   const { showToast, showAlert } = useAlert()
-  const navigate = useNavigate()
   const [summaryData, setSummaryData] = useState<DashboardSummary>(defaultSummary)
   const [tasksData, setTasksData] = useState<DashboardTask[]>([])
   const [liveTasks, setLiveTasks] = useState<DashboardTask[]>([])
