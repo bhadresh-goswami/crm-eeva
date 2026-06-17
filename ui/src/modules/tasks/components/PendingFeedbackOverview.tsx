@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import { getManagerReportList, type ManagerReportFilters } from '../api/tasksApi'
 
@@ -85,14 +84,12 @@ const PendingFeedbackOverview = ({
   dashboardVariant = false,
   onExpertClick,
 }: PendingFeedbackOverviewProps) => {
-  const navigate = useNavigate()
   const { loading, summary, totalPending } = usePendingFeedbackSummary(filters)
   const handleExpertClick = (expertName: string) => {
     if (onExpertClick) {
       onExpertClick(expertName)
       return
     }
-    if (dashboardVariant) navigate(`/reports/feedback-pending?expert=${encodeURIComponent(expertName)}`)
   }
 
   return (

@@ -155,7 +155,7 @@ Skipped: ${result.skipped} tasks`,
       const nextOptions = { candidates: data.candidates, assignees: data.assignees, taskTypes: data.task_types, clients: clients.map((c) => ({ id: c.id, name: c.company_name })) }
       setOptions(nextOptions)
 
-      const expertName = new URLSearchParams(location.search).get('expert')?.trim().toLowerCase()
+      const expertName = new URLSearchParams(window.location.search).get('expert')?.trim().toLowerCase()
       const matchedExpert = endpoint === FEEDBACK_PENDING_ENDPOINT && expertName
         ? nextOptions.assignees.find((assignee) => assignee.name.trim().toLowerCase() === expertName)
         : undefined

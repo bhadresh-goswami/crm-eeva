@@ -331,7 +331,7 @@ const ManagerDashboard = () => {
         emptyTitle="🎉 All feedback submissions are up to date."
         emptyMessage="No pending feedback found."
         dashboardVariant
-        onExpertClick={(expertName) => navigate(`/reports/feedback-pending?expert=${encodeURIComponent(expertName)}`)}
+        onExpertClick={(expertName) => { window.location.href = `/reports/feedback-pending?expert=${encodeURIComponent(expertName)}` }}
       />
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
