@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { BsArrowClockwise, BsArrowDownUp, BsEye } from 'react-icons/bs'
 import { getTaskFilterOptions, getManagerReportList, getManagerReportTaskDetails, recalculateTaskDuration, type ManagerReportFilters } from '../api/tasksApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
@@ -66,11 +67,14 @@ const renderReportSchedule = (row: Record<string, unknown>) => {
 const ManagerReportPageBase = ({ title, subtitle, columns, endpoint, showTitleCard = false }: ReportPageProps) => {
   const { showToast } = useAlert()
   const { user } = useAuth()
+  const location = useLocation()
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'task_id', direction: 'asc' })
   const [filters, setFilters] = useState<ManagerReportFilters>({ page: 1, limit: 10 })
   const [summaryFilters, setSummaryFilters] = useState<ManagerReportFilters>({ page: 1, limit: 10 })
   const [options, setOptions] = useState<{ candidates: Option[]; assignees: Option[]; taskTypes: Option[]; clients: Option[] }>({ candidates: [], assignees: [], taskTypes: [], clients: [] })
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [summaryRows, setSummaryRows] = useState<Record<string, unknown>[]>([])
+  const [summaryLoading, setSummaryLoading] = useState(false)
   const [pagination, setPagination] = useState<PaginationState>({ totalRecords: 0, totalPages: 0, page: 1, limit: 10 })
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null)
   const [details, setDetails] = useState<Record<string, unknown>>({})
@@ -79,6 +83,25 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint, showTitleCa
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+  const loadSummary = async (payload: ManagerReportFilters) => {
+    if (endpoint !== FEEDBACK_PENDING_ENDPOINT) return
+    setSummaryLoading(true)
+    try {
+      const firstPage = await getManagerReportList(endpoint, { ...payload, page: 1, limit: 200 })
+      const allRows = firstPage.items.map((r) => (r as Record<string, unknown>))
+      for (let page = 2; page <= firstPage.total_pages; page += 1) {
+        const result = await getManagerReportList(endpoint, { ...payload, page, limit: 200 })
+        allRows.push(...result.items.map((r) => (r as Record<string, unknown>)))
+      }
+      setSummaryRows(allRows)
+    } catch (e) {
+      setSummaryRows([])
+      showToast({ type: 'error', message: e instanceof Error ? e.message : 'Failed to load pending feedback summary' })
+    } finally {
+      setSummaryLoading(false)
+    }
+  }
 
   const load = async (override?: ManagerReportFilters) => {
     setLoading(true)
@@ -146,7 +169,23 @@ Skipped: ${result.skipped} tasks`,
       void load()
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint])
+  }, [endpoint, location.search])
+
+  const pendingFeedbackSummary = useMemo<PendingFeedbackSummaryItem[]>(() => {
+    if (endpoint !== FEEDBACK_PENDING_ENDPOINT) return []
+    const counts = new Map<string, number>()
+    summaryRows.forEach((row) => {
+      const expertName = normalizeReportValue(row.technical_expert) || 'N/A'
+      counts.set(expertName, (counts.get(expertName) ?? 0) + 1)
+    })
+    return Array.from(counts, ([expertName, count]) => ({ expertName, count })).sort((a, b) => b.count - a.count || a.expertName.localeCompare(b.expertName))
+  }, [endpoint, summaryRows])
+
+  const getPendingSummaryTone = (count: number) => {
+    if (count === 0) return 'success'
+    if (count <= 5) return 'warning'
+    return 'danger'
+  }
 
   const sortedRows = useMemo(() => {
     const rowsCopy = [...rows]
