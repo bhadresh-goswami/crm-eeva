@@ -3,9 +3,9 @@ import { BsArrowDownUp, BsDownload } from 'react-icons/bs'
 import PageContainer from '../../../shared/components/PageContainer'
 import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
 import { useAuth } from '../../../context/AuthContext'
-import { getManagerTasksByStatus, type DashboardTask, type ManagerTaskStatus } from '../../dashboard/api/dashboardApi'
+import { getTasks, type TaskRecord } from '../api/tasksApi'
 
-type WorkloadRow = {
+type WorkloadCounts = {
   coordinatorName: string
   assignedTasks: number
   pendingTasks: number
@@ -13,22 +13,34 @@ type WorkloadRow = {
   completedTasks: number
   overdueTasks: number
   totalActiveTasks: number
-  workloadPercentage: number
+  totalWorkMinutes: number
 }
 
-type SortKey = keyof WorkloadRow
+type WorkloadHealth = {
+  label: 'Well Utilized' | 'Moderately Utilized' | 'Under Utilized'
+  className: string
+}
+
+type WorkloadRow = WorkloadCounts & {
+  expectedCapacityMinutes: number
+  workloadPercentage: number
+  workloadHealth: WorkloadHealth
+}
+
+type SortKey = keyof WorkloadCounts | 'workloadPercentage'
 
 type SortState = {
   key: SortKey
   direction: 'asc' | 'desc'
 }
 
-const statuses: ManagerTaskStatus[] = ['pending', 'assigned', 'in_progress', 'completed', 'cancelled']
 const pageSizes = [10, 25, 50, 100]
-
-const isOverdueTask = (task: DashboardTask) => {
-  if (!task.dueDate || ['completed', 'cancelled'].includes(task.status)) return false
-  const due = new Date(task.dueDate.slice(0, 10))
+const minutesPerWorkingDay = 480
+const minimumMonthlyWorkingDays = 20
+const isOverdueTask = (task: TaskRecord) => {
+  const normalizedStatus = task.status.toLowerCase().trim()
+  if (!task.due_date || ['completed', 'cancelled'].includes(normalizedStatus)) return false
+  const due = new Date(task.due_date.slice(0, 10))
   const today = new Date()
   due.setHours(0, 0, 0, 0)
   today.setHours(0, 0, 0, 0)
@@ -37,9 +49,67 @@ const isOverdueTask = (task: DashboardTask) => {
 
 const csvEscape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`
 
+const getWorkloadHealth = (percentage: number): WorkloadHealth => {
+  if (percentage >= 80) return { label: 'Well Utilized', className: 'bg-success-subtle text-success' }
+  if (percentage >= 60) return { label: 'Moderately Utilized', className: 'bg-warning-subtle text-warning' }
+  return { label: 'Under Utilized', className: 'bg-danger-subtle text-danger' }
+}
+
+const getWorkloadPercentage = (workMinutes: number, expectedCapacityMinutes: number) => {
+  if (expectedCapacityMinutes <= 0) return 0
+  return Math.round((workMinutes / expectedCapacityMinutes) * 100)
+}
+
+const parseDateOnly = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+const getWorkingDaysInclusive = (start: Date, end: Date) => {
+  const current = new Date(start)
+  current.setHours(0, 0, 0, 0)
+  const last = new Date(end)
+  last.setHours(0, 0, 0, 0)
+  let workingDays = 0
+
+  while (current <= last) {
+    const day = current.getDay()
+    if (day !== 0 && day !== 6) workingDays += 1
+    current.setDate(current.getDate() + 1)
+  }
+
+  return workingDays
+}
+
+const isFullMonthRange = (start: Date, end: Date) => (
+  start.getFullYear() === end.getFullYear() &&
+  start.getMonth() === end.getMonth() &&
+  start.getDate() === 1 &&
+  end.getDate() === new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate()
+)
+
+const getExpectedCapacityMinutes = (fromDate: string, toDate: string) => {
+  const start = parseDateOnly(fromDate)
+  const end = parseDateOnly(toDate)
+
+  if (start && end && start <= end) {
+    const workingDays = getWorkingDaysInclusive(start, end)
+    const capacityDays = isFullMonthRange(start, end) ? Math.max(minimumMonthlyWorkingDays, workingDays) : workingDays
+    return capacityDays * minutesPerWorkingDay
+  }
+
+  return minimumMonthlyWorkingDays * minutesPerWorkingDay
+}
+
+const getTaskDurationMinutes = (task: TaskRecord) => {
+  const duration = Number(task.duration)
+  return Number.isFinite(duration) && duration > 0 ? duration : 0
+}
+
 const TeamWorkloadReport = () => {
   const { user } = useAuth()
-  const [tasks, setTasks] = useState<DashboardTask[]>([])
+  const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -54,9 +124,7 @@ const TeamWorkloadReport = () => {
     try {
       setLoading(true)
       setError(null)
-      const grouped = await Promise.all(statuses.map((status) => getManagerTasksByStatus(status)))
-      const unique = Array.from(new Map(grouped.flat().map((task) => [task.id, task])).values())
-      setTasks(unique)
+      setTasks(await getTasks())
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load team workload report.')
       setTasks([])
@@ -74,24 +142,26 @@ const TeamWorkloadReport = () => {
   }, [search, coordinator, fromDate, toDate, pageSize])
 
   const filteredTasks = useMemo(() => tasks.filter((task) => {
-    const taskDate = task.dueDate?.slice(0, 10) || ''
+    const taskDate = task.due_date?.slice(0, 10) || ''
     if (fromDate && taskDate < fromDate) return false
     if (toDate && taskDate > toDate) return false
-    const owner = task.assignedToName?.trim() || 'Unassigned'
+    const owner = task.assigned_to_name?.trim() || 'Unassigned'
     if (coordinator !== 'all' && owner !== coordinator) return false
     return true
   }), [coordinator, fromDate, tasks, toDate])
 
   const coordinatorOptions = useMemo(() => {
-    const names = new Set(tasks.map((task) => task.assignedToName?.trim() || 'Unassigned'))
+    const names = new Set(tasks.map((task) => task.assigned_to_name?.trim() || 'Unassigned'))
     return Array.from(names).sort((a, b) => a.localeCompare(b))
   }, [tasks])
 
-  const rows = useMemo(() => {
-    const map = new Map<string, WorkloadRow>()
+  const expectedCapacityMinutes = useMemo(() => getExpectedCapacityMinutes(fromDate, toDate), [fromDate, toDate])
+
+  const workloadCounts = useMemo(() => {
+    const map = new Map<string, WorkloadCounts>()
 
     filteredTasks.forEach((task) => {
-      const name = task.assignedToName?.trim() || 'Unassigned'
+      const name = task.assigned_to_name?.trim() || 'Unassigned'
       const row = map.get(name) ?? {
         coordinatorName: name,
         assignedTasks: 0,
@@ -100,26 +170,37 @@ const TeamWorkloadReport = () => {
         completedTasks: 0,
         overdueTasks: 0,
         totalActiveTasks: 0,
-        workloadPercentage: 0,
+        totalWorkMinutes: 0,
       }
 
-      if (task.status === 'assigned') row.assignedTasks += 1
-      if (task.status === 'pending') row.pendingTasks += 1
-      if (task.status === 'in progress' || task.status === 'in_progress') row.inProgressTasks += 1
-      if (task.status === 'completed') row.completedTasks += 1
+      const normalizedStatus = task.status.toLowerCase().trim()
+      if (normalizedStatus === 'assigned') row.assignedTasks += 1
+      if (normalizedStatus === 'pending') row.pendingTasks += 1
+      if (normalizedStatus === 'in progress' || normalizedStatus === 'in_progress') row.inProgressTasks += 1
+      if (normalizedStatus === 'completed') row.completedTasks += 1
       if (isOverdueTask(task)) row.overdueTasks += 1
-      row.totalActiveTasks = row.assignedTasks + row.pendingTasks + row.inProgressTasks
-      row.workloadPercentage = Math.min(100, row.totalActiveTasks * 20)
+      row.totalActiveTasks = row.assignedTasks + row.pendingTasks + row.inProgressTasks + row.overdueTasks
+      row.totalWorkMinutes += getTaskDurationMinutes(task)
       map.set(name, row)
     })
 
     return Array.from(map.values())
   }, [filteredTasks])
 
-  const visibleRows = useMemo(() => {
+  const visibleRows = useMemo<WorkloadRow[]>(() => {
     const normalizedSearch = search.trim().toLowerCase()
-    return rows.filter((row) => !normalizedSearch || row.coordinatorName.toLowerCase().includes(normalizedSearch))
-  }, [rows, search])
+    const filteredRows = workloadCounts.filter((row) => !normalizedSearch || row.coordinatorName.toLowerCase().includes(normalizedSearch))
+
+    return filteredRows.map((row) => {
+      const workloadPercentage = getWorkloadPercentage(row.totalWorkMinutes, expectedCapacityMinutes)
+      return {
+        ...row,
+        expectedCapacityMinutes,
+        workloadPercentage,
+        workloadHealth: getWorkloadHealth(workloadPercentage),
+      }
+    })
+  }, [expectedCapacityMinutes, workloadCounts, search])
 
   const sortedRows = useMemo(() => [...visibleRows].sort((a, b) => {
     const aValue = a[sort.key]
@@ -140,7 +221,7 @@ const TeamWorkloadReport = () => {
   }
 
   const exportRows = (extension: 'csv' | 'xls') => {
-    const headers = ['Coordinator Name', 'Assigned Tasks', 'Pending Tasks', 'In Progress Tasks', 'Completed Tasks', 'Overdue Tasks', 'Total Active Tasks', 'Workload Percentage']
+    const headers = ['Coordinator Name', 'Assigned Tasks', 'Pending Tasks', 'In Progress Tasks', 'Completed Tasks', 'Overdue Tasks', 'Total Active Tasks', 'Total Work Minutes', 'Expected Capacity Minutes', 'Workload Percentage']
     const body = sortedRows.map((row) => [
       row.coordinatorName,
       row.assignedTasks,
@@ -149,6 +230,8 @@ const TeamWorkloadReport = () => {
       row.completedTasks,
       row.overdueTasks,
       row.totalActiveTasks,
+      row.totalWorkMinutes,
+      row.expectedCapacityMinutes,
       `${row.workloadPercentage}%`,
     ])
     const csv = [headers, ...body].map((line) => line.map(csvEscape).join(',')).join('\n')
@@ -218,6 +301,7 @@ const TeamWorkloadReport = () => {
                   ['completedTasks', 'Completed Tasks'],
                   ['overdueTasks', 'Overdue Tasks'],
                   ['totalActiveTasks', 'Total Active Tasks'],
+                  ['totalWorkMinutes', 'Total Work Minutes'],
                   ['workloadPercentage', 'Workload Percentage'],
                 ].map(([key, label]) => (
                   <th key={key}>
@@ -228,9 +312,9 @@ const TeamWorkloadReport = () => {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center">Loading...</td></tr>
+                <tr><td colSpan={9} className="text-center">Loading...</td></tr>
               ) : pagedRows.length === 0 ? (
-                <tr><td colSpan={8} className="text-center">No workload data found.</td></tr>
+                <tr><td colSpan={9} className="text-center">No workload data found.</td></tr>
               ) : pagedRows.map((row) => (
                 <tr key={row.coordinatorName}>
                   <td>{row.coordinatorName}</td>
@@ -240,7 +324,13 @@ const TeamWorkloadReport = () => {
                   <td>{row.completedTasks}</td>
                   <td>{row.overdueTasks}</td>
                   <td>{row.totalActiveTasks}</td>
-                  <td>{row.workloadPercentage}%</td>
+                  <td>{row.totalWorkMinutes}</td>
+                  <td>
+                    <span className="d-inline-flex align-items-center gap-2">
+                      <span title={`Worked: ${row.totalWorkMinutes} min | Expected: ${row.expectedCapacityMinutes} min`}>{row.workloadPercentage}%</span>
+                      <span className={`badge ${row.workloadHealth.className}`} title={`Worked: ${row.totalWorkMinutes} min | Expected: ${row.expectedCapacityMinutes} min`}>{row.workloadHealth.label}</span>
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
