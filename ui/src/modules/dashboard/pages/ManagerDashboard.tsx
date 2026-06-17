@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import AnimatedModal from '../../../shared/components/AnimatedModal'
 import TaskDetailsModal from '../../../shared/components/TaskDetailsModal'
 import { useAlert } from '../../../shared/alerts/useAlert'
@@ -19,6 +19,7 @@ import { getTasksLastUpdate } from '../../tasks/api/tasksApi'
 import { FaChartLine, FaCheckCircle, FaClock, FaRupeeSign } from 'react-icons/fa'
 import KPIStatCard from '../../../components/dashboard/KPIStatCard'
 import StatusBadge from '../../../components/dashboard/StatusBadge'
+import PendingFeedbackOverview from '../../tasks/components/PendingFeedbackOverview'
 
 const defaultSummary: DashboardSummary = {
   totalTasks: 0,
@@ -61,6 +62,7 @@ const isOverdueTask = (task: DashboardTask) => {
 
 const ManagerDashboard = () => {
   const { showToast, showAlert } = useAlert()
+  const navigate = useNavigate()
   const [summaryData, setSummaryData] = useState<DashboardSummary>(defaultSummary)
   const [tasksData, setTasksData] = useState<DashboardTask[]>([])
   const [liveTasks, setLiveTasks] = useState<DashboardTask[]>([])
@@ -323,6 +325,15 @@ const ManagerDashboard = () => {
             })}
       </div>
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
+
+      <PendingFeedbackOverview
+        title="Pending Feedback Overview"
+        subtitle="Tasks awaiting expert feedback submission."
+        emptyTitle="🎉 All feedback submissions are up to date."
+        emptyMessage="No pending feedback found."
+        dashboardVariant
+        onExpertClick={(expertName) => navigate(`/reports/feedback-pending?expert=${encodeURIComponent(expertName)}`)}
+      />
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
         {(Object.keys(tabLabels) as ManagerTaskStatus[]).map((status) => (

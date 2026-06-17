@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { BsArrowClockwise, BsArrowDownUp, BsEye } from 'react-icons/bs'
 import { getTaskFilterOptions, getManagerReportList, getManagerReportTaskDetails, recalculateTaskDuration, type ManagerReportFilters } from '../api/tasksApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
@@ -6,6 +7,7 @@ import { getClients } from '../../clients/api/clientsApi'
 import { formatEastern, formatIST, parseISTDateTime } from '../../../utils/timezone'
 import { useAuth } from '../../../context/AuthContext'
 import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
+import PendingFeedbackOverview, { FEEDBACK_PENDING_ENDPOINT } from '../components/PendingFeedbackOverview'
 
 export type ReportColumn = { key: string; label: string }
 
@@ -21,10 +23,6 @@ type SortConfig = { key: string; direction: 'asc' | 'desc' }
 
 type Option = { id: number; name: string }
 type PaginationState = { totalRecords: number; totalPages: number; page: number; limit: number }
-type PendingFeedbackSummaryItem = { expertName: string; count: number }
-
-const FEEDBACK_PENDING_ENDPOINT = '/manager/reports/feedback-pending'
-
 const normalizeReportValue = (value: unknown) => value === undefined || value === null ? '' : String(value).trim()
 
 const getReportScheduleDate = (row: Record<string, unknown>) => {
@@ -69,8 +67,10 @@ const renderReportSchedule = (row: Record<string, unknown>) => {
 const ManagerReportPageBase = ({ title, subtitle, columns, endpoint, showTitleCard = false }: ReportPageProps) => {
   const { showToast } = useAlert()
   const { user } = useAuth()
+  const location = useLocation()
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'task_id', direction: 'asc' })
   const [filters, setFilters] = useState<ManagerReportFilters>({ page: 1, limit: 10 })
+  const [summaryFilters, setSummaryFilters] = useState<ManagerReportFilters>({ page: 1, limit: 10 })
   const [options, setOptions] = useState<{ candidates: Option[]; assignees: Option[]; taskTypes: Option[]; clients: Option[] }>({ candidates: [], assignees: [], taskTypes: [], clients: [] })
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [summaryRows, setSummaryRows] = useState<Record<string, unknown>[]>([])
@@ -108,7 +108,7 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint, showTitleCa
     setError(null)
     try {
       const payload = { ...filters, ...override }
-      if (endpoint === FEEDBACK_PENDING_ENDPOINT) void loadSummary(payload)
+      if (endpoint === FEEDBACK_PENDING_ENDPOINT) setSummaryFilters(payload)
       const result = await getManagerReportList(endpoint, payload)
       const requestedPage = Number(payload.page ?? 1)
       if (result.items.length === 0 && requestedPage > 1 && result.total_pages > 0) {
@@ -152,11 +152,24 @@ Skipped: ${result.skipped} tasks`,
 
   useEffect(() => {
     void Promise.all([getTaskFilterOptions(), getClients()]).then(([data, clients]) => {
-      setOptions({ candidates: data.candidates, assignees: data.assignees, taskTypes: data.task_types, clients: clients.map((c) => ({ id: c.id, name: c.company_name })) })
+      const nextOptions = { candidates: data.candidates, assignees: data.assignees, taskTypes: data.task_types, clients: clients.map((c) => ({ id: c.id, name: c.company_name })) }
+      setOptions(nextOptions)
+
+      const expertName = new URLSearchParams(location.search).get('expert')?.trim().toLowerCase()
+      const matchedExpert = endpoint === FEEDBACK_PENDING_ENDPOINT && expertName
+        ? nextOptions.assignees.find((assignee) => assignee.name.trim().toLowerCase() === expertName)
+        : undefined
+      if (matchedExpert) {
+        const nextFilters = { ...filters, page: 1, expert_id: String(matchedExpert.id) }
+        setFilters(nextFilters)
+        void load(nextFilters)
+        return
+      }
+
+      void load()
     })
-    void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint])
+  }, [endpoint, location.search])
 
   const pendingFeedbackSummary = useMemo<PendingFeedbackSummaryItem[]>(() => {
     if (endpoint !== FEEDBACK_PENDING_ENDPOINT) return []
@@ -249,30 +262,7 @@ Skipped: ${result.skipped} tasks`,
         <div className="col-12 d-flex gap-2 justify-content-end mt-2"><button className="btn btn-primary btn-sm" type="button" onClick={() => { setFilters((p) => ({ ...p, page: 1 })); void load({ page: 1 }) }}>Apply Filter</button><button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => { setFilters({ page: 1, limit: 10 }); void load({ page: 1, limit: 10 }) }}>Reset</button></div>
       </div></div>
 
-      {endpoint === FEEDBACK_PENDING_ENDPOINT ? <div className="pending-feedback-summary card">
-        <div className="d-flex flex-column flex-md-row justify-content-between gap-2 mb-3">
-          <div>
-            <h3 className="card-title mb-1">Expert-wise Pending Feedback Summary</h3>
-            <p className="text-muted mb-0">Counts are grouped from the same filtered pending feedback report records.</p>
-          </div>
-          <span className="badge bg-primary-subtle text-primary align-self-start">{pagination.totalRecords} Total Pending</span>
-        </div>
-        {summaryLoading ? <div className="dashboard-cards pending-feedback-summary__grid">{[0, 1, 2, 3].map((item) => <div key={item} className="metric-card skeleton-card" />)}</div> : pendingFeedbackSummary.length === 0 ? <div className="text-center text-muted py-3">No pending feedback found.</div> : <div className="dashboard-cards pending-feedback-summary__grid">
-          {pendingFeedbackSummary.map((item) => {
-            const tone = getPendingSummaryTone(item.count)
-            return (
-              <div key={item.expertName} className={`metric-card pending-feedback-summary__card pending-feedback-summary__card--${tone}`}>
-                <div className="dashboard-card__label">Technical Expert</div>
-                <div className="pending-feedback-summary__expert" title={item.expertName}>{item.expertName}</div>
-                <div className="d-flex align-items-end justify-content-between gap-2 mt-3">
-                  <div className="dashboard-card__value mb-0">{item.count}</div>
-                  <span className={`badge bg-${tone}-subtle text-${tone}${tone === 'warning' ? '-emphasis' : ''}`}>Pending Feedbacks</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>}
-      </div> : null}
+      {endpoint === FEEDBACK_PENDING_ENDPOINT ? <PendingFeedbackOverview filters={summaryFilters} /> : null}
 
       <div className="table-card"><div className="d-flex justify-content-end p-2"><button className="btn btn-success btn-sm" onClick={() => {
         const head = columns.filter((c) => c.key !== 'action').map((c) => c.label).join(',')
