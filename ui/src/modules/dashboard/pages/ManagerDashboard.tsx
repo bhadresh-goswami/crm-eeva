@@ -19,6 +19,7 @@ import { getTasksLastUpdate } from '../../tasks/api/tasksApi'
 import { FaChartLine, FaCheckCircle, FaClock, FaRupeeSign } from 'react-icons/fa'
 import KPIStatCard from '../../../components/dashboard/KPIStatCard'
 import StatusBadge from '../../../components/dashboard/StatusBadge'
+import PendingFeedbackOverview from '../../tasks/components/PendingFeedbackOverview'
 
 const defaultSummary: DashboardSummary = {
   totalTasks: 0,
@@ -323,6 +324,15 @@ const ManagerDashboard = () => {
             })}
       </div>
       {summaryError ? <p className="dashboard-notice">{summaryError}</p> : null}
+
+      <PendingFeedbackOverview
+        title="Pending Feedback Overview"
+        subtitle="Tasks awaiting expert feedback submission."
+        emptyTitle="🎉 All feedback submissions are up to date."
+        emptyMessage="No pending feedback found."
+        dashboardVariant
+        onExpertClick={(expertName) => { window.location.href = `/reports/feedback-pending?expert=${encodeURIComponent(expertName)}` }}
+      />
 
       <div className="dashboard-tabs" role="tablist" aria-label="Task tabs">
         {(Object.keys(tabLabels) as ManagerTaskStatus[]).map((status) => (
