@@ -340,3 +340,77 @@ input:focus, select:focus, textarea:focus, .form-control:focus, .form-select:foc
     overflow: visible !important;
   }
 }
+
+/* Single page scrollbar + visible dropdown overflow corrections. */
+html,
+body,
+#root {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body,
+#root,
+.app-layout,
+.app-shell,
+.app-shell__main,
+.main-content {
+  height: auto;
+  overflow-y: visible !important;
+}
+
+.app-layout,
+.main-content {
+  overflow-x: hidden;
+}
+
+.header,
+.topbar,
+.navbar,
+.menu-wrapper,
+.top-nav,
+.top-nav__scroller,
+.top-nav__dropdown {
+  overflow: visible !important;
+  position: relative;
+}
+
+.header,
+.topbar,
+.navbar,
+.menu-wrapper,
+.top-nav {
+  z-index: 1050;
+}
+
+.top-nav {
+  isolation: auto;
+}
+
+.top-nav__scroller,
+.top-nav__dropdown {
+  z-index: 1051;
+}
+
+.dropdown-menu,
+.nav-dropdown-menu,
+.top-nav__dropdown-menu,
+.top-nav__nested-menu {
+  position: absolute;
+  z-index: 9999;
+}
+
+.main-content,
+.page-container,
+.dashboard-cards,
+.dashboard-table-wrap,
+.card.section {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 1280px) and (min-width: 1025px) {
+  .top-nav__scroller {
+    overflow: visible !important;
+  }
+}
