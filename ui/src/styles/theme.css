@@ -289,3 +289,54 @@ input:focus, select:focus, textarea:focus, .form-control:focus, .form-select:foc
 }
 
 .slot-view-btn:hover { background: #0d8ae5; transform: scale(1.05); }
+
+/* Keep top navigation dropdowns above dashboard content and out of clipping contexts. */
+.app-layout,
+.app-shell,
+.app-shell__main,
+.header,
+.topbar,
+.navbar,
+.menu-wrapper,
+.top-nav,
+.top-nav__scroller,
+.top-nav__dropdown {
+  overflow: visible !important;
+}
+
+.header {
+  position: relative;
+  z-index: 8000;
+}
+
+.top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 9000;
+  isolation: isolate;
+}
+
+.top-nav__scroller,
+.top-nav__dropdown {
+  position: relative;
+  z-index: 9001;
+}
+
+.dropdown-menu,
+.nav-dropdown-menu,
+.top-nav__dropdown-menu,
+.top-nav__nested-menu {
+  position: absolute;
+  z-index: 9999;
+}
+
+.main-content {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 1280px) and (min-width: 1025px) {
+  .top-nav__scroller {
+    overflow: visible !important;
+  }
+}
