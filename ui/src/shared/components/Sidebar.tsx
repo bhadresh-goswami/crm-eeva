@@ -100,7 +100,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           ],
         },
         {
-          title: 'System',
+          title: 'Master Management',
           items: [
             { label: 'Users', to: '/users', icon: 'users' },
             { label: 'Settings', to: '/roles', icon: 'settings' },
