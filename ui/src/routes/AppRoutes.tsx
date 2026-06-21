@@ -24,6 +24,8 @@ import TeamWorkloadReport from '../modules/tasks/pages/TeamWorkloadReport'
 import PendingPaymentsReport from '../modules/tasks/pages/PendingPaymentsReport'
 
 import UsersPage from '../modules/users/pages/UsersPage'
+import UserFormPage from '../modules/users/pages/UserFormPage'
+import UserViewPage from '../modules/users/pages/UserViewPage'
 import InvoiceListPage from '../modules/invoices/pages/InvoiceListPage'
 import InvoiceCreatePage from '../modules/invoices/pages/InvoiceCreatePage'
 import InvoiceDetailPage from '../modules/invoices/pages/InvoiceDetailPage'
@@ -104,6 +106,9 @@ const AppRoutes = () => {
           </Route>
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/users" element={<UsersPage />} />
+            <Route path="/users/add" element={<UserFormPage mode="add" />} />
+            <Route path="/users/:id/edit" element={<UserFormPage mode="edit" />} />
+            <Route path="/users/:id" element={<UserViewPage />} />
             <Route path="/roles" element={<RolesPage />} />
           </Route>
         </Route>

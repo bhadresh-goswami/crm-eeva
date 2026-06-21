@@ -289,3 +289,195 @@ input:focus, select:focus, textarea:focus, .form-control:focus, .form-select:foc
 }
 
 .slot-view-btn:hover { background: #0d8ae5; transform: scale(1.05); }
+
+/* Keep top navigation dropdowns above dashboard content and out of clipping contexts. */
+.app-layout,
+.app-shell,
+.app-shell__main,
+.header,
+.topbar,
+.navbar,
+.menu-wrapper,
+.top-nav,
+.top-nav__scroller,
+.top-nav__dropdown {
+  overflow: visible !important;
+}
+
+.header {
+  position: relative;
+  z-index: 8000;
+}
+
+.top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 9000;
+  isolation: isolate;
+}
+
+.top-nav__scroller,
+.top-nav__dropdown {
+  position: relative;
+  z-index: 9001;
+}
+
+.dropdown-menu,
+.nav-dropdown-menu,
+.top-nav__dropdown-menu,
+.top-nav__nested-menu {
+  position: absolute;
+  z-index: 9999;
+}
+
+.main-content {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 1280px) and (min-width: 1025px) {
+  .top-nav__scroller {
+    overflow: visible !important;
+  }
+}
+
+/* Single page scrollbar + visible dropdown overflow corrections. */
+html,
+body,
+#root {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body,
+#root,
+.app-layout,
+.app-shell,
+.app-shell__main,
+.main-content {
+  height: auto;
+  overflow-y: visible !important;
+}
+
+.app-layout,
+.main-content {
+  overflow-x: hidden;
+}
+
+.header,
+.topbar,
+.navbar,
+.menu-wrapper,
+.top-nav,
+.top-nav__scroller,
+.top-nav__dropdown {
+  overflow: visible !important;
+  position: relative;
+}
+
+.header,
+.topbar,
+.navbar,
+.menu-wrapper,
+.top-nav {
+  z-index: 1050;
+}
+
+.top-nav {
+  isolation: auto;
+}
+
+.top-nav__scroller,
+.top-nav__dropdown {
+  z-index: 1051;
+}
+
+.dropdown-menu,
+.nav-dropdown-menu,
+.top-nav__dropdown-menu,
+.top-nav__nested-menu {
+  position: absolute;
+  z-index: 9999;
+}
+
+.main-content,
+.page-container,
+.dashboard-cards,
+.dashboard-table-wrap,
+.card.section {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 1280px) and (min-width: 1025px) {
+  .top-nav__scroller {
+    overflow: visible !important;
+  }
+}
+
+/* Final layout model: header/nav are outside the only scroll container. */
+html,
+body,
+#root {
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  overflow-x: hidden;
+}
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: visible !important;
+  background: var(--crm-bg-main);
+}
+
+.header,
+.topbar,
+.navbar,
+.menu-wrapper,
+.top-nav {
+  flex: 0 0 auto;
+  overflow: visible !important;
+  position: relative;
+  z-index: 1050;
+}
+
+.top-nav {
+  top: auto;
+  isolation: auto;
+}
+
+.top-nav__scroller,
+.top-nav__dropdown,
+.top-nav__dropdown-trigger {
+  overflow: visible !important;
+  position: relative;
+}
+
+.top-nav__dropdown-menu,
+.top-nav__nested-menu,
+.dropdown-menu,
+.nav-dropdown-menu {
+  position: absolute;
+  z-index: 9999;
+  overflow: visible;
+}
+
+.main-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  position: relative;
+  z-index: 0;
+}
+
+@media (max-width: 1280px) and (min-width: 1025px) {
+  .top-nav__scroller {
+    overflow: visible !important;
+  }
+}
