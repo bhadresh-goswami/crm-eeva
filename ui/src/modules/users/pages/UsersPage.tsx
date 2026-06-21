@@ -1,256 +1,47 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
-import { useAuth } from '../../../context/AuthContext'
-import ConfirmDialog from '../components/ConfirmDialog'
-import PasswordModal from '../components/PasswordModal'
-import UserFormModal from '../components/UserFormModal'
-import UsersTable from '../components/UsersTable'
-import {
-  createUser,
-  deleteUser,
-  getRoleOptions,
-  getUsers,
-  toggleUser,
-  updateUser,
-  type RoleOption,
-  type UserItem,
-} from '../api/usersApi'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { FaEye, FaPen, FaPowerOff, FaTrash } from 'react-icons/fa'
+import { departments, designations, type UserRecord, userService } from '../api/userService'
+
+const PAGE_SIZE = 10
 
 const UsersPage = () => {
-  const { user } = useAuth()
-  const [users, setUsers] = useState<UserItem[]>([])
-  const [roles, setRoles] = useState<RoleOption[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [pageError, setPageError] = useState<string | null>(null)
-  const [modalError, setModalError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
-  const [selectedUser, setSelectedUser] = useState<UserItem | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null)
-  const [passwordTarget, setPasswordTarget] = useState<UserItem | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [actionUserId, setActionUserId] = useState<number | null>(null)
+  const [users, setUsers] = useState<UserRecord[]>([])
+  const [query, setQuery] = useState('')
+  const [department, setDepartment] = useState('all')
+  const [designation, setDesignation] = useState('all')
+  const [status, setStatus] = useState('all')
+  const [reportingTo, setReportingTo] = useState('all')
+  const [page, setPage] = useState(1)
+  const loadUsers = () => void userService.getUsers().then(setUsers)
+  useEffect(loadUsers, [])
 
-  const showSuccess = useCallback((message: string) => {
-    setSuccessMessage(message)
-    setTimeout(() => setSuccessMessage(null), 2500)
-  }, [])
-
-  const loadPageData = useCallback(async () => {
-    setIsLoading(true)
-    setPageError(null)
-
-    try {
-      const [usersData, rolesData] = await Promise.all([getUsers(), getRoleOptions()])
-      setUsers(usersData)
-      setRoles(rolesData)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load users data.'
-      setPageError(message)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadPageData()
-  }, [loadPageData])
-
-  const openCreateModal = useCallback(() => {
-    setFormMode('create')
-    setSelectedUser(null)
-    setModalError(null)
-    setIsFormOpen(true)
-  }, [])
-
-  const openEditModal = useCallback((target: UserItem) => {
-    setFormMode('edit')
-    setSelectedUser(target)
-    setModalError(null)
-    setIsFormOpen(true)
-  }, [])
-
-  const handleSubmitUser = useCallback(async (payload: {
-    id?: number
-    name: string
-    email: string
-    password?: string
-    role_id: number
-    team_lead_id?: number
-  }) => {
-    setIsSubmitting(true)
-    setModalError(null)
-
-    try {
-      if (formMode === 'create') {
-        await createUser({
-          name: payload.name,
-          email: payload.email,
-          password: payload.password ?? '',
-          role_id: payload.role_id,
-          team_lead_id: payload.team_lead_id,
-        })
-        showSuccess('User created successfully.')
-      } else {
-        await updateUser({
-          id: payload.id ?? 0,
-          name: payload.name,
-          email: payload.email,
-          role_id: payload.role_id,
-          team_lead_id: payload.team_lead_id,
-        })
-        showSuccess('User updated successfully.')
-      }
-
-      setIsFormOpen(false)
-      setSelectedUser(null)
-      await loadPageData()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to save user.'
-      const normalized = message.toLowerCase()
-      if (normalized.includes('duplicate') || normalized.includes('email')) {
-        setModalError('Email already exists. Please use a unique email address.')
-      } else {
-        setModalError(message)
-      }
-    } finally {
-      setIsSubmitting(false)
-    }
-  }, [formMode, loadPageData, showSuccess])
-
-  const handleDelete = useCallback(async () => {
-    if (!deleteTarget) {
-      return
-    }
-
-    setActionUserId(deleteTarget.id)
-    setPageError(null)
-
-    try {
-      await deleteUser(deleteTarget.id)
-      setDeleteTarget(null)
-      showSuccess('User deleted successfully.')
-      await loadPageData()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to delete user.'
-      setPageError(message)
-    } finally {
-      setActionUserId(null)
-    }
-  }, [deleteTarget, loadPageData, showSuccess])
-
-  const handleToggle = useCallback(async (target: UserItem) => {
-    setActionUserId(target.id)
-    setPageError(null)
-
-    try {
-      await toggleUser(target.id)
-      showSuccess('User status updated successfully.')
-      await loadPageData()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update user status.'
-      setPageError(message)
-    } finally {
-      setActionUserId(null)
-    }
-  }, [loadPageData, showSuccess])
-
-  const handlePasswordUpdate = useCallback(async ({ password: _password }: { password: string }) => {
-    if (!passwordTarget) {
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-      showSuccess('Password update request captured (API pending).')
-      setPasswordTarget(null)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }, [passwordTarget, showSuccess])
-
-  const existingEmails = useMemo(() => {
-    const editingId = formMode === 'edit' ? selectedUser?.id : null
-
-    return users.filter((item) => item.id !== editingId).map((item) => item.email)
-  }, [formMode, selectedUser?.id, users])
-
-  const teamLeadOptions = useMemo(
-    () => users.filter((item) => item.id !== selectedUser?.id),
-    [selectedUser?.id, users],
-  )
-
-  if (!user) {
-    return <Navigate replace to="/login" />
+  const reportingOptions = useMemo(() => [...new Set(users.map((user) => user.reporting_to_name).filter(Boolean))], [users])
+  const filtered = useMemo(() => users.filter((user) => {
+    const haystack = `${user.employee_code} ${user.first_name} ${user.last_name} ${user.email} ${user.mobile}`.toLowerCase()
+    return (!query || haystack.includes(query.toLowerCase())) && (department === 'all' || user.department_name === department) && (designation === 'all' || user.designation_name === designation) && (status === 'all' || user.status === status) && (reportingTo === 'all' || user.reporting_to_name === reportingTo)
+  }), [department, designation, query, reportingTo, status, users])
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const reset = () => { setQuery(''); setDepartment('all'); setDesignation('all'); setStatus('all'); setReportingTo('all'); setPage(1) }
+  const remove = async (user: UserRecord) => {
+    const isConfirmed = window.confirm(`Delete ${user.first_name} ${user.last_name}?`)
+    if (isConfirmed) { await userService.deleteUser(user.id); loadUsers() }
   }
+  const toggle = async (user: UserRecord) => { await userService.toggleStatus(user.id); loadUsers() }
 
-  if (user.role !== 'admin') {
-    return <Navigate replace to="/dashboard" />
-  }
-
-  return (
-    <section>
-      <div className="users-page__header">
-        <div>
-          <h2 className="page-title">User Management</h2>
-          <p className="page-description">Manage users, role mapping and team lead assignment.</p>
-        </div>
-        <button className="button button--primary" onClick={openCreateModal}>
-          Create User
-        </button>
-      </div>
-
-      {pageError ? <p className="auth-card__error roles-feedback">{pageError}</p> : null}
-      {successMessage ? <p className="roles-success roles-feedback">{successMessage}</p> : null}
-
-      <UsersTable
-        users={users}
-        isLoading={isLoading}
-        activeActionId={actionUserId}
-        onEdit={openEditModal}
-        onDelete={setDeleteTarget}
-        onToggle={handleToggle}
-        onUpdatePassword={setPasswordTarget}
-      />
-
-      <UserFormModal
-        key={`user-form-${formMode}-${selectedUser?.id ?? 'new'}-${isFormOpen ? 'open' : 'closed'}`}
-        isOpen={isFormOpen}
-        mode={formMode}
-        user={selectedUser}
-        roles={roles}
-        teamLeadOptions={teamLeadOptions}
-        existingEmails={existingEmails}
-        apiError={modalError}
-        isSubmitting={isSubmitting}
-        onClose={() => {
-          setIsFormOpen(false)
-          setModalError(null)
-        }}
-        onSubmit={handleSubmitUser}
-      />
-
-      <ConfirmDialog
-        isOpen={Boolean(deleteTarget)}
-        title="Delete User"
-        message="Are you sure you want to delete this user?"
-        isLoading={actionUserId === deleteTarget?.id}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => void handleDelete()}
-      />
-
-      <PasswordModal
-        key={`password-${passwordTarget?.id ?? 'none'}-${passwordTarget ? 'open' : 'closed'}`}
-        isOpen={Boolean(passwordTarget)}
-        user={passwordTarget}
-        isSubmitting={isSubmitting}
-        onClose={() => setPasswordTarget(null)}
-        onSubmit={handlePasswordUpdate}
-      />
-    </section>
-  )
+  return <section className="user-management">
+    <div className="users-page__header"><div><h2 className="page-title">Users</h2><p className="page-description">Master Management / Users</p></div><Link className="button button--primary" to="/users/add">Add User</Link></div>
+    <div className="card users-controls user-filter-grid">
+      <label className="form-label">Search<input className="form-control" value={query} onChange={(e) => { setQuery(e.target.value); setPage(1) }} placeholder="Employee, name, email, mobile" /></label>
+      <label className="form-label">Department<select className="form-select" value={department} onChange={(e) => { setDepartment(e.target.value); setPage(1) }}><option value="all">All departments</option>{departments.map((item) => <option key={item.id}>{item.department_name}</option>)}</select></label>
+      <label className="form-label">Designation<select className="form-select" value={designation} onChange={(e) => { setDesignation(e.target.value); setPage(1) }}><option value="all">All designations</option>{designations.map((item) => <option key={item.id}>{item.designation_name}</option>)}</select></label>
+      <label className="form-label">Status<select className="form-select" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}><option value="all">All status</option><option>Active</option><option>Inactive</option></select></label>
+      <label className="form-label">Reporting Person<select className="form-select" value={reportingTo} onChange={(e) => { setReportingTo(e.target.value); setPage(1) }}><option value="all">All reporting persons</option>{reportingOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
+      <button type="button" className="button align-self-end" onClick={reset}>Reset Filters</button>
+    </div>
+    <div className="card table-card users-table__wrapper"><table className="roles-table users-table crm-table"><thead><tr><th>Employee Code</th><th>Name</th><th>Email</th><th>Mobile</th><th>Department</th><th>Designation</th><th>Reporting To</th><th>Roles</th><th>Status</th><th>Actions</th></tr></thead><tbody>{visible.map((user) => <tr key={user.id}><td>{user.employee_code}</td><td><div className="user-cell"><img className="avatar-img" src={user.profile_image} alt="" /><strong>{user.first_name} {user.last_name}</strong></div></td><td>{user.email}</td><td>{user.mobile}</td><td>{user.department_name}</td><td>{user.designation_name}</td><td>{user.reporting_to_name}</td><td><div className="role-badges">{user.roles.map((role) => <span className="badge text-bg-primary" key={role}>{role}</span>)}</div></td><td><span className={`badge ${user.status === 'Active' ? 'text-bg-success' : 'text-bg-danger'}`}>{user.status}</span></td><td><div className="users-actions"><Link className="btn btn-sm btn-outline-primary" to={`/users/${user.id}`} title="View"><FaEye /></Link><Link className="btn btn-sm btn-outline-secondary" to={`/users/${user.id}/edit`} title="Edit"><FaPen /></Link><button className="btn btn-sm btn-outline-warning" onClick={() => void toggle(user)} title={user.status === 'Active' ? 'Deactivate' : 'Activate'}><FaPowerOff /></button><button className="btn btn-sm btn-outline-danger" onClick={() => void remove(user)} title="Delete"><FaTrash /></button></div></td></tr>)}</tbody></table></div>
+    <div className="users-pagination"><button className="button" disabled={page === 1} onClick={() => setPage((current) => current - 1)}>Previous</button><div className="users-pagination__pages">{Array.from({ length: totalPages }, (_, i) => i + 1).map((item) => <button key={item} className={item === page ? 'button button--primary' : 'button'} onClick={() => setPage(item)}>{item}</button>)}</div><button className="button" disabled={page === totalPages} onClick={() => setPage((current) => current + 1)}>Next</button></div>
+  </section>
 }
-
 export default UsersPage

@@ -19,6 +19,8 @@ type NavigateOptions = {
 type RouterContextValue = {
   pathname: string
   navigate: (to: string, options?: NavigateOptions) => void
+  params: Record<string, string>
+  setParams: (params: Record<string, string>) => void
 }
 
 const RouterContext = createContext<RouterContextValue | null>(null)
@@ -30,6 +32,7 @@ type BrowserRouterProps = {
 
 export const BrowserRouter = ({ children }: BrowserRouterProps) => {
   const [pathname, setPathname] = useState(window.location.pathname)
+  const [params, setParams] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const onPopState = () => setPathname(window.location.pathname)
@@ -56,8 +59,8 @@ export const BrowserRouter = ({ children }: BrowserRouterProps) => {
   )
 
   const value = useMemo(
-    () => ({ pathname, navigate }),
-    [navigate, pathname],
+    () => ({ pathname, navigate, params, setParams }),
+    [navigate, params, pathname],
   )
 
   return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>
@@ -95,7 +98,21 @@ const mapRoutes = (children: ReactNode): RouteConfig[] => {
     }))
 }
 
-const matchRoute = (pathname: string, routes: RouteConfig[]): ReactNode => {
+const pathMatches = (pattern: string | undefined, pathname: string) => {
+  if (!pattern) return { matched: false, params: {} as Record<string, string> }
+  if (pattern === pathname) return { matched: true, params: {} as Record<string, string> }
+  const patternParts = pattern.split('/').filter(Boolean)
+  const pathParts = pathname.split('/').filter(Boolean)
+  if (patternParts.length !== pathParts.length) return { matched: false, params: {} as Record<string, string> }
+  const params: Record<string, string> = {}
+  const matched = patternParts.every((part, index) => {
+    if (part.startsWith(':')) { params[part.slice(1)] = decodeURIComponent(pathParts[index]); return true }
+    return part === pathParts[index]
+  })
+  return { matched, params }
+}
+
+const matchRoute = (pathname: string, routes: RouteConfig[], onParams: (params: Record<string, string>) => void): ReactNode => {
   let fallback: RouteConfig | undefined
 
   for (const route of routes) {
@@ -105,7 +122,7 @@ const matchRoute = (pathname: string, routes: RouteConfig[]): ReactNode => {
     }
 
     if (route.children.length > 0) {
-      const matchedChild = matchRoute(pathname, route.children)
+      const matchedChild = matchRoute(pathname, route.children, onParams)
       if (matchedChild !== null) {
         return (
           <OutletContext.Provider value={matchedChild}>{route.element}</OutletContext.Provider>
@@ -114,11 +131,14 @@ const matchRoute = (pathname: string, routes: RouteConfig[]): ReactNode => {
       continue
     }
 
-    if (route.path === pathname) {
+    const result = pathMatches(route.path, pathname)
+    if (result.matched) {
+      onParams(result.params)
       return route.element
     }
   }
 
+  if (fallback) onParams({})
   return fallback?.element ?? null
 }
 
@@ -130,7 +150,7 @@ export const Routes = ({ children }: RoutesProps) => {
   const router = useRouter()
   const routes = useMemo(() => mapRoutes(children), [children])
 
-  return <>{matchRoute(router.pathname, routes)}</>
+  return <>{matchRoute(router.pathname, routes, router.setParams)}</>
 }
 
 export const Outlet = () => {
@@ -161,22 +181,30 @@ type NavLinkProps = {
   className?: string | ((args: NavLinkClassNameArg) => string)
   end?: boolean
   to: string
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void
 }
 
-export const NavLink = ({ children, className, end, to }: NavLinkProps) => {
+export const Link = ({ children, className, to, onClick }: Omit<NavLinkProps, 'end'>) => {
+  const router = useRouter()
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); onClick?.(event); router.navigate(to) }
+  return <a href={to} className={typeof className === 'function' ? className({ isActive: router.pathname === to }) : className} onClick={handleClick}>{children}</a>
+}
+
+export const NavLink = ({ children, className, end, to, onClick }: NavLinkProps) => {
   const router = useRouter()
   const isActive = end ? router.pathname === to : router.pathname.startsWith(to)
 
   const resolvedClassName =
     typeof className === 'function' ? className({ isActive }) : className
 
-  const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
+    onClick?.(event)
     router.navigate(to)
   }
 
   return (
-    <a href={to} className={resolvedClassName} onClick={onClick}>
+    <a href={to} className={resolvedClassName} onClick={handleClick}>
       {children}
     </a>
   )
@@ -195,4 +223,14 @@ const useRouter = () => {
 export const useLocation = () => {
   const router = useRouter()
   return { pathname: router.pathname }
+}
+
+export const useNavigate = () => {
+  const router = useRouter()
+  return router.navigate
+}
+
+export const useParams = () => {
+  const router = useRouter()
+  return router.params
 }
