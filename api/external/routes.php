@@ -37,7 +37,7 @@ try {
     }
     $conn = (new Database())->connect();
     if (!$conn) { $response = ExternalResponse::error('Service unavailable.', [], 503); return; }
-    $controller = new ExternalInterviewController(new ExternalInterviewService($conn));
+    $controller = new ExternalInterviewController(new ExternalInterviewService($conn, $config));
     if ($route === '/interviews' && $method === 'POST') $response = $controller->create($body);
     elseif ($route === '/interviews' && $method === 'GET') $response = $controller->details();
     elseif ($route === '/interviews/history' && $method === 'GET') $response = $controller->history();

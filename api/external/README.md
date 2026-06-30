@@ -64,7 +64,7 @@ Response:
 }
 ```
 
-Duplicate detection uses the same candidate, due date, start time, and interview round and returns HTTP `409`.
+Duplicate detection uses the same candidate, due date, start time, and interview round and returns HTTP `409`. Interview tasks are inserted with configured CRM defaults: `client_id = 5`, `poc_id = 5`, `task_type_id = 1` (`Interview Support - Google Doc`), pending task/payment status, 60-minute duration, zero total amount, `payment_mode = External API`, and `billing_status = completed`.
 
 ### Interview details
 
@@ -110,6 +110,12 @@ Response:
 ## Database migration
 
 Run `api/scripts/add_candidate_code.sql` once to add the nullable unique indexed `candidate_code` column to `candidates`.
+
+## Task insert defaults
+
+The external create API inserts all task table fields that are relevant for a new interview row. Auto-managed fields such as `id` and `created_at` are left to MySQL. Nullable payment/invoice/thread fields are explicitly inserted as `NULL` where no external value exists.
+
+Defaults can be adjusted in `api/config/External/external_api.php` without touching the existing CRM routes or controllers.
 
 ## Logging
 
