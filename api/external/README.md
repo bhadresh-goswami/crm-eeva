@@ -40,11 +40,10 @@ Request:
   "candidate_code": "BTC-APL-000001",
   "interview_title": "Java Technical Round",
   "interview_date": "2026-07-08",
-  "interview_time": "08:30 PM",
+  "interview_time": "20:30:00",
   "timezone": "IST",
   "round": "L1",
   "technology": "Java Full Stack",
-  "meeting_link": "https://meet.google.com/abc",
   "remarks": "Interview scheduled from external application"
 }
 ```
@@ -57,20 +56,39 @@ Response:
   "message": "Interview task created successfully.",
   "data": {
     "task_id": 845,
-    "task_number": "TSK-2026-845",
     "candidate_code": "BTC-APL-000001",
     "status": "Pending"
   }
 }
 ```
 
-Duplicate detection uses the same candidate, due date, start time, and interview round and returns HTTP `409`. Interview tasks are inserted with configured CRM defaults: `client_id = 5`, `poc_id = 5`, `task_type_id = 1` (`Interview Support - Google Doc`), pending task/payment status, 60-minute duration, zero total amount, `payment_mode = External API`, and `billing_status = completed`.
+Duplicate detection uses the same candidate, task type, due date, start time, and title and returns HTTP `409`.
+
+### Task insert mapping
+
+The create API uses only existing `tasks` columns. It maps candidate/client/POC/task type/status to CRM records and stores external interview metadata in `tasks.description` as structured text.
+
+Inserted task values:
+
+- `client_id`: candidate's `client_id`
+- `candidate_id`: CRM candidate id found by `candidate_code`
+- `poc_id`: first active Client POC for the candidate's client
+- `task_type_id`: active `Interview Support - Google Doc` task type, falling back to first active interview task type
+- `status_id`: active `Pending` status
+- `title`: `interview_title`
+- `description`: source, candidate code, round, technology, timezone, and remarks
+- `due_date`: `interview_date`
+- `start_time`: `interview_time`
+- `end_time`, `task_start_time`, `task_end_time`, `duration`, payment/invoice/thread fields: `NULL`
+- `total_amount`: `0.00`
+- `billing_status`: `completed`
+- `created_at`: database default timestamp
 
 ### Interview details
 
 `GET /api/external/interviews?task_id=845`
 
-Returns one interview with candidate, company, client, client POC, task, status, assignment history, comments, feedback, and result data.
+Returns one interview with useful business data for candidate, company, client, client POC, interview, task, current status, comments, feedback, and result.
 
 `GET /api/external/interviews?candidate_code=BTC-APL-000001`
 
@@ -99,10 +117,9 @@ Response:
   "success": true,
   "message": "Latest interview status fetched successfully.",
   "data": {
-    "candidate_code": "BTC-APL-000001",
     "task_id": 845,
-    "status": "Pending",
-    "updated_date": null
+    "current_status": "Pending",
+    "updated_date": "2026-07-08 20:30:00"
   }
 }
 ```
@@ -111,12 +128,6 @@ Response:
 
 Run `api/scripts/add_candidate_code.sql` once to add the nullable unique indexed `candidate_code` column to `candidates`.
 
-## Task insert defaults
-
-The external create API inserts all task table fields that are relevant for a new interview row. Auto-managed fields such as `id` and `created_at` are left to MySQL. Nullable payment/invoice/thread fields are explicitly inserted as `NULL` where no external value exists.
-
-Defaults can be adjusted in `api/config/External/external_api.php` without touching the existing CRM routes or controllers.
-
 ## Logging
 
-External API logs are written to `api/logs/external_api.log` and include request metadata, response, status, validation errors, IP, user agent, and execution time.
+External API logs are written to `api/logs/external_api.log` and include timestamp, API, IP address, candidate code, HTTP method, request body, response, execution time, HTTP status, and validation errors.
