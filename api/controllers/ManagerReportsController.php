@@ -1,5 +1,7 @@
 <?php
 
+require_once dirname(__DIR__) . '/models/FeedbackModel.php';
+
 class ManagerReportsController {
     private PDO $conn;
 
@@ -307,6 +309,11 @@ class ManagerReportsController {
                 tf.project_explanation,
                 tf.overall,
                 tf.area_of_improvements,
+                tf.strengths,
+                tf.recommendations,
+                tf.next_action,
+                tf.additional_feedback,
+                tf.custom_fields,
                 COALESCE(latest_task_comment.comment, '') AS comments
                 " . $this->baseSelect() . "
                 WHERE {$where}
@@ -315,9 +322,13 @@ class ManagerReportsController {
             $stmt = $this->conn->prepare($sql);
             $this->bindListParams($stmt, $params);
             $stmt->execute();
+            $rows = array_map(
+                static fn (array $row): array => FeedbackModel::map($row),
+                $stmt->fetchAll(PDO::FETCH_ASSOC)
+            );
             echo json_encode([
                 'success' => true,
-                'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+                'data' => $rows,
                 'total_records' => $totalRecords,
                 'total_pages' => $totalPages,
                 'page' => $page,
@@ -462,6 +473,11 @@ class ManagerReportsController {
                 tf.project_explanation,
                 tf.overall,
                 tf.area_of_improvements,
+                tf.strengths,
+                tf.recommendations,
+                tf.next_action,
+                tf.additional_feedback,
+                tf.custom_fields,
                 DATE(tf.created_at) AS feedback_date,
                 ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score
                 " . $this->baseSelect() . "
@@ -472,7 +488,7 @@ class ManagerReportsController {
             $stmt->execute();
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$row) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Task not found']); return; }
-            echo json_encode(['success' => true, 'data' => $row]);
+            echo json_encode(['success' => true, 'data' => FeedbackModel::map($row)]);
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
