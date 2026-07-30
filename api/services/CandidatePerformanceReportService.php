@@ -1,5 +1,7 @@
 <?php
 
+require_once dirname(__DIR__) . '/models/FeedbackModel.php';
+
 class CandidatePerformanceReportService {
     public function __construct(private PDO $conn) {}
 
@@ -91,12 +93,12 @@ class CandidatePerformanceReportService {
     }
 
     public function getFeedback(int $feedbackId): ?array {
-        $sql = "SELECT id, task_id, interview_round, company_name, interviewer_name, communication, technical, confidence, project_explanation, read_proper, area_of_improvements, recording_url, overall, created_at FROM task_feedback WHERE id = :feedback_id";
+        $sql = "SELECT id, task_id, interview_round, company_name, interviewer_name, communication, technical, confidence, project_explanation, read_proper, area_of_improvements, strengths, recommendations, next_action, additional_feedback, custom_fields, recording_url, overall, created_at FROM task_feedback WHERE id = :feedback_id";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':feedback_id', $feedbackId, PDO::PARAM_INT);
         $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
+        return FeedbackModel::map($row ?: null);
     }
 
     private function buildFilters(array $query, array &$params): array {
