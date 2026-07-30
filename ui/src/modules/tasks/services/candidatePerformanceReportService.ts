@@ -37,6 +37,8 @@ export type CandidateDetailRow = {
 }
 
 export type CandidateFeedbackData = {
+  task_type?: string
+  visible_fields?: Record<string, unknown>
   interview_round?: string
   company_name?: string
   interviewer_name?: string
@@ -46,6 +48,11 @@ export type CandidateFeedbackData = {
   project_explanation?: number | string
   read_proper?: number | string
   area_of_improvements?: string
+  strengths?: string
+  recommendations?: string
+  next_action?: string
+  additional_feedback?: string
+  custom_fields?: Record<string, unknown> | null
   recording_url?: string
   overall?: number | string
 }
