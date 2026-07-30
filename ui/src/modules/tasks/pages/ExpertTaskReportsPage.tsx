@@ -31,6 +31,7 @@ const ExpertTaskReportsPage = () => {
   const [taskTypeCounts, setTaskTypeCounts] = useState<Record<string, number>>({})
   const [modalMode, setModalMode] = useState<'ADD' | 'VIEW'>('ADD')
   const [taskId, setTaskId] = useState<number | null>(null)
+  const [feedbackTaskType, setFeedbackTaskType] = useState('')
 
   const filteredItems = useMemo(() => items, [items])
 
@@ -102,12 +103,14 @@ const ExpertTaskReportsPage = () => {
             const row = items.find((item: any) => Number(item.id) === Number(id)) as any
             if (String(row?.status_name || '').trim().toLowerCase() !== 'completed' || row?.has_feedback) return
             setModalMode('ADD')
+            setFeedbackTaskType(String(row?.task_type ?? ''))
             setTaskId(id)
           }}
           onViewFeedback={(id: number) => {
             const row = items.find((item: any) => Number(item.id) === Number(id)) as any
             if (String(row?.status_name || '').trim().toLowerCase() !== 'completed' || !row?.has_feedback) return
             setModalMode('VIEW')
+            setFeedbackTaskType(String(row?.task_type ?? ''))
             setTaskId(id)
           }}
         />
@@ -119,7 +122,7 @@ const ExpertTaskReportsPage = () => {
           onPageChange={(p: number) => { if (p < 1 || p > pagination.total_pages) return; const payload = { ...filters, page: p }; setFilters(payload); void fetchRows(payload) }}
         />
       </div>
-      <FeedbackModal open={taskId !== null} mode={modalMode} taskId={taskId} onClose={() => setTaskId(null)} onSubmitted={() => void fetchRows()} />
+      <FeedbackModal open={taskId !== null} mode={modalMode} taskId={taskId} taskType={feedbackTaskType} onClose={() => setTaskId(null)} onSubmitted={() => void fetchRows()} />
     </PageContainer>
   )
 }
