@@ -15,6 +15,25 @@ class FeedbackRepository {
         return $row ?: null;
     }
 
+    public function getTaskContext(int $taskId, bool $forUpdate = false): ?array {
+        $sql = "
+            SELECT t.id AS task_id, COALESCE(ts.name, '') AS status_name, COALESCE(tt.name, '') AS task_type
+            FROM tasks t
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
+            WHERE t.id = ?
+            LIMIT 1
+        ";
+        if ($forUpdate) {
+            $sql .= ' FOR UPDATE';
+        }
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([$taskId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
     public function create(array $data): int {
         $data = $this->filterKnownColumns($data);
         $columns = array_keys($data);
