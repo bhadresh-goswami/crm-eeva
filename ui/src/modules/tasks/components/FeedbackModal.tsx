@@ -1,5 +1,14 @@
-import { useEffect, useState } from 'react'
-import { createFeedback, getFeedbackByTaskId, type FeedbackPayload } from '../api/feedbackApi'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import {
+  createFeedback,
+  FEEDBACK_SUBMITTED_EVENT,
+  getFeedbackByTaskId,
+  getFeedbackConfiguration,
+  type FeedbackFieldConfiguration,
+  type FeedbackPayload,
+  type FeedbackRecord,
+  type FeedbackValue,
+} from '../api/feedbackApi'
 
 type Mode = 'ADD' | 'VIEW'
 
@@ -7,35 +16,33 @@ type Props = {
   open: boolean
   mode: Mode
   taskId: number | null
+  taskType?: string
   onClose: () => void
   onSubmitted: () => void
 }
 
-const defaultForm: FeedbackPayload = {
-  task_id: 0,
-  company_name: '',
-  interviewer_name: '',
-  interview_round: '',
-  communication: 1,
-  technical: 1,
-  confidence: 1,
-  project_explanation: 1,
-  read_proper: 'No',
-  area_of_improvements: '',
-  recording_url: '',
-}
+const isPresent = (value: unknown) => value !== null && value !== undefined && String(value).trim() !== ''
 
-const FeedbackModal = ({ open, mode, taskId, onClose, onSubmitted }: Props) => {
-  const [form, setForm] = useState<FeedbackPayload>(defaultForm)
+const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted }: Props) => {
+  const [form, setForm] = useState<Record<string, FeedbackValue>>({})
+  const [configuration, setConfiguration] = useState<FeedbackFieldConfiguration>({})
+  const [resolvedTaskType, setResolvedTaskType] = useState(taskType)
+  const [overall, setOverall] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [validation, setValidation] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!open || !taskId) return
 
     setError(null)
+    setValidation({})
+    setOverall(null)
     if (mode === 'ADD') {
-      setForm({ ...defaultForm, task_id: taskId })
+      const nextType = taskType.trim()
+      setResolvedTaskType(nextType)
+      setConfiguration(getFeedbackConfiguration(nextType))
+      setForm({})
       return
     }
 
@@ -43,19 +50,21 @@ const FeedbackModal = ({ open, mode, taskId, onClose, onSubmitted }: Props) => {
       setLoading(true)
       try {
         const data = await getFeedbackByTaskId(taskId)
-        setForm({
-          task_id: taskId,
-          company_name: String(data?.company_name ?? ''),
-          interviewer_name: String(data?.interviewer_name ?? ''),
-          interview_round: String(data?.interview_round ?? ''),
-          communication: Number(data?.communication ?? 1),
-          technical: Number(data?.technical ?? 1),
-          confidence: Number(data?.confidence ?? 1),
-          project_explanation: Number(data?.project_explanation ?? 1),
-          read_proper: String(data?.read_proper ?? 'No') === 'Yes' ? 'Yes' : 'No',
-          area_of_improvements: String(data?.area_of_improvements ?? ''),
-          recording_url: String(data?.recording_url ?? ''),
+        const nextType = String(data?.task_type ?? taskType).trim()
+        const custom = data?.custom_fields && typeof data.custom_fields === 'object' && !Array.isArray(data.custom_fields)
+          ? data.custom_fields as FeedbackRecord
+          : {}
+        const fields = getFeedbackConfiguration(nextType, data?.visible_fields)
+        Object.keys(custom).forEach((name) => {
+          if (fields[name]) fields[name] = { ...fields[name], storage: 'custom' }
         })
+        setResolvedTaskType(nextType)
+        setConfiguration(fields)
+        setOverall(data?.overall ?? null)
+        setForm(Object.fromEntries(Object.keys(fields).map((name) => {
+          const value = fields[name].storage === 'custom' ? custom[name] : data?.[name]
+          return [name, (value ?? '') as FeedbackValue]
+        })))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to fetch feedback')
       } finally {
@@ -64,7 +73,14 @@ const FeedbackModal = ({ open, mode, taskId, onClose, onSubmitted }: Props) => {
     }
 
     void load()
-  }, [open, taskId, mode])
+  }, [open, taskId, mode, taskType])
+
+  const sections = useMemo(() => Object.entries(configuration).reduce<Record<string, Array<[string, FeedbackFieldConfiguration[string]]>>>((groups, entry) => {
+    const section = entry[1].section
+    if (!groups[section]) groups[section] = []
+    groups[section].push(entry)
+    return groups
+  }, {}), [configuration])
 
   if (!open || !taskId) return null
 
@@ -72,10 +88,37 @@ const FeedbackModal = ({ open, mode, taskId, onClose, onSubmitted }: Props) => {
 
   const onSubmit = async () => {
     if (readOnly) return
+    const errors: Record<string, string> = {}
+    Object.entries(configuration).forEach(([name, field]) => {
+      const value = form[name]
+      if (field.required && !isPresent(value)) errors[name] = `${field.label} is required`
+      if (isPresent(value) && field.type === 'rating') {
+        const score = Number(value)
+        if (!Number.isFinite(score)) errors[name] = `${field.label} must be numeric`
+        else if ((field.min !== undefined && score < field.min) || (field.max !== undefined && score > field.max)) {
+          errors[name] = `${field.label} must be between ${field.min ?? 1} and ${field.max ?? 5}`
+        }
+      }
+    })
+    setValidation(errors)
+    if (Object.keys(errors).length > 0) return
+
+    const payload: FeedbackPayload = { task_id: taskId }
+    const customFields: Record<string, FeedbackValue> = {}
+    Object.entries(configuration).forEach(([name, field]) => {
+      const value = form[name]
+      if (!isPresent(value)) return
+      const normalized = field.type === 'rating' ? Number(value) : value
+      if (field.storage === 'custom') customFields[name] = normalized
+      else payload[name] = normalized
+    })
+    if (Object.keys(customFields).length > 0) payload.custom_fields = customFields
+
     setLoading(true)
     setError(null)
     try {
-      await createFeedback({ ...form, task_id: taskId })
+      await createFeedback(payload)
+      window.dispatchEvent(new CustomEvent(FEEDBACK_SUBMITTED_EVENT, { detail: { taskId, taskType: resolvedTaskType } }))
       onSubmitted()
       onClose()
     } catch (e) {
@@ -85,36 +128,70 @@ const FeedbackModal = ({ open, mode, taskId, onClose, onSubmitted }: Props) => {
     }
   }
 
-  const update = <K extends keyof FeedbackPayload>(key: K, value: FeedbackPayload[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }))
+  const update = (key: string, value: FeedbackValue) => {
+    setForm((previous) => ({ ...previous, [key]: value }))
+    setValidation((previous) => {
+      if (!previous[key]) return previous
+      const next = { ...previous }
+      delete next[key]
+      return next
+    })
+  }
+
+  const renderField = (name: string, field: FeedbackFieldConfiguration[string]) => {
+    const value = form[name] ?? ''
+    const invalid = validation[name]
+    const common = {
+      id: `feedback-${name}`,
+      className: `form-control${invalid ? ' is-invalid' : ''}`,
+      value,
+      readOnly,
+      onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => update(name, event.target.value),
+    }
+
+    return <div className={field.type === 'rating' ? 'col-12 col-sm-6 col-lg-4' : 'col-12 col-md-6'} key={name}>
+      <label className="form-label fw-semibold" htmlFor={`feedback-${name}`}>
+        {field.label}{field.required && !readOnly ? <span className="text-danger ms-1">*</span> : null}
+      </label>
+      {field.type === 'select'
+        ? <select id={`feedback-${name}`} className={`form-select${invalid ? ' is-invalid' : ''}`} value={String(value)} disabled={readOnly} onChange={(event) => update(name, event.target.value)}>
+            <option value="">Select</option>{field.options?.map((option) => <option key={option}>{option}</option>)}
+          </select>
+        : field.type === 'rating'
+          ? <div className="input-group"><input {...common} type="number" min={field.min} max={field.max} step="1" /><span className="input-group-text text-muted">/ {field.max ?? 5}</span></div>
+          : ['area_of_improvements', 'strengths', 'recommendations', 'additional_feedback'].includes(name)
+            ? <textarea {...common} rows={3} />
+            : <input {...common} type={name === 'recording_url' ? 'url' : 'text'} />}
+      {invalid ? <div className="invalid-feedback d-block">{invalid}</div> : null}
+    </div>
   }
 
   return (
-    <div className="modal d-block" tabIndex={-1} role="dialog" style={{ background: 'rgba(0,0,0,0.45)' }}>
-      <div className="modal-dialog modal-lg modal-dialog-scrollable">
-        <div className="modal-content">
-          <div className="modal-header">
-            <h5 className="modal-title">{mode === 'ADD' ? 'Add Feedback' : 'View Feedback'}</h5>
-            <button type="button" className="btn-close" onClick={onClose} />
+    <div className="modal d-block" tabIndex={-1} role="dialog" aria-modal="true" style={{ background: 'rgba(15, 23, 42, 0.55)' }}>
+      <div className="modal-dialog modal-xl modal-dialog-scrollable">
+        <div className="modal-content border-0 shadow-lg">
+          <div className="modal-header bg-light">
+            <div><h5 className="modal-title mb-1">{mode === 'ADD' ? 'Add Feedback' : 'View Feedback'}</h5><span className="badge text-bg-primary">{resolvedTaskType || 'Feedback'}</span></div>
+            {readOnly && isPresent(overall) ? <div className="ms-auto me-3 text-end"><small className="text-muted d-block">Overall Score</small><strong className="fs-4 text-primary">{String(overall)}</strong></div> : null}
+            <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
           </div>
-          <div className="modal-body">
+          <div className="modal-body bg-body-tertiary">
             {error ? <div className="alert alert-danger py-2">{error}</div> : null}
-            <div className="row g-3">
-              <div className="col-md-6"><label className="form-label">Company Name</label><input className="form-control" value={form.company_name} onChange={(e) => update('company_name', e.target.value)} readOnly={readOnly} /></div>
-              <div className="col-md-6"><label className="form-label">Interviewer Name</label><input className="form-control" value={form.interviewer_name} onChange={(e) => update('interviewer_name', e.target.value)} readOnly={readOnly} /></div>
-              <div className="col-md-6"><label className="form-label">Interview Round</label><input className="form-control" value={form.interview_round} onChange={(e) => update('interview_round', e.target.value)} readOnly={readOnly} /></div>
-              <div className="col-md-3"><label className="form-label">Communication</label><input type="number" min={1} max={5} className="form-control" value={form.communication} onChange={(e) => update('communication', Math.max(1, Math.min(5, Number(e.target.value) || 1)))} readOnly={readOnly} /></div>
-              <div className="col-md-3"><label className="form-label">Technical</label><input type="number" min={1} max={5} className="form-control" value={form.technical} onChange={(e) => update('technical', Math.max(1, Math.min(5, Number(e.target.value) || 1)))} readOnly={readOnly} /></div>
-              <div className="col-md-3"><label className="form-label">Confidence</label><input type="number" min={1} max={5} className="form-control" value={form.confidence} onChange={(e) => update('confidence', Math.max(1, Math.min(5, Number(e.target.value) || 1)))} readOnly={readOnly} /></div>
-              <div className="col-md-3"><label className="form-label">Project Explanation</label><input type="number" min={1} max={5} className="form-control" value={form.project_explanation} onChange={(e) => update('project_explanation', Math.max(1, Math.min(5, Number(e.target.value) || 1)))} readOnly={readOnly} /></div>
-              <div className="col-md-4"><label className="form-label">Read Proper</label><select className="form-select" value={form.read_proper} onChange={(e) => update('read_proper', e.target.value)} disabled={readOnly}><option>Yes</option><option>No</option></select></div>
-              <div className="col-md-8"><label className="form-label">Recording URL</label><input className="form-control" value={form.recording_url} onChange={(e) => update('recording_url', e.target.value)} readOnly={readOnly} /></div>
-              <div className="col-12"><label className="form-label">Area of Improvements</label><textarea className="form-control" rows={3} value={form.area_of_improvements} onChange={(e) => update('area_of_improvements', e.target.value)} readOnly={readOnly} /></div>
+            {loading && Object.keys(configuration).length === 0 ? <div className="text-center py-5"><div className="spinner-border text-primary" /><p className="text-muted mt-2 mb-0">Loading feedback…</p></div> : null}
+            {!loading && Object.keys(configuration).length === 0 ? <div className="alert alert-warning mb-0">Feedback configuration is unavailable for this task type.</div> : null}
+            <div className="d-flex flex-column gap-3">
+              {Object.entries(sections).map(([section, fields]) => {
+                const visibleFields = readOnly ? fields.filter(([name]) => isPresent(form[name])) : fields
+                if (visibleFields.length === 0) return null
+                return <section className="card border-0 shadow-sm" key={section}>
+                  <div className="card-body"><h6 className="text-primary border-bottom pb-2 mb-3">{section}</h6><div className="row g-3">{visibleFields.map(([name, field]) => renderField(name, field))}</div></div>
+                </section>
+              })}
             </div>
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Close</button>
-            {!readOnly ? <button type="button" className="btn btn-primary" onClick={() => void onSubmit()} disabled={loading}>{loading ? 'Saving...' : 'Submit'}</button> : null}
+          <div className="modal-footer bg-white">
+            <button type="button" className="btn btn-outline-secondary" onClick={onClose}>Close</button>
+            {!readOnly ? <button type="button" className="btn btn-primary px-4" onClick={() => void onSubmit()} disabled={loading || Object.keys(configuration).length === 0}>{loading ? 'Saving…' : 'Submit Feedback'}</button> : null}
           </div>
         </div>
       </div>

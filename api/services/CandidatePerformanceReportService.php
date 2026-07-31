@@ -1,5 +1,9 @@
 <?php
 
+require_once dirname(__DIR__) . '/models/FeedbackModel.php';
+require_once dirname(__DIR__) . '/repositories/FeedbackRepository.php';
+require_once dirname(__DIR__) . '/services/FeedbackService.php';
+
 class CandidatePerformanceReportService {
     public function __construct(private PDO $conn) {}
 
@@ -91,12 +95,10 @@ class CandidatePerformanceReportService {
     }
 
     public function getFeedback(int $feedbackId): ?array {
-        $sql = "SELECT id, task_id, interview_round, company_name, interviewer_name, communication, technical, confidence, project_explanation, read_proper, area_of_improvements, recording_url, overall, created_at FROM task_feedback WHERE id = :feedback_id";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bindValue(':feedback_id', $feedbackId, PDO::PARAM_INT);
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
+        $repository = new FeedbackRepository($this->conn);
+        $feedback = $repository->getDetail($feedbackId);
+
+        return $feedback === null ? null : (new FeedbackService($repository))->formatFeedback($feedback);
     }
 
     private function buildFilters(array $query, array &$params): array {

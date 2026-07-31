@@ -361,7 +361,8 @@ elseif ($uri === "/expert/tasks/end" && $method === "POST") {
 elseif ($uri === "/feedback" && $method === "POST") {
     authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
     $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
-    (new FeedbackController())->create($actorUserId);
+    $actorRole = is_array($user) ? (string)($user['role'] ?? '') : (string)($user->role ?? '');
+    (new FeedbackController())->create($actorUserId, $actorRole);
 }
 elseif ($uri === "/feedback" && $method === "GET") {
     authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
@@ -371,7 +372,9 @@ elseif ($uri === "/feedback" && $method === "GET") {
 }
 elseif (preg_match('#^/feedback/(\d+)$#', $uri, $matches) === 1 && $method === "GET") {
     authorize($user,['admin','manager','coordinator','expert','technical expert','expertlead','technical lead']);
-    (new FeedbackController())->viewByTaskId((int)$matches[1]);
+    $actorUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
+    $actorRole = is_array($user) ? (string)($user['role'] ?? '') : (string)($user->role ?? '');
+    (new FeedbackController())->viewByTaskId((int)$matches[1], $actorUserId, $actorRole);
 }
 elseif ($uri === "/expert/send-daily-report" && $method === "POST") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
