@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import {
   createFeedback,
+  FEEDBACK_SUBMITTED_EVENT,
   getFeedbackByTaskId,
   getFeedbackConfiguration,
   type FeedbackFieldConfiguration,
@@ -117,6 +118,7 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
     setError(null)
     try {
       await createFeedback(payload)
+      window.dispatchEvent(new CustomEvent(FEEDBACK_SUBMITTED_EVENT, { detail: { taskId, taskType: resolvedTaskType } }))
       onSubmitted()
       onClose()
     } catch (e) {

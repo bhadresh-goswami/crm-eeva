@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import { getManagerReportList, type ManagerReportFilters } from '../api/tasksApi'
+import { FEEDBACK_SUBMITTED_EVENT } from '../api/feedbackApi'
 
 export type PendingFeedbackSummaryItem = { expertName: string; count: number }
 
@@ -53,9 +54,11 @@ export const usePendingFeedbackSummary = (filters: ManagerReportFilters = {}) =>
     }
 
     void loadSummary()
+    window.addEventListener(FEEDBACK_SUBMITTED_EVENT, loadSummary)
 
     return () => {
       cancelled = true
+      window.removeEventListener(FEEDBACK_SUBMITTED_EVENT, loadSummary)
     }
   }, [filters.candidate_id, filters.client_id, filters.expert_id, filters.from_date, filters.task_type_id, filters.to_date, showToast])
 

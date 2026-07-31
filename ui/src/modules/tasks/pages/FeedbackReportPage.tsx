@@ -3,6 +3,7 @@ import PageContainer from '../../../shared/components/PageContainer'
 import ExpertWorkspaceHeader from '../../../shared/components/ExpertWorkspaceHeader'
 import { useAuth } from '../../../context/AuthContext'
 import { getAllFeedback } from '../api/feedbackApi'
+import FeedbackModal from '../components/FeedbackModal'
 
 type Row = Record<string, unknown>
 
@@ -14,6 +15,7 @@ const FeedbackReportPage = () => {
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [selected, setSelected] = useState<Row | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -40,15 +42,16 @@ const FeedbackReportPage = () => {
       <div className="card shadow-sm"><div className="card-body">
         <div className="mb-3"><input className="form-control" placeholder="Filter by candidate/company" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
         <div className="table-responsive"><table className="table table-bordered table-hover table-sm align-middle">
-          <thead className="table-light"><tr><th>Task</th><th>Date</th><th>Candidate</th><th>Task Type</th><th>Company</th><th>Interviewer</th><th>Overall</th><th>Assigned To</th><th>Status</th></tr></thead>
+          <thead className="table-light"><tr><th>Task</th><th>Date</th><th>Candidate</th><th>Task Type</th><th>Company</th><th>Interviewer</th><th>Overall</th><th>Assigned To</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={9}>Loading...</td></tr> : filtered.length === 0 ? <tr><td colSpan={9} className="text-center text-muted">No feedback data.</td></tr> : paginated.map((r) => (
-              <tr key={String(r.id ?? Math.random())}><td>{String(r.task_id ?? '--')}</td><td>{String(r.due_date ?? '--')}</td><td>{String(r.candidate_name ?? '--')}</td><td>{String(r.task_type ?? '--')}</td><td>{String(r.company_name ?? '--')}</td><td>{String(r.interviewer_name ?? '--')}</td><td>{String(r.overall ?? '--')}</td><td>{String(r.assigned_to_name ?? '--')}</td><td>{String(r.task_status ?? '--')}</td></tr>
+            {loading ? <tr><td colSpan={10}>Loading...</td></tr> : filtered.length === 0 ? <tr><td colSpan={10} className="text-center text-muted">No feedback data.</td></tr> : paginated.map((r) => (
+              <tr key={String(r.id ?? r.task_id)}><td>{String(r.task_id ?? '--')}</td><td>{String(r.due_date ?? '--')}</td><td>{String(r.candidate_name ?? '--')}</td><td>{String(r.task_type ?? '--')}</td><td>{String(r.company_name ?? '--')}</td><td>{String(r.interviewer_name ?? '--')}</td><td>{String(r.overall ?? '--')}</td><td>{String(r.assigned_to_name ?? '--')}</td><td>{String(r.task_status ?? '--')}</td><td><button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setSelected(r)}>View</button></td></tr>
             ))}
           </tbody>
         </table></div>
         <div className="d-flex justify-content-end gap-2"><button className="btn btn-sm btn-outline-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</button><button className="btn btn-sm btn-outline-secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</button></div>
       </div></div>
+      <FeedbackModal open={selected !== null} mode="VIEW" taskId={selected ? Number(selected.task_id) : null} taskType={String(selected?.task_type ?? '')} onClose={() => setSelected(null)} onSubmitted={() => undefined} />
     </PageContainer>
   )
 }

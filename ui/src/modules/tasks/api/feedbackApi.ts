@@ -22,6 +22,7 @@ export type FeedbackFieldDefinition = {
 }
 
 export type FeedbackFieldConfiguration = Record<string, FeedbackFieldDefinition>
+export const FEEDBACK_SUBMITTED_EVENT = 'feedback:submitted'
 
 const additionalFields: FeedbackFieldConfiguration = {
   area_of_improvements: { label: 'Area of Improvements', type: 'text', section: 'Additional Feedback' },
