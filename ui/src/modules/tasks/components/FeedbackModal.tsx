@@ -23,6 +23,7 @@ import {
   type FeedbackRecord,
   type FeedbackValue,
 } from '../api/feedbackApi'
+import { FeedbackDetailsContent } from './FeedbackDetailModal'
 import './FeedbackModal.css'
 
 type Mode = 'ADD' | 'VIEW'
@@ -80,6 +81,7 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
   const [error, setError] = useState<string | null>(null)
   const [validation, setValidation] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
+  const [detailRecord, setDetailRecord] = useState<FeedbackRecord>({})
 
   useEffect(() => {
     if (!open || !taskId) return
@@ -88,6 +90,7 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
     setValidation({})
     setOverall(null)
     setSubmitted(false)
+    setDetailRecord({})
     if (mode === 'ADD') {
       const nextType = taskType.trim()
       setResolvedTaskType(nextType)
@@ -109,6 +112,7 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
           if (fields[name]) fields[name] = { ...fields[name], storage: 'custom' }
         })
         setResolvedTaskType(nextType)
+        setDetailRecord(data ?? {})
         setConfiguration(fields)
         setOverall(data?.overall ?? null)
         setForm(Object.fromEntries(Object.keys(fields).map((name) => {
@@ -272,7 +276,6 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
         <div className="modal-content border-0 shadow-lg">
           <div className="modal-header feedback-modal-header">
             <div><span className="feedback-eyebrow">Performance evaluation</span><h5 className="modal-title mb-1" id="feedback-modal-title">{mode === 'ADD' ? 'Candidate Feedback' : 'Feedback Review'}</h5><p className="text-muted mb-0">{mode === 'ADD' ? 'Your thoughtful evaluation helps every candidate grow.' : 'A structured view of the completed evaluation.'}</p></div>
-            {readOnly && isPresent(overall) ? <div className="ms-auto me-3 text-end"><small className="text-muted d-block">Overall Score</small><strong className="fs-4 text-primary">{String(overall)}</strong></div> : null}
             <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
           </div>
           {!readOnly && !submitted ? <div className="feedback-progress-wrap">
@@ -284,7 +287,8 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
             {submitted ? <div className="feedback-success" role="status"><div className="feedback-success-icon"><FiCheck aria-hidden="true" /></div><span className="feedback-eyebrow">Evaluation complete</span><h3>Feedback Submitted Successfully</h3><p>Thank you! Your thoughtful evaluation will help improve candidate success.</p><button type="button" className="btn btn-primary px-4" onClick={onClose}>Done</button></div> : null}
             {loading && Object.keys(configuration).length === 0 ? <div className="text-center py-5"><div className="spinner-border text-primary" /><p className="text-muted mt-2 mb-0">Loading feedback…</p></div> : null}
             {!submitted && !loading && Object.keys(configuration).length === 0 ? <div className="alert alert-warning mb-0">Feedback configuration is unavailable for this task type.</div> : null}
-            {!submitted ? <div className="row g-4">
+            {!submitted && readOnly && !loading ? <FeedbackDetailsContent data={{ ...detailRecord, ...form, task_type: resolvedTaskType, overall }} /> : null}
+            {!submitted && !readOnly ? <div className="row g-4">
             <div className={readOnly ? 'col-12' : 'col-12 col-lg-8'}><div className="d-flex flex-column gap-3">
               {Object.entries(sections).map(([section, fields]) => {
                 const visibleFields = readOnly ? fields.filter(([name]) => isPresent(form[name])) : fields
@@ -296,7 +300,7 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
                 </section>
               })}
             </div></div>
-            {!readOnly ? <aside className="col-12 col-lg-4"><div className="feedback-summary">
+            <aside className="col-12 col-lg-4"><div className="feedback-summary">
               <div className="d-flex align-items-center justify-content-between"><div><span className="feedback-eyebrow">Live summary</span><h6 className="mb-0">Evaluation snapshot</h6></div><span className="feedback-save-status"><FiCheckCircle /> Draft ready</span></div>
               <div className={`feedback-score feedback-score-${scoreTone}`} style={{ '--score': `${liveScore ?? 0}%` } as CSSProperties}><div><strong>{liveScore ?? '—'}{liveScore === null ? '' : '%'}</strong><span>Overall</span></div></div>
               <p className="feedback-score-message">{scoreMessage}</p>
@@ -306,7 +310,7 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
               })}</div>
               {isPresent(form.next_action) ? <div className="feedback-summary-recommendation"><span>Recommended next action</span><strong>{String(form.next_action)}</strong></div> : null}
               <div className="feedback-summary-note"><FiInfo /><span>Review your ratings and recommendations before submitting.</span></div>
-            </div></aside> : null}
+            </div></aside>
             </div> : null}
           </div>
           {!submitted ? <div className="modal-footer feedback-modal-footer">
