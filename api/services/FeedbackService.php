@@ -39,6 +39,7 @@ class FeedbackService {
                 'label' => $definition['label'],
                 'type' => $definition['type'],
                 'required' => (bool)($definition['required'] ?? false),
+                'storage' => $definition['storage'] ?? 'column',
             ];
             if (isset($definition['min'], $definition['max'])) {
                 $visibleDefinitions[$name]['min'] = $definition['min'];
@@ -233,6 +234,14 @@ class FeedbackService {
     }
 
     private function normalizeTaskType(string $taskType): string {
-        return strtolower(trim($taskType));
+        $normalized = strtolower(trim(preg_replace('/\s+/', ' ', $taskType) ?? $taskType));
+        $aliases = [
+            'interview support - google doc' => 'interview support',
+            'free counseling' => 'free counselling',
+            'free counseling call' => 'free counselling',
+            'training' => 'training session',
+        ];
+
+        return $aliases[$normalized] ?? $normalized;
     }
 }

@@ -45,7 +45,7 @@ class FeedbackController {
         ");
         $updateStmt->execute([$completedStatusId, $completionTime, $completionTime, $taskId]);
     }
-    public function create($createdByUserId = null): void {
+    public function create($createdByUserId = null, string $role = ''): void {
         $data = json_decode(file_get_contents("php://input"), true);
         $data = is_array($data) ? $data : [];
         $taskId = (int)($data['task_id'] ?? 0);
@@ -74,6 +74,13 @@ class FeedbackController {
                     'success' => false,
                     'message' => 'Task not found'
                 ]);
+                return;
+            }
+
+            if (FeedbackRepository::isExpertRole($role) && (int)($taskContext['active_assignee_id'] ?? 0) !== (int)$createdByUserId) {
+                $conn->rollBack();
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'You are not assigned to this task']);
                 return;
             }
 
@@ -147,7 +154,7 @@ class FeedbackController {
         }
     }
 
-    public function viewByTaskId(int $taskId): void {
+    public function viewByTaskId(int $taskId, $requestUserId = null, string $role = ''): void {
         if ($taskId <= 0) {
             http_response_code(422);
             echo json_encode([
@@ -163,7 +170,7 @@ class FeedbackController {
         try {
             $repository = new FeedbackRepository($conn);
             $service = new FeedbackService($repository);
-            $feedback = $repository->getByTask($taskId);
+            $feedback = $repository->getByTask($taskId, $requestUserId === null ? null : (int)$requestUserId, $role);
 
             if (!$feedback) {
                 http_response_code(404);
@@ -222,4 +229,5 @@ class FeedbackController {
             ]);
         }
     }
+
 }

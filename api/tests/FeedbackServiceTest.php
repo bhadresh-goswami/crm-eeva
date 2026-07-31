@@ -10,6 +10,8 @@ function assertSameValue($expected, $actual, string $message): void {
 
 $repository = (new ReflectionClass(FeedbackRepository::class))->newInstanceWithoutConstructor();
 $service = new FeedbackService($repository);
+assertSameValue(true, FeedbackRepository::isExpertRole('Technical Expert'), 'Technical Expert is assignment-scoped');
+assertSameValue(false, FeedbackRepository::isExpertRole('manager'), 'Manager retains broader feedback access');
 
 $cases = [
     'Interview Support' => [
@@ -62,6 +64,22 @@ foreach ($cases as $taskType => $case) {
         assertSameValue(false, array_key_exists($case['ignored_custom'], $storedCustom), "{$taskType} ignores hidden custom field");
     }
 }
+
+$taskTypeAliases = [
+    'Interview Support - Google Doc' => 'Interview Support',
+    'Free Counseling Call' => 'Free Counselling',
+    'Training' => 'Training Session',
+];
+foreach ($taskTypeAliases as $databaseName => $canonicalName) {
+    assertSameValue($canonicalName, $service->configurationFor($databaseName)['name'], "{$databaseName} resolves to canonical configuration");
+}
+
+$formattedJdc = $service->formatFeedback([
+    'task_type' => 'JDC',
+    'custom_fields' => ['jd_understanding' => 5, 'role_alignment' => 4],
+    'overall' => 4.5,
+]);
+assertSameValue('custom', $formattedJdc['visible_fields']['jd_understanding']['storage'], 'Response metadata identifies custom storage');
 
 $legacyWithHiddenInvalidJson = $service->prepareCreate([
     'company_name' => 'Example Inc', 'interviewer_name' => 'Expert',

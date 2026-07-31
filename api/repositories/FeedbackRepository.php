@@ -17,7 +17,17 @@ class FeedbackRepository {
 
     public function getTaskContext(int $taskId, bool $forUpdate = false): ?array {
         $sql = "
-            SELECT t.id AS task_id, COALESCE(ts.name, '') AS status_name, COALESCE(tt.name, '') AS task_type
+            SELECT
+                t.id AS task_id,
+                COALESCE(ts.name, '') AS status_name,
+                COALESCE(tt.name, '') AS task_type,
+                (
+                    SELECT ta.user_id
+                    FROM task_assignments ta
+                    WHERE ta.task_id = t.id AND ta.is_active = 1
+                    ORDER BY ta.id DESC
+                    LIMIT 1
+                ) AS active_assignee_id
             FROM tasks t
             LEFT JOIN task_status_master ts ON ts.id = t.status_id
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
@@ -86,16 +96,25 @@ class FeedbackRepository {
         return $value === false ? null : (string)$value;
     }
 
-    public function getByTask(int $taskId): ?array {
-        $stmt = $this->conn->prepare("
+    public function getByTask(int $taskId, ?int $requestUserId = null, string $role = ''): ?array {
+        $sql = "
             SELECT tf.*, COALESCE(tt.name, '') AS task_type
             FROM task_feedback tf
             LEFT JOIN tasks t ON t.id = tf.task_id
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
             WHERE tf.task_id = ?
-            LIMIT 1
-        ");
-        $stmt->execute([$taskId]);
+        ";
+        $params = [$taskId];
+        if (self::isExpertRole($role)) {
+            $sql .= ' AND EXISTS (
+                SELECT 1 FROM task_assignments ta
+                WHERE ta.task_id = t.id AND ta.user_id = ? AND ta.is_active = 1
+            )';
+            $params[] = (int)$requestUserId;
+        }
+        $sql .= ' LIMIT 1';
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return FeedbackModel::map($row ?: null);
@@ -135,7 +154,7 @@ class FeedbackRepository {
             WHERE LOWER(COALESCE(ts.name, '')) = 'completed'
         ";
         $params = [];
-        if (in_array(strtolower($role), ['expert', 'technical expert', 'expertlead', 'technical lead'], true)) {
+        if (self::isExpertRole($role)) {
             $sql .= ' AND ta.user_id = ?';
             $params[] = (int)$requestUserId;
         }
@@ -153,6 +172,10 @@ class FeedbackRepository {
             fn ($value, string $column): bool => in_array($column, $this->columns(), true),
             ARRAY_FILTER_USE_BOTH
         );
+    }
+
+    public static function isExpertRole(string $role): bool {
+        return in_array(strtolower($role), ['expert', 'technical expert', 'expertlead', 'technical lead'], true);
     }
 
     private function columns(): array {
