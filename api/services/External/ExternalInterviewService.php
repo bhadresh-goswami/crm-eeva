@@ -1,4 +1,6 @@
 <?php
+require_once dirname(__DIR__, 2) . '/models/FeedbackModel.php';
+
 class ExternalInterviewService {
     private const TASK_COLUMNS = [
         'client_id', 'candidate_id', 'poc_id', 'task_type_id', 'status_id',
@@ -227,7 +229,10 @@ class ExternalInterviewService {
             ],
             'current_status' => $row['status_name'],
             'comments' => $this->children('SELECT comment, created_at FROM task_comments WHERE task_id = ? ORDER BY id ASC', (int)$row['id']),
-            'feedback' => $this->children('SELECT interview_round, company_name, interviewer_name, communication, technical, confidence, project_explanation, read_proper, area_of_improvements, recording_url, overall, created_at, updated_at FROM task_feedback WHERE task_id = ? ORDER BY id ASC', (int)$row['id']),
+            'feedback' => array_map(
+                static fn (array $feedback): array => FeedbackModel::map($feedback),
+                $this->children('SELECT interview_round, company_name, interviewer_name, communication, technical, confidence, project_explanation, read_proper, area_of_improvements, strengths, recommendations, next_action, additional_feedback, custom_fields, recording_url, overall, created_at, updated_at FROM task_feedback WHERE task_id = ? ORDER BY id ASC', (int)$row['id'])
+            ),
             'result' => $row['status_name'],
         ];
     }
