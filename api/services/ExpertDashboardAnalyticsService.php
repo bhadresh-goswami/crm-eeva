@@ -39,12 +39,20 @@ class ExpertDashboardAnalyticsService {
                 COUNT(DISTINCT CASE
                     WHEN LOWER(tsm.name) = 'rejected'
                     THEN t.id
-                END) AS rejected_count
+                END) AS rejected_count,
+                COUNT(DISTINCT CASE
+                    WHEN LOWER(tsm.name) = 'completed'
+                     AND tf.id IS NULL
+                     AND LOWER(TRIM(tt.name)) IN ('interview support', 'interview support - google doc', 'otter support', 'jdc', 'ruc', 'resume + ruc', 'tac', 'mock', 'free counselling', 'free counseling', 'free counseling call', 'training', 'training session')
+                    THEN t.id
+                END) AS pending_feedback_count
             FROM task_assignments ta
             INNER JOIN tasks t
                 ON t.id = ta.task_id
             INNER JOIN task_status_master tsm
                 ON tsm.id = t.status_id
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
+            LEFT JOIN task_feedback tf ON tf.task_id = t.id
             WHERE ta.user_id = :user_id
               AND ta.is_active = 1
               AND DATE(t.created_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
@@ -78,7 +86,7 @@ class ExpertDashboardAnalyticsService {
         $currentCounts = $this->fetchStatusCountsForPeriod($periodQuery, $userId, $currentStart, $currentEnd);
         $previousCounts = $this->fetchStatusCountsForPeriod($periodQuery, $userId, $previousStart, $previousEnd);
 
-        $statuses = ['assigned', 'completed', 'success', 'rejected'];
+        $statuses = ['assigned', 'completed', 'success', 'rejected', 'pending_feedback'];
         $result = [];
 
         foreach ($statuses as $status) {
