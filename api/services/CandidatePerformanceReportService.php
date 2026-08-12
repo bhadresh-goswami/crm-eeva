@@ -3,6 +3,7 @@
 require_once dirname(__DIR__) . '/models/FeedbackModel.php';
 require_once dirname(__DIR__) . '/repositories/FeedbackRepository.php';
 require_once dirname(__DIR__) . '/services/FeedbackService.php';
+require_once dirname(__DIR__) . '/services/FeedbackEligibility.php';
 
 class CandidatePerformanceReportService {
     public function __construct(private PDO $conn) {}
@@ -15,6 +16,7 @@ class CandidatePerformanceReportService {
 
         $params = [];
         $where = $this->buildFilters($query, $params);
+        $where[] = FeedbackEligibility::sql('tt.name', 'tsm.name');
         if ($search !== '') {
             $where[] = '(c.name LIKE :search OR cl.company_name LIKE :search)';
             $params[':search'] = '%' . $search . '%';
@@ -26,6 +28,7 @@ class CandidatePerformanceReportService {
             LEFT JOIN candidates c ON c.id = t.candidate_id
             LEFT JOIN clients cl ON cl.id = t.client_id
             LEFT JOIN task_status_master tsm ON tsm.id = t.status_id
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN task_feedback tf ON tf.task_id = t.id
             WHERE {$whereSql}";
 
@@ -87,6 +90,7 @@ class CandidatePerformanceReportService {
         LEFT JOIN task_status_master tsm ON tsm.id = t.status_id
         LEFT JOIN task_feedback tf ON tf.task_id = t.id
         WHERE t.candidate_id = :candidate_id
+          AND " . FeedbackEligibility::sql('tt.name', 'tsm.name') . "
         ORDER BY t.created_at DESC";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':candidate_id', $candidateId, PDO::PARAM_INT);

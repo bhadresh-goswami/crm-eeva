@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . '/services/FeedbackService.php';
+require_once dirname(__DIR__) . '/services/FeedbackEligibility.php';
 
 function assertSameValue($expected, $actual, string $message): void {
     if ($expected !== $actual) {
@@ -67,12 +68,28 @@ foreach ($cases as $taskType => $case) {
 
 $taskTypeAliases = [
     'Interview Support - Google Doc' => 'Interview Support',
+    'Otter Support' => 'Interview Support',
+    'Resume + RUC' => 'RUC',
     'Free Counseling Call' => 'Free Counselling',
     'Training' => 'Training Session',
 ];
 foreach ($taskTypeAliases as $databaseName => $canonicalName) {
     assertSameValue($canonicalName, $service->configurationFor($databaseName)['name'], "{$databaseName} resolves to canonical configuration");
 }
+
+assertSameValue(true, FeedbackEligibility::isEligible('Mock', 'Completed'), 'Completed Mock tasks require feedback');
+assertSameValue(false, FeedbackEligibility::isEligible('Demo', 'Completed'), 'Demo tasks do not require feedback');
+assertSameValue(false, FeedbackEligibility::isEligible('RUC', 'Cancelled'), 'Cancelled tasks do not require feedback');
+
+$mockConfiguration = $service->configurationFor('Mock');
+$mockInput = ['overall_recommendation' => 'Needs Practice', 'recommended_topics' => ['Communication', 'Mock Practice']];
+foreach ($mockConfiguration['overall_fields'] as $field) {
+    $mockInput[$field] = 4;
+}
+$preparedMock = $service->prepareCreate(['custom_fields' => $mockInput], 'Mock');
+assertSameValue(4.0, $preparedMock['overall'], 'Mock overall uses every readiness rating');
+$storedMock = json_decode((string)$preparedMock['custom_fields'], true);
+assertSameValue(['Communication', 'Mock Practice'], $storedMock['recommended_topics'], 'Mock recommended topics retain multiple selections');
 
 $formattedJdc = $service->formatFeedback([
     'task_type' => 'JDC',
