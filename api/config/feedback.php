@@ -18,6 +18,8 @@ $rating = static fn (string $label, string $storage = 'column'): array => [
     'max' => 5,
 ];
 
+$mockRating = static fn (string $label): array => $rating($label, 'custom');
+
 return [
     'interview support' => [
         'name' => 'Interview Support',
@@ -76,5 +78,35 @@ return [
             'assignment_completion' => $rating('Assignment Completion', 'custom'),
         ] + $additionalFields,
         'overall_fields' => ['participation', 'assignment_completion'],
+    ],
+    'mock' => [
+        'name' => 'Mock',
+        'fields' => [
+            'overall_interview_readiness' => $mockRating('Overall Interview Readiness'),
+            'confidence_level' => $mockRating('Confidence Level'),
+            'communication' => $mockRating('Communication'),
+            'professional_introduction' => $mockRating('Professional Introduction'),
+            'resume_explanation' => $mockRating('Resume Explanation'),
+            'technical_knowledge' => $mockRating('Technical Knowledge'),
+            'problem_solving' => $mockRating('Problem Solving'),
+            'behavioral_questions' => $mockRating('Behavioral Questions'),
+            'situation_based_answers' => $mockRating('Situation Based Answers'),
+            'system_design_architecture' => $mockRating('System Design / Architecture'),
+            'coding_skills' => $mockRating('Coding Skills'),
+            'debugging_approach' => $mockRating('Debugging Approach'),
+            'time_management' => $mockRating('Time Management'),
+            'listening_skills' => $mockRating('Listening Skills'),
+            'english_fluency' => $mockRating('English Fluency'),
+            'body_language' => $mockRating('Body Language'),
+            'professionalism' => $mockRating('Professionalism'),
+            'overall_recommendation' => ['label' => 'Overall Recommendation', 'type' => 'select', 'storage' => 'custom', 'required' => true, 'options' => ['Ready for Interview', 'Needs Practice', 'Needs More Preparation', 'Not Ready']],
+            'strengths' => ['label' => 'Strengths', 'type' => 'textarea', 'storage' => 'column'],
+            'weaknesses' => ['label' => 'Weaknesses', 'type' => 'textarea', 'storage' => 'custom'],
+            'improvement_suggestions' => ['label' => 'Improvement Suggestions', 'type' => 'textarea', 'storage' => 'custom'],
+            'recommended_topics' => ['label' => 'Recommended Topics', 'type' => 'multiselect', 'storage' => 'custom', 'options' => ['Communication', 'Java', 'React', 'AWS', 'SQL', 'Behavioral', 'System Design', 'Leadership', 'Problem Solving', 'Confidence Building', 'Mock Practice']],
+            'overall_expert_notes' => ['label' => 'Overall Expert Notes', 'type' => 'textarea', 'storage' => 'custom'],
+            'candidate_action_plan' => ['label' => 'Candidate Action Plan', 'type' => 'textarea', 'storage' => 'custom'],
+        ],
+        'overall_fields' => ['overall_interview_readiness', 'confidence_level', 'communication', 'professional_introduction', 'resume_explanation', 'technical_knowledge', 'problem_solving', 'behavioral_questions', 'situation_based_answers', 'system_design_architecture', 'coding_skills', 'debugging_approach', 'time_management', 'listening_skills', 'english_fluency', 'body_language', 'professionalism'],
     ],
 ];
