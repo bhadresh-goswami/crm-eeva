@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import ExpertTaskTable from '../components/ExpertTaskTable'
+import ExpertGroupedTaskBoard from '../components/ExpertGroupedTaskBoard'
 import { getExpertTasks, sendDailyReportNow, type ExpertTaskItem } from '../api/expertTasksApi'
 import { useAuth } from '../../../context/AuthContext'
 import { useAlert } from '../../../shared/alerts/useAlert'
@@ -12,7 +12,6 @@ const ExpertTasksPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sendingReport, setSendingReport] = useState(false)
-  const [dateRangeFilter, setDateRangeFilter] = useState<'7' | '10' | 'all'>('7')
 
   const loadTasks = async () => {
     setLoading(true)
@@ -40,14 +39,16 @@ const ExpertTasksPage = () => {
   }, [])
 
   return (
-    <section style={{ display: 'grid', gap: '1rem' }}>
+    <section className="expert-tasks-page">
       <ExpertWorkspaceHeader title="Tasks" />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
-        <button
-          className="button button--primary"
-          type="button"
-          disabled={sendingReport}
-          onClick={async () => {
+      <ExpertGroupedTaskBoard
+        tasks={tasks}
+        loading={loading}
+        error={error}
+        currentUserId={Number(user?.id ?? 0)}
+        onTaskUpdated={loadTasks}
+        sendingReport={sendingReport}
+        onSendReport={async () => {
             try {
               setSendingReport(true)
               const response = await sendDailyReportNow()
@@ -67,20 +68,7 @@ const ExpertTasksPage = () => {
             } finally {
               setSendingReport(false)
             }
-          }}
-        >
-          {sendingReport ? 'Sending...' : 'Send Report Now'}
-        </button>
-      </div>
-      <ExpertTaskTable
-        tasks={tasks}
-        loading={loading}
-        error={error}
-        emptyText="No active tasks available"
-        currentUserId={Number(user?.id ?? 0)}
-        onTaskUpdated={loadTasks}
-        dateRangeFilter={dateRangeFilter}
-        onDateRangeFilterChange={setDateRangeFilter}
+        }}
       />
     </section>
   )
