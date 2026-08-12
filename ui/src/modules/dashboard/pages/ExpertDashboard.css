@@ -20,9 +20,6 @@ body:has(.expert-dashboard) .page-container,
   min-width: 0;
   box-sizing: border-box;
 }
-body:has(.expert-dashboard) .main-content {
-  overflow-x: clip;
-}
 .expert-dashboard .row {
   max-width: 100%;
   min-width: 0;
@@ -37,6 +34,22 @@ body:has(.expert-dashboard) .main-content {
 .expert-dashboard__analytics,
 .expert-dashboard__task-table {
   overflow: hidden !important;
+}
+
+/* Keep the content compact without altering dashboard component structure. */
+.expert-dashboard {
+  gap: 8px !important;
+  padding: 8px 16px 14px;
+}
+.expert-dashboard__top-row,
+.expert-dashboard__kpis {
+  gap: 8px;
+}
+.expert-dashboard__analytics .card-body {
+  padding: 12px 16px;
+}
+.expert-dashboard__task-table > div:first-child {
+  padding: 10px 16px !important;
 }
 .expert-dashboard__table-scroll {
   width: 100%;
