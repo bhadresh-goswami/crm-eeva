@@ -265,6 +265,46 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
     </div>
   )
 
+  const renderActions = (task: ExpertTaskItem & { displayStatus: string }, startDisabled: boolean, disableStartTooltip: string) => (
+    <div className="d-flex align-items-center gap-2" style={{ display: 'inline-flex', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+      <button className="button" title="View task details" onClick={() => setViewTaskId(task.task_id)} style={{ width: 32, height: 32, minWidth: 32, padding: 0, cursor: 'pointer' }}>👁</button>
+      {getResumeUrl(task) ? <button className="btn btn-outline-secondary btn-sm" title="Download Resume" onClick={() => window.open(getResumeUrl(task), '_blank', 'noopener,noreferrer')} style={{ width: 32, height: 32, padding: 0 }}><BsDownload size={14} /></button> : null}
+      {task.file_url ? <button className="button" title="Download file" onClick={() => void downloadFile(task.file_url)} style={{ width: 32, height: 32, minWidth: 32, padding: 0 }}>⬇</button> : null}
+      {(task.displayStatus === 'Pending' || task.displayStatus === 'Assigned') ? <button className="button button--primary" title={disableStartTooltip} disabled={startDisabled} onClick={() => setStartTaskId(task.task_id)} style={{ height: 32, padding: '0 10px' }}>▶ Start</button> : null}
+      {canEndTask(task) ? <button className="button button--primary" title="End task" onClick={() => openEndTaskModal(task.task_id)} style={{ height: 32, padding: '0 10px' }}>✅ End</button> : null}
+    </div>
+  )
+
+  const renderActions = (task: ExpertTaskItem & { displayStatus: string }, startDisabled: boolean, disableStartTooltip: string) => (
+    <div className="d-flex align-items-center gap-2" style={{ display: 'inline-flex', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+      <button className="button" title="View task details" onClick={() => setViewTaskId(task.task_id)} style={{ width: 32, height: 32, minWidth: 32, padding: 0, cursor: 'pointer' }}>👁</button>
+      {getResumeUrl(task) ? <button className="btn btn-outline-secondary btn-sm" title="Download Resume" onClick={() => window.open(getResumeUrl(task), '_blank', 'noopener,noreferrer')} style={{ width: 32, height: 32, padding: 0 }}><BsDownload size={14} /></button> : null}
+      {task.file_url ? <button className="button" title="Download file" onClick={() => void downloadFile(task.file_url)} style={{ width: 32, height: 32, minWidth: 32, padding: 0 }}>⬇</button> : null}
+      {(task.displayStatus === 'Pending' || task.displayStatus === 'Assigned') ? <button className="button button--primary" title={disableStartTooltip} disabled={startDisabled} onClick={() => setStartTaskId(task.task_id)} style={{ height: 32, padding: '0 10px' }}>▶ Start</button> : null}
+      {canEndTask(task) ? <button className="button button--primary" title="End task" onClick={() => openEndTaskModal(task.task_id)} style={{ height: 32, padding: '0 10px' }}>✅ End</button> : null}
+    </div>
+  )
+
+  const renderActions = (task: ExpertTaskItem & { displayStatus: string }, startDisabled: boolean, disableStartTooltip: string) => (
+    <div className="d-flex align-items-center gap-2" style={{ display: 'inline-flex', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+      <button className="button" title="View task details" onClick={() => setViewTaskId(task.task_id)} style={{ width: 32, height: 32, minWidth: 32, padding: 0, cursor: 'pointer' }}>👁</button>
+      {getResumeUrl(task) ? <button className="btn btn-outline-secondary btn-sm" title="Download Resume" onClick={() => window.open(getResumeUrl(task), '_blank', 'noopener,noreferrer')} style={{ width: 32, height: 32, padding: 0 }}><BsDownload size={14} /></button> : null}
+      {task.file_url ? <button className="button" title="Download file" onClick={() => void downloadFile(task.file_url)} style={{ width: 32, height: 32, minWidth: 32, padding: 0 }}>⬇</button> : null}
+      {(task.displayStatus === 'Pending' || task.displayStatus === 'Assigned') ? <button className="button button--primary" title={disableStartTooltip} disabled={startDisabled} onClick={() => setStartTaskId(task.task_id)} style={{ height: 32, padding: '0 10px' }}>▶ Start</button> : null}
+      {canEndTask(task) ? <button className="button button--primary" title="End task" onClick={() => openEndTaskModal(task.task_id)} style={{ height: 32, padding: '0 10px' }}>✅ End</button> : null}
+    </div>
+  )
+
+  const renderActions = (task: ExpertTaskItem & { displayStatus: string }, startDisabled: boolean, disableStartTooltip: string) => (
+    <div className="d-flex align-items-center gap-2" style={{ display: 'inline-flex', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+      <button className="button" title="View task details" onClick={() => setViewTaskId(task.task_id)} style={{ width: 32, height: 32, minWidth: 32, padding: 0, cursor: 'pointer' }}>👁</button>
+      {getResumeUrl(task) ? <button className="btn btn-outline-secondary btn-sm" title="Download Resume" onClick={() => window.open(getResumeUrl(task), '_blank', 'noopener,noreferrer')} style={{ width: 32, height: 32, padding: 0 }}><BsDownload size={14} /></button> : null}
+      {task.file_url ? <button className="button" title="Download file" onClick={() => void downloadFile(task.file_url)} style={{ width: 32, height: 32, minWidth: 32, padding: 0 }}>⬇</button> : null}
+      {(task.displayStatus === 'Pending' || task.displayStatus === 'Assigned') ? <button className="button button--primary" title={disableStartTooltip} disabled={startDisabled} onClick={() => setStartTaskId(task.task_id)} style={{ height: 32, padding: '0 10px' }}>▶ Start</button> : null}
+      {canEndTask(task) ? <button className="button button--primary" title="End task" onClick={() => openEndTaskModal(task.task_id)} style={{ height: 32, padding: '0 10px' }}>✅ End</button> : null}
+    </div>
+  )
+
   return (
     <div className={`card${dashboardMode ? ' expert-dashboard__task-table' : ''}`} style={{ borderRadius: 12, overflow: 'hidden', padding: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>

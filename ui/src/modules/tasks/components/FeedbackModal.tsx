@@ -46,6 +46,7 @@ const sectionDetails: Record<string, { description: string; icon: typeof FiClipb
   'Career Assessment': { description: 'Consider the candidate’s goals, direction, motivation, and role alignment.', icon: FiTarget },
   'Resume Review': { description: 'Review resume accuracy, experience relevance, and alignment of skills.', icon: FiUser },
   'Training Assessment': { description: 'Reflect on participation, engagement, and completion of assigned work.', icon: FiAward },
+  'Candidate Readiness': { description: 'Assess readiness for a real interview across communication, technical, and professional skills.', icon: FiTarget },
   Strengths: { description: 'Highlight the qualities and behaviours the candidate should continue building on.', icon: FiAward },
   Recommendations: { description: 'Share clear, practical guidance that will help the candidate move forward.', icon: FiTarget },
   'Next Action': { description: 'Choose the most useful next step or provide a tailored recommendation.', icon: FiCheckCircle },
@@ -212,7 +213,7 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
     const common = {
       id: `feedback-${name}`,
       className: `form-control${invalid ? ' is-invalid' : ''}`,
-      value,
+      value: Array.isArray(value) ? value.join(', ') : value,
       readOnly,
       onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => update(name, event.target.value),
     }
@@ -248,6 +249,16 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
       </div>
     }
 
+    if (field.type === 'multiselect') {
+      const selected = Array.isArray(value) ? value : []
+      return <div className="col-12" key={name}>
+        <label className="form-label fw-semibold" id={`feedback-${name}-label`}>{displayLabel}</label>
+        <div className="feedback-suggestions" role="group" aria-labelledby={`feedback-${name}-label`}>
+          {field.options?.map((option) => <button type="button" disabled={readOnly} aria-pressed={selected.includes(option)} className={selected.includes(option) ? 'is-selected' : ''} onClick={() => update(name, selected.includes(option) ? selected.filter((item) => item !== option) : [...selected, option])} key={option}>{option}</button>)}
+        </div>
+      </div>
+    }
+
     return <div className={['area_of_improvements', 'strengths', 'recommendations', 'additional_feedback'].includes(name) ? 'col-12' : 'col-12 col-md-6'} key={name}>
       <label className="form-label fw-semibold" htmlFor={`feedback-${name}`}>
         {displayLabel}{field.required && !readOnly ? <span className="text-danger ms-1">*</span> : null}
@@ -256,7 +267,7 @@ const FeedbackModal = ({ open, mode, taskId, taskType = '', onClose, onSubmitted
         ? <select id={`feedback-${name}`} className={`form-select${invalid ? ' is-invalid' : ''}`} value={String(value)} disabled={readOnly} onChange={(event) => update(name, event.target.value)}>
             <option value="">Choose an option</option>{field.options?.map((option) => <option key={option}>{option}</option>)}
           </select>
-        : ['area_of_improvements', 'strengths', 'recommendations', 'additional_feedback'].includes(name)
+        : field.type === 'textarea' || ['area_of_improvements', 'strengths', 'recommendations', 'additional_feedback'].includes(name)
           ? <textarea {...common} rows={3} placeholder={readOnly ? undefined : copy.placeholder} />
           : <input {...common} type={name === 'recording_url' ? 'url' : 'text'} placeholder={readOnly ? undefined : copy.placeholder} />}
       {copy.helper ? <div className="form-text">{copy.helper}</div> : null}
