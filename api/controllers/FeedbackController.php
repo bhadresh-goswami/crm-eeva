@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . "/services/LoggerService.php";
 require_once dirname(__DIR__) . "/models/FeedbackModel.php";
 require_once dirname(__DIR__) . "/repositories/FeedbackRepository.php";
 require_once dirname(__DIR__) . "/services/FeedbackService.php";
+require_once dirname(__DIR__) . "/services/FeedbackEligibility.php";
 
 class FeedbackController {
 
@@ -84,12 +85,12 @@ class FeedbackController {
                 return;
             }
 
-            if (strtolower(trim((string)$taskContext['status_name'])) !== 'completed') {
+            if (!FeedbackEligibility::isEligible((string)$taskContext['task_type'], (string)$taskContext['status_name'])) {
                 $conn->rollBack();
                 http_response_code(422);
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Feedback can only be submitted for completed tasks.'
+                    'message' => 'Feedback can only be submitted for completed tasks that require feedback.'
                 ]);
                 return;
             }

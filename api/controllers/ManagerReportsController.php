@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . '/models/FeedbackModel.php';
+require_once dirname(__DIR__) . '/services/FeedbackEligibility.php';
 
 class ManagerReportsController {
     private PDO $conn;
@@ -91,7 +92,7 @@ class ManagerReportsController {
     }
 
     private function completedTaskWhere(): string {
-        return "LOWER(COALESCE(tsm.name, '')) = 'completed'";
+        return FeedbackEligibility::sql('tt.name', 'tsm.name');
     }
 
     private function scheduledTimeExpression(string $preferredColumn, string $fallbackColumn): string {
