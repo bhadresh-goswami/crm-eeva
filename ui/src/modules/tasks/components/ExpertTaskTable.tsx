@@ -265,7 +265,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
     <div className={`card${dashboardMode ? ' expert-dashboard__task-table' : ''}`} style={{ borderRadius: 12, overflow: 'hidden', padding: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Search by title, candidate, assignee..." style={{ border: '1px solid #d1d5db', borderRadius: 8, minWidth: 290, padding: '0.45rem 0.6rem', outline: 'none', background: '#fff', fontSize: 13 }} />
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+        <div className={dashboardMode ? 'expert-dashboard__task-filters' : undefined} style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
           <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1) }} style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '0.45rem 0.6rem', fontSize: 13 }}>
             <option value="all">All Status</option>
             {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
@@ -321,7 +321,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
           })}
         </div>
       ) : (
-        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 460 }}>
+        <div className={dashboardMode ? 'expert-dashboard__table-scroll expert-dashboard__task-scroll' : undefined} style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 460 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead style={{ background: '#f8fafc', position: 'sticky', top: 0, zIndex: 1 }}>
               <tr>
@@ -386,7 +386,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
         </div>
       )}
 
-      <div style={{ borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', alignItems: 'center', padding: '0.85rem 1rem' }}>
+      <div className={dashboardMode ? 'expert-dashboard__task-pagination' : undefined} style={{ borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', alignItems: 'center', padding: '0.85rem 1rem' }}>
         <span style={{ marginRight: 'auto' }}>Showing {sorted.length === 0 ? 0 : (safePage - 1) * pageSize + 1} to {Math.min(safePage * pageSize, sorted.length)} of {sorted.length} records</span>
         <label>Rows per page<select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }} style={{ marginLeft: 8 }}>{pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
         <button className="button" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={safePage <= 1}>‹</button>
