@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { changePassword } from '../../modules/auth/api/passwordApi'
 import { useAuth } from '../../context/AuthContext'
 import { useAlert } from '../alerts/useAlert'
@@ -17,6 +17,7 @@ type HeaderProps = {
 
 const Header = ({ onMenuToggle }: HeaderProps) => {
   const { user, sessionStatus, breakIn, breakOut, logout } = useAuth()
+  const location = useLocation()
   const { showToast, showConfirm } = useAlert()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,6 +31,7 @@ const Header = ({ onMenuToggle }: HeaderProps) => {
   const isLoggedIn = sessionStatus === 'logged_in'
   const isOnBreak = sessionStatus === 'break'
   const isLoggedOut = sessionStatus === 'logged_out'
+  const isTechnicalExpert = ['expert', 'technical expert'].includes(String(user.role).trim().toLowerCase()) && location.pathname === '/expert/dashboard'
 
   const handleBreakIn = async () => {
     setError(null)
@@ -109,7 +111,7 @@ const Header = ({ onMenuToggle }: HeaderProps) => {
 
   return (
     <>
-      <header className="header">
+      <header className={`header${isTechnicalExpert ? ' header--expert-compact' : ''}`}>
         <div className="header__identity">
           <button type="button" className="header__menu" onClick={onMenuToggle} aria-label="Toggle sidebar">☰</button>
           <div>
@@ -121,6 +123,7 @@ const Header = ({ onMenuToggle }: HeaderProps) => {
         <div className="header__actions" aria-label="Session controls">
           <button className="header__icon-btn" type="button" aria-label="Notifications">🔔</button>
           <button className="header__icon-btn" type="button" aria-label="Settings">⚙️</button>
+          {isTechnicalExpert ? <span className={`header__break-status header__break-status--${isOnBreak ? 'break' : 'active'}`}>Break Status: {isOnBreak ? 'On Break' : isLoggedOut ? 'Logged Out' : 'Active'}</span> : null}
           <button className="button" onClick={handleBreakIn} disabled={isSubmitting || isLoggedIn || isLoggedOut}>Break In</button>
           <button className="button" onClick={handleBreakOut} disabled={isSubmitting || isOnBreak || isLoggedOut}>Break Out</button>
           <button className="button" onClick={() => setIsPasswordModalOpen(true)} disabled={isSubmitting}>Change Password</button>

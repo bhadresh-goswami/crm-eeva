@@ -196,3 +196,8 @@ export const useLocation = () => {
   const router = useRouter()
   return { pathname: router.pathname }
 }
+
+export const useNavigate = () => {
+  const router = useRouter()
+  return router.navigate
+}
