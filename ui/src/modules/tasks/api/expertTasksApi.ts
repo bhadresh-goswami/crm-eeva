@@ -1,5 +1,6 @@
 import { apiRequest } from '../../../api/client'
 const FILE_BASE_URL = 'https://support.bsquareg-developers.com/supporting-document'
+export const RUNNING_TASK_CHANGED_EVENT = 'expert-running-task-changed'
 
 export type ExpertTaskItem = {
   task_id: number
@@ -106,6 +107,7 @@ export const startExpertTask = async (taskId: number) => {
     method: 'POST',
     body: JSON.stringify({ task_id: taskId }),
   })
+  window.dispatchEvent(new Event(RUNNING_TASK_CHANGED_EVENT))
 }
 
 export const endExpertTask = async (taskId: number, status: EndTaskStatus, comment: string) => {
@@ -113,6 +115,7 @@ export const endExpertTask = async (taskId: number, status: EndTaskStatus, comme
     method: 'POST',
     body: JSON.stringify({ task_id: taskId, status, comment }),
   })
+  window.dispatchEvent(new Event(RUNNING_TASK_CHANGED_EVENT))
 }
 
 export const sendDailyReportNow = async () => {

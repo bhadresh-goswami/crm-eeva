@@ -25,31 +25,12 @@ const emptyAnalytics: AnalyticsPayload = {
   },
 }
 
-const getScheduledMinutes = (task?: ExpertTaskItem) => {
-  if (!task) return 0
-
-  const [startHour, startMinute] = task.start_time.split(':').map(Number)
-  const [endHour, endMinute] = task.end_time.split(':').map(Number)
-
-  if (
-    ![startHour, startMinute, endHour, endMinute].every(Number.isFinite)
-  ) {
-    return 0
-  }
-
-  const difference =
-    endHour * 60 + endMinute - (startHour * 60 + startMinute)
-
-  return difference >= 0 ? difference : difference + 1440
-}
-
 const ExpertDashboard = () => {
   const { user } = useAuth()
   const { showToast } = useAlert()
   const navigate = useNavigate()
 
   const [tasks, setTasks] = useState<ExpertTaskItem[]>([])
-  const [runningTask, setRunningTask] = useState<ExpertTaskItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [analyticsLoading, setAnalyticsLoading] = useState(true)
   const [recalculatingDuration, setRecalculatingDuration] = useState(false)
@@ -59,8 +40,6 @@ const ExpertDashboard = () => {
 
   const [dateRangeFilter, setDateRangeFilter] =
     useState<'7' | '10' | 'all'>('7')
-
-  const [now, setNow] = useState(() => Date.now())
 
   const loadTasks = useCallback(
     async (
@@ -128,23 +107,6 @@ const ExpertDashboard = () => {
     }
   }, [])
 
-  const loadRunningTask = useCallback(async () => {
-    try {
-      const activeTasks = await getExpertTasks({ activeOnly: true })
-      const activeTask = activeTasks.find(
-        (task) =>
-          task.is_own_task === 1 &&
-          String(task.status_name)
-            .trim()
-            .toLowerCase()
-            .includes('progress'),
-      )
-
-      setRunningTask(activeTask ?? null)
-    } catch {
-      // Keep the last confirmed live status if a background refresh fails.
-    }
-  }, [])
 
   const handleRecalculateDuration = useCallback(async () => {
     setRecalculatingDuration(true)
@@ -203,12 +165,8 @@ Skipped: ${result.skipped} tasks`,
     }
   }, [dateRangeFilter, loadAnalytics, loadTasks])
 
-  useEffect(() => {
-    void loadRunningTask()
-  }, [loadRunningTask])
-
   /*
-   * Background dashboard refresh + running task clock.
+   * Background dashboard refresh.
    *
    * IMPORTANT:
    * Keep ONE copy of this effect only.
@@ -218,159 +176,24 @@ Skipped: ${result.skipped} tasks`,
       void Promise.all([
         loadTasks(dateRangeFilter, true),
         loadAnalytics(true),
-        loadRunningTask(),
       ])
     }, 30000)
 
-    const clock = window.setInterval(() => {
-      setNow(Date.now())
-    }, 1000)
-
     return () => {
       window.clearInterval(refresh)
-      window.clearInterval(clock)
     }
-  }, [dateRangeFilter, loadAnalytics, loadRunningTask, loadTasks])
+  }, [dateRangeFilter, loadAnalytics, loadTasks])
 
-  /*
-   * Dashboard derived values.
-   *
-   * IMPORTANT:
-   * Keep ONE authoritative calculation path only.
-   */
   const pendingFeedback =
     analytics.cards?.pending_feedback?.count ?? 0
 
-  const startAt = runningTask?.task_start_time
-    ? new Date(
-        runningTask.task_start_time.replace(' ', 'T') + 'Z',
-      ).getTime()
-    : 0
-
-  const elapsedMinutes = startAt
-    ? Math.max(
-        0,
-        Math.floor((now - startAt) / 60000),
-      )
-    : 0
-
-  const scheduledMinutes =
-    getScheduledMinutes(runningTask)
-
-  const overdueMinutes =
-    scheduledMinutes > 0
-      ? Math.max(
-          0,
-          elapsedMinutes - scheduledMinutes,
-        )
-      : 0
 
   return (
     <PageContainer className="expert-dashboard">
-      <div className="expert-dashboard__top-row">
-        <ExpertWorkspaceHeader
-          title="Technical Expert Dashboard"
-          compact
-        />
-
-        <section className="expert-dashboard__running">
-          <header>
-            <div>Current Running Task</div>
-
-            {runningTask ? (
-              <span className="expert-dashboard__live">
-                <span className="expert-dashboard__live-dot" />
-                {' '}LIVE
-              </span>
-            ) : null}
-          </header>
-
-          {runningTask ? (
-            <>
-              <div className="expert-dashboard__running-grid">
-                <dl>
-                  <dt>Candidate</dt>
-                  <dd>
-                    {runningTask.candidate_name || '—'}
-                  </dd>
-                </dl>
-
-                <dl>
-                  <dt>Task ID</dt>
-                  <dd>TAS-{runningTask.task_id}</dd>
-                </dl>
-
-                <dl className="expert-dashboard__task-name">
-                  <dt>Task</dt>
-                  <dd>
-                    {runningTask.task_type || '—'}
-                  </dd>
-                </dl>
-
-                <dl>
-                  <dt>Started (ET)</dt>
-                  <dd>
-                    {runningTask.start_time || '—'}
-                  </dd>
-                </dl>
-
-                <dl>
-                  <dt>Duration</dt>
-                  <dd>
-                    {scheduledMinutes
-                      ? `${scheduledMinutes} min`
-                      : '—'}
-                  </dd>
-                </dl>
-
-                <dl>
-                  <dt>Elapsed</dt>
-                  <dd className="expert-dashboard__elapsed">
-                    {elapsedMinutes} min
-                  </dd>
-                </dl>
-
-                <dl>
-                  <dt>Status</dt>
-                  <dd>
-                    <span className="expert-dashboard__status">
-                      {runningTask.status_name}
-                    </span>
-                  </dd>
-                </dl>
-              </div>
-
-              <div className="expert-dashboard__running-footer">
-                {overdueMinutes > 0 ? (
-                  <span className="expert-dashboard__overdue">
-                    ⚠ Task duration exceeded by{' '}
-                    {overdueMinutes} minutes
-                  </span>
-                ) : (
-                  <span />
-                )}
-
-                <button
-                  type="button"
-                  className="btn btn-outline-primary btn-sm"
-                  onClick={() => navigate('/tasks')}
-                >
-                  View Task
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="expert-dashboard__running-empty">
-              <strong>No task currently running.</strong>
-
-              <span>
-                Your next assigned task will appear here when
-                started.
-              </span>
-            </div>
-          )}
-        </section>
-      </div>
+      <ExpertWorkspaceHeader
+        title="Technical Expert Dashboard"
+        compact
+      />
 
       <div className="expert-dashboard__kpis section">
         <StatCard
@@ -483,12 +306,7 @@ Skipped: ${result.skipped} tasks`,
         error={error}
         emptyText="No active tasks assigned"
         currentUserId={Number(user?.id ?? 0)}
-        onTaskUpdated={() =>
-          Promise.all([
-            loadTasks(dateRangeFilter),
-            loadRunningTask(),
-          ]).then(() => undefined)
-        }
+        onTaskUpdated={() => loadTasks(dateRangeFilter)}
         dateRangeFilter={dateRangeFilter}
         onDateRangeFilterChange={
           setDateRangeFilter
