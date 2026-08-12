@@ -60,7 +60,7 @@ const DailyWorkingAnalyticsTable = ({
 }: DailyWorkingAnalyticsTableProps) => {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(5)
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -78,7 +78,7 @@ const DailyWorkingAnalyticsTable = ({
 
     <div className="table-responsive"><table className="table table-hover align-middle mb-0"><thead className="table-light"><tr>{['Date', 'Working Hours', 'Total Tasks', 'Interview Support', 'Mock Interview', 'Resume Support', 'LinkedIn Support', 'Other Tasks', 'Completed', 'Success', 'Rejected', 'Productivity %', 'Status'].map((h) => <th key={h}>{h}</th>)}</tr></thead><tbody>{loading ? <tr><td colSpan={13} className="text-center py-4">Loading...</td></tr> : paginatedRows.length === 0 ? <tr><td colSpan={13} className="text-center py-4">No data available</td></tr> : paginatedRows.map((row) => (<tr key={row.work_date}><td>{row.work_date}</td><td>{formatMinutesToHours(row.total_minutes)}</td><td>{row.total_tasks}</td><td>{row.interview_support}</td><td>{row.mock_interview}</td><td>{row.resume_support}</td><td>{row.linkedin_support}</td><td>{row.other_tasks}</td><td>{row.completed_tasks}</td><td>{row.success_tasks}</td><td>{row.rejected_tasks}</td><td>{row.productivity}%</td><td><span className={`badge ${statusBadgeClass(row.status)}`}>{row.status}</span></td></tr>))}</tbody></table></div>
 
-    <div className="expert-dashboard__pagination"><span>Showing {filteredRows.length ? (safePage - 1) * pageSize + 1 : 0}–{Math.min(safePage * pageSize, filteredRows.length)} of {filteredRows.length} records</span><label>Rows per page: <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}>{[10, 20, 50, 100].map((size) => <option key={size}>{size}</option>)}</select></label><button className="btn btn-sm btn-outline-secondary" disabled={safePage <= 1} onClick={() => setPage((p) => p - 1)}>‹</button><span>{safePage} / {totalPages}</span><button className="btn btn-sm btn-outline-secondary" disabled={safePage >= totalPages} onClick={() => setPage((p) => p + 1)}>›</button></div>
+    <div className="expert-dashboard__pagination"><span>Showing {filteredRows.length ? (safePage - 1) * pageSize + 1 : 0} to {Math.min(safePage * pageSize, filteredRows.length)} of {filteredRows.length} records</span><label>Rows per page <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}>{[5, 10, 20, 50, 100].map((size) => <option key={size}>{size}</option>)}</select></label><button className="btn btn-sm btn-outline-secondary" disabled={safePage <= 1} onClick={() => setPage((p) => p - 1)}>‹</button>{Array.from({ length: Math.min(totalPages, 4) }, (_, index) => index + 1).map((number) => <button className={`btn btn-sm ${safePage === number ? 'btn-primary' : 'btn-outline-secondary'}`} key={number} onClick={() => setPage(number)}>{number}</button>)}<button className="btn btn-sm btn-outline-secondary" disabled={safePage >= totalPages} onClick={() => setPage((p) => p + 1)}>›</button></div>
   </div></div>)
 }
 

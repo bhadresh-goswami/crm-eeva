@@ -280,6 +280,7 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
             <option value="10">Last 10 Days</option>
             <option value="all">All Tasks</option>
           </select>
+          {dashboardMode ? <span className="expert-dashboard__refresh"><i /> Auto refresh every 30s</span> : null}
         </div>
       </div>
 
@@ -386,9 +387,11 @@ const ExpertTaskTable = ({ tasks, loading, error, emptyText, currentUserId, onTa
       )}
 
       <div style={{ borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.85rem', alignItems: 'center', padding: '0.85rem 1rem' }}>
+        <span style={{ marginRight: 'auto' }}>Showing {sorted.length === 0 ? 0 : (safePage - 1) * pageSize + 1} to {Math.min(safePage * pageSize, sorted.length)} of {sorted.length} records</span>
         <label>Rows per page<select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }} style={{ marginLeft: 8 }}>{pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
-        <span>{sorted.length === 0 ? '0-0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, sorted.length)}`} of {sorted.length}</span>
         <button className="button" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={safePage <= 1}>‹</button>
+        {dashboardMode ? Array.from({ length: Math.min(totalPages, 4) }, (_, index) => index + 1).map((number) => <button className={`button${safePage === number ? ' button--primary' : ''}`} key={number} onClick={() => setPage(number)}>{number}</button>) : null}
+        {dashboardMode && totalPages > 5 ? <><span>…</span><button className="button" onClick={() => setPage(totalPages)}>{totalPages}</button></> : null}
         <button className="button" onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))} disabled={safePage >= totalPages}>›</button>
       </div>
 
