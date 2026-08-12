@@ -3,6 +3,7 @@
 require_once dirname(__DIR__) . "/config/database.php";
 require_once dirname(__DIR__) . "/services/EmailService.php";
 require_once dirname(__DIR__) . "/services/LoggerService.php";
+require_once dirname(__DIR__) . "/services/FeedbackEligibility.php";
 
 class TaskController {
     public function loadFilterOptions() {
@@ -212,7 +213,7 @@ class TaskController {
                 $query .= " AND LOWER(COALESCE(ts.name, '')) IN ('pending', 'assigned', 'in progress', 'active')";
             }
             if ($feedbackOnly) {
-                $query .= " AND LOWER(COALESCE(ts.name, '')) = 'completed'";
+                $query .= ' AND ' . FeedbackEligibility::sql('tt.name', 'ts.name');
             }
 
             $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
@@ -288,7 +289,7 @@ class TaskController {
             $sortOrder = strtoupper(trim((string)($payload['sort_order'] ?? 'DESC'))) === 'ASC' ? 'ASC' : 'DESC';
             $sortColumn = $allowedSort[$sortByKey] ?? 't.due_date';
 
-            $where = ["LOWER(COALESCE(ts.name, '')) = 'completed'"];
+            $where = [FeedbackEligibility::sql('tt.name', 'ts.name')];
             $params = [];
 
             if ($search !== '') {
