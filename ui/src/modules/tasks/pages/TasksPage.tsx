@@ -273,8 +273,8 @@ const TasksPage = () => {
   const [filterOptionsError, setFilterOptionsError] = useState<string | null>(null)
   const [filterCompanies, setFilterCompanies] = useState<string[]>([])
   const [filterStatuses, setFilterStatuses] = useState<string[]>([])
-  const [filterAssignees, setFilterAssignees] = useState<string[]>([])
-  const [filterCandidates, setFilterCandidates] = useState<string[]>([])
+  const [filterAssignees, setFilterAssignees] = useState<Array<{ id: number; name: string }>>([])
+  const [filterCandidates, setFilterCandidates] = useState<Array<{ id: number; name: string }>>([])
 
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
@@ -361,8 +361,8 @@ const TasksPage = () => {
         const data = await getTaskFilterOptions()
         setFilterCompanies(data.companies)
         setFilterStatuses(data.statuses)
-        setFilterAssignees(data.assignees.map((row) => row.name))
-        setFilterCandidates(data.candidates.map((row) => row.name))
+        setFilterAssignees(data.assignees)
+        setFilterCandidates(data.candidates)
       } catch (err) {
         setFilterOptionsError(normalizeError(err, 'Failed to load filter options.'))
       } finally {
@@ -818,7 +818,7 @@ const TasksPage = () => {
           Candidate
           <select value={candidateFilter} onChange={(event) => setCandidateFilter(event.target.value)} disabled={loadingFilters}>
             <option value="">All</option>
-            {filterCandidates.map((name) => <option key={name} value={name}>{name}</option>)}
+            {filterCandidates.map((candidate) => <option key={candidate.id} value={candidate.name}>{candidate.name}</option>)}
           </select>
         </label>
         <label className="auth-card__field">
@@ -839,7 +839,7 @@ const TasksPage = () => {
           Assign To
           <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} disabled={loadingFilters}>
             <option value="">All</option>
-            {assigneeOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+            {assigneeOptions.map((assignee) => <option key={assignee.id} value={assignee.name}>{assignee.name}</option>)}
           </select>
         </label>
       </div>
