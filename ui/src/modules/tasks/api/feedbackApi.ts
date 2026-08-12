@@ -1,6 +1,6 @@
 import { apiRequest } from '../../../api/client'
 
-export type FeedbackValue = string | number | null
+export type FeedbackValue = string | number | string[] | null
 
 export type FeedbackPayload = {
   task_id: number
@@ -12,7 +12,7 @@ export type FeedbackRecord = Record<string, unknown>
 
 export type FeedbackFieldDefinition = {
   label: string
-  type: 'text' | 'rating' | 'select'
+  type: 'text' | 'textarea' | 'rating' | 'select' | 'multiselect'
   required?: boolean
   min?: number
   max?: number
@@ -78,6 +78,25 @@ const configurations: Record<string, FeedbackFieldConfiguration> = {
     assignment_completion: rating('Assignment Completion', 'Training Assessment', 'custom'),
     ...additionalFields,
   },
+  mock: {
+    ...Object.fromEntries([
+      ['overall_interview_readiness', 'Overall Interview Readiness'], ['confidence_level', 'Confidence Level'],
+      ['communication', 'Communication'], ['professional_introduction', 'Professional Introduction'],
+      ['resume_explanation', 'Resume Explanation'], ['technical_knowledge', 'Technical Knowledge'],
+      ['problem_solving', 'Problem Solving'], ['behavioral_questions', 'Behavioral Questions'],
+      ['situation_based_answers', 'Situation Based Answers'], ['system_design_architecture', 'System Design / Architecture'],
+      ['coding_skills', 'Coding Skills'], ['debugging_approach', 'Debugging Approach'],
+      ['time_management', 'Time Management'], ['listening_skills', 'Listening Skills'],
+      ['english_fluency', 'English Fluency'], ['body_language', 'Body Language'], ['professionalism', 'Professionalism'],
+    ].map(([name, label]) => [name, rating(label, 'Candidate Readiness', 'custom')])),
+    overall_recommendation: { label: 'Overall Recommendation', type: 'select', required: true, storage: 'custom', options: ['Ready for Interview', 'Needs Practice', 'Needs More Preparation', 'Not Ready'], section: 'Candidate Readiness' },
+    strengths: { label: 'Strengths', type: 'textarea', section: 'Strengths' },
+    weaknesses: { label: 'Weaknesses', type: 'textarea', storage: 'custom', section: 'Weaknesses' },
+    improvement_suggestions: { label: 'Improvement Suggestions', type: 'textarea', storage: 'custom', section: 'Improvement Suggestions' },
+    recommended_topics: { label: 'Recommended Topics', type: 'multiselect', storage: 'custom', options: ['Communication', 'Java', 'React', 'AWS', 'SQL', 'Behavioral', 'System Design', 'Leadership', 'Problem Solving', 'Confidence Building', 'Mock Practice'], section: 'Recommended Topics' },
+    overall_expert_notes: { label: 'Overall Expert Notes', type: 'textarea', storage: 'custom', section: 'Overall Expert Notes' },
+    candidate_action_plan: { label: 'Candidate Action Plan', type: 'textarea', storage: 'custom', section: 'Candidate Action Plan' },
+  },
 }
 
 const humanize = (name: string) => name.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
@@ -85,6 +104,8 @@ const normalizeTaskType = (taskType: string) => {
   const normalized = taskType.trim().toLowerCase().replace(/\s+/g, ' ')
   const aliases: Record<string, string> = {
     'interview support - google doc': 'interview support',
+    'otter support': 'interview support',
+    'resume + ruc': 'ruc',
     'free counseling': 'free counselling',
     'free counseling call': 'free counselling',
     training: 'training session',
@@ -98,12 +119,12 @@ export const getFeedbackConfiguration = (taskType: string, apiFields?: unknown):
     return Object.fromEntries(Object.entries(apiFields as Record<string, Record<string, unknown>>).map(([name, field]) => {
       const definition: FeedbackFieldDefinition = {
         label: String(field.label ?? humanize(name)),
-        type: field.type === 'rating' ? 'rating' : field.type === 'select' ? 'select' : 'text',
+        type: field.type === 'rating' ? 'rating' : field.type === 'select' ? 'select' : field.type === 'multiselect' ? 'multiselect' : field.type === 'textarea' ? 'textarea' : 'text',
         required: Boolean(field.required),
         min: Number.isFinite(Number(field.min)) ? Number(field.min) : undefined,
         max: Number.isFinite(Number(field.max)) ? Number(field.max) : undefined,
         storage: field.storage === 'custom' ? 'custom' : field.storage === 'column' ? 'column' : taskConfiguration?.[name]?.storage ?? (name in additionalFields ? 'column' : undefined),
-        options: name === 'read_proper' ? ['Yes', 'No'] : undefined,
+        options: Array.isArray(field.options) ? field.options.map(String) : name === 'read_proper' ? ['Yes', 'No'] : undefined,
         section: taskConfiguration?.[name]?.section ?? (name in additionalFields ? additionalFields[name].section : 'Assessment'),
       }
       return [name, definition]

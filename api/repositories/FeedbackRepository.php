@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . '/models/FeedbackModel.php';
+require_once dirname(__DIR__) . '/services/FeedbackEligibility.php';
 
 class FeedbackRepository {
     private ?array $columns = null;
@@ -151,7 +152,7 @@ class FeedbackRepository {
             LEFT JOIN task_status_master ts ON ts.id = t.status_id
             LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
             LEFT JOIN users u ON u.id = ta.user_id
-            WHERE LOWER(COALESCE(ts.name, '')) = 'completed'
+            WHERE " . FeedbackEligibility::sql('tt.name', 'ts.name') . "
         ";
         $params = [];
         if (self::isExpertRole($role)) {
