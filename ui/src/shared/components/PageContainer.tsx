@@ -5,11 +5,12 @@ type PageContainerProps = {
   description?: string
   actions?: ReactNode
   children: ReactNode
+  className?: string
 }
 
-const PageContainer = ({ title, description, actions, children }: PageContainerProps) => {
+const PageContainer = ({ title, description, actions, children, className = '' }: PageContainerProps) => {
   return (
-    <section className="page-container">
+    <section className={`page-container${className ? ` ${className}` : ''}`}>
       {title || description || actions ? (
         <div className="page-container__header">
           <div>
