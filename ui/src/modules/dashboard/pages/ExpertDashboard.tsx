@@ -12,6 +12,8 @@ import {
 import StatCard from '../../../components/dashboard/StatCard'
 import DailyWorkingAnalyticsTable from '../../../components/dashboard/DailyWorkingAnalyticsTable'
 import { useAlert } from '../../../shared/alerts/useAlert'
+import { useNavigate } from 'react-router-dom'
+import './ExpertDashboard.css'
 
 const emptyAnalytics: AnalyticsPayload = {
   daily_working_analytics: {
@@ -23,6 +25,7 @@ const emptyAnalytics: AnalyticsPayload = {
 const ExpertDashboard = () => {
   const { user } = useAuth()
   const { showToast } = useAlert()
+  const navigate = useNavigate()
   const [tasks, setTasks] = useState<ExpertTaskItem[]>([])
   const [loading, setLoading] = useState(true)
   const [analyticsLoading, setAnalyticsLoading] = useState(true)
@@ -30,9 +33,10 @@ const ExpertDashboard = () => {
   const [error, setError] = useState<string | null>(null)
   const [analytics, setAnalytics] = useState<AnalyticsPayload>(emptyAnalytics)
   const [dateRangeFilter, setDateRangeFilter] = useState<'7' | '10' | 'all'>('7')
+  const [now, setNow] = useState(() => Date.now())
 
-  const loadTasks = useCallback(async (range: '7' | '10' | 'all' = dateRangeFilter) => {
-    setLoading(true)
+  const loadTasks = useCallback(async (range: '7' | '10' | 'all' = dateRangeFilter, silent = false) => {
+    if (!silent) setLoading(true)
     setError(null)
     try {
       const today = new Date()
@@ -50,19 +54,19 @@ const ExpertDashboard = () => {
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to fetch tasks.')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [dateRangeFilter])
 
-  const loadAnalytics = useCallback(async () => {
-    setAnalyticsLoading(true)
+  const loadAnalytics = useCallback(async (silent = false) => {
+    if (!silent) setAnalyticsLoading(true)
     try {
       const response = await getExpertDashboardAnalytics()
       setAnalytics(response?.data ?? emptyAnalytics)
     } catch {
       setAnalytics(emptyAnalytics)
     } finally {
-      setAnalyticsLoading(false)
+      if (!silent) setAnalyticsLoading(false)
     }
   }, [])
 
@@ -100,16 +104,37 @@ Skipped: ${result.skipped} tasks`,
     }
   }, [dateRangeFilter, loadAnalytics, loadTasks])
 
+  useEffect(() => {
+    const refresh = window.setInterval(() => void Promise.all([loadTasks(dateRangeFilter, true), loadAnalytics(true)]), 30000)
+    const clock = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => { window.clearInterval(refresh); window.clearInterval(clock) }
+  }, [dateRangeFilter, loadAnalytics, loadTasks])
+
+  const runningTask = tasks.find((task) => String(task.status_name).trim().toLowerCase().includes('progress'))
+  const pendingFeedback = analytics.cards?.pending_feedback?.count ?? 0
+  const startAt = runningTask?.task_start_time ? new Date(runningTask.task_start_time.replace(' ', 'T') + 'Z').getTime() : 0
+  const elapsedMinutes = startAt ? Math.max(0, Math.floor((now - startAt) / 60000)) : 0
+  const scheduledMinutes = runningTask ? (() => {
+    const [startHour, startMinute] = runningTask.start_time.split(':').map(Number)
+    const [endHour, endMinute] = runningTask.end_time.split(':').map(Number)
+    if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return 0
+    const difference = (endHour * 60 + endMinute) - (startHour * 60 + startMinute)
+    return difference >= 0 ? difference : difference + 1440
+  })() : 0
+  const overdueMinutes = scheduledMinutes && elapsedMinutes > scheduledMinutes ? elapsedMinutes - scheduledMinutes : 0
+
   return (
-    <PageContainer>
-      <ExpertWorkspaceHeader title="Technical Expert Dashboard" />
-      <style>{`.stat-card-hover{transition:all .2s ease}.stat-card-hover:hover{transform:translateY(-3px)}`}</style>
-      <div className="row g-3 section">
-        <div className="col-12 col-md-6 col-xl-3"><StatCard title="Assigned Tasks" count={analytics.cards?.assigned?.count ?? 0} changePercentage={analytics.cards?.assigned?.change_percentage ?? 0} color="blue" loading={analyticsLoading} /></div>
-        <div className="col-12 col-md-6 col-xl-3"><StatCard title="Completed Tasks" count={analytics.cards?.completed?.count ?? 0} changePercentage={analytics.cards?.completed?.change_percentage ?? 0} color="green" loading={analyticsLoading} /></div>
-        <div className="col-12 col-md-6 col-xl-3"><StatCard title="Success Tasks" count={analytics.cards?.success?.count ?? 0} changePercentage={analytics.cards?.success?.change_percentage ?? 0} color="cyan" loading={analyticsLoading} /></div>
-        <div className="col-12 col-md-6 col-xl-3"><StatCard title="Rejected Tasks" count={analytics.cards?.rejected?.count ?? 0} changePercentage={analytics.cards?.rejected?.change_percentage ?? 0} color="red" loading={analyticsLoading} /></div>
+    <PageContainer className="expert-dashboard">
+      <ExpertWorkspaceHeader title="Technical Expert Dashboard" compact />
+      <div className="expert-dashboard__kpis section">
+        <StatCard title="Assigned Tasks" count={analytics.cards?.assigned?.count ?? 0} changePercentage={analytics.cards?.assigned?.change_percentage ?? 0} color="blue" loading={analyticsLoading} />
+        <StatCard title="Completed Tasks" count={analytics.cards?.completed?.count ?? 0} changePercentage={analytics.cards?.completed?.change_percentage ?? 0} color="green" loading={analyticsLoading} />
+        <button className={`expert-dashboard__pending${pendingFeedback > 0 ? ' is-actionable' : ''}`} onClick={() => navigate('/tasks/expert-reports')}><span>Pending Feedback</span><strong>{pendingFeedback}</strong><small>{pendingFeedback > 0 ? 'Needs your attention' : 'All feedback completed'}</small></button>
+        <StatCard title="Success Tasks" count={analytics.cards?.success?.count ?? 0} changePercentage={analytics.cards?.success?.change_percentage ?? 0} color="cyan" loading={analyticsLoading} />
+        <StatCard title="Rejected Tasks" count={analytics.cards?.rejected?.count ?? 0} changePercentage={analytics.cards?.rejected?.change_percentage ?? 0} color="red" loading={analyticsLoading} />
       </div>
+
+      <section className="expert-dashboard__running section"><header><div><span className="expert-dashboard__live-dot" /> Current Running Task</div>{runningTask ? <span className="expert-dashboard__live">LIVE</span> : null}</header>{runningTask ? <><div className="expert-dashboard__running-grid"><dl><dt>Candidate</dt><dd>{runningTask.candidate_name || '—'}</dd></dl><dl><dt>Task</dt><dd>{runningTask.task_type || '—'}</dd></dl><dl><dt>Task ID</dt><dd>TAS-{runningTask.task_id}</dd></dl><dl><dt>Started</dt><dd>{runningTask.task_start_time || '—'}</dd></dl><dl><dt>Scheduled Duration</dt><dd>{scheduledMinutes ? `${scheduledMinutes} min` : '—'}</dd></dl><dl><dt>Elapsed</dt><dd>{elapsedMinutes} min</dd></dl><dl><dt>Status</dt><dd>{runningTask.status_name}</dd></dl><button className="btn btn-primary btn-sm" onClick={() => navigate('/tasks')}>View Task</button></div>{overdueMinutes > 0 ? <div className="expert-dashboard__overdue">⚠ Task duration exceeded by {overdueMinutes} minutes</div> : null}</> : <div className="expert-dashboard__running-empty"><strong>No task currently running.</strong><span>Your next assigned task will appear here when started.</span></div>}</section>
 
       <div className="row g-3 section">
         <div className="col-12">
@@ -131,6 +156,7 @@ Skipped: ${result.skipped} tasks`,
         onTaskUpdated={() => loadTasks(dateRangeFilter)}
         dateRangeFilter={dateRangeFilter}
         onDateRangeFilterChange={setDateRangeFilter}
+        dashboardMode
       />
     </PageContainer>
   )
