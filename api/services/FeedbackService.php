@@ -45,6 +45,9 @@ class FeedbackService {
                 $visibleDefinitions[$name]['min'] = $definition['min'];
                 $visibleDefinitions[$name]['max'] = $definition['max'];
             }
+            if (isset($definition['options'])) {
+                $visibleDefinitions[$name]['options'] = $definition['options'];
+            }
             $visibleValues[$name] = ($definition['storage'] ?? 'column') === 'custom'
                 ? ($customFields[$name] ?? null)
                 : ($feedback[$name] ?? null);
@@ -125,9 +128,25 @@ class FeedbackService {
                 }
                 $value = (float)$value;
                 // Interview Support historically accepted numeric scores without range validation.
-                if ($this->normalizeTaskType($taskType) !== 'interview support'
+                if ($this->normalizeTaskType((string)$configuration['name']) !== 'interview support'
                     && ($value < (float)$definition['min'] || $value > (float)$definition['max'])) {
                     $errors[] = sprintf('%s must be between %s and %s', $definition['label'], $definition['min'], $definition['max']);
+                    continue;
+                }
+            } elseif (($definition['type'] ?? '') === 'multiselect') {
+                if (!is_array($value)) {
+                    $errors[] = $definition['label'] . ' must be a list';
+                    continue;
+                }
+                $value = array_values(array_unique(array_map('strval', $value)));
+                if (array_diff($value, $definition['options'] ?? []) !== []) {
+                    $errors[] = $definition['label'] . ' contains an invalid option';
+                    continue;
+                }
+            } elseif (($definition['type'] ?? '') === 'select') {
+                $value = is_scalar($value) ? trim((string)$value) : '';
+                if (!in_array($value, $definition['options'] ?? [], true)) {
+                    $errors[] = $definition['label'] . ' contains an invalid option';
                     continue;
                 }
             } elseif (is_scalar($value) || $value === null) {
@@ -151,7 +170,7 @@ class FeedbackService {
 
         // These legacy columns are NOT NULL in existing installations. They are
         // internal compatibility values for non-interview types, not visible input.
-        if (!$partial && $this->normalizeTaskType($taskType) !== 'interview support') {
+        if (!$partial && $this->normalizeTaskType((string)$configuration['name']) !== 'interview support') {
             $data['company_name'] = '';
             $data['interviewer_name'] = '';
         }
@@ -237,6 +256,8 @@ class FeedbackService {
         $normalized = strtolower(trim(preg_replace('/\s+/', ' ', $taskType) ?? $taskType));
         $aliases = [
             'interview support - google doc' => 'interview support',
+            'otter support' => 'interview support',
+            'resume + ruc' => 'ruc',
             'free counseling' => 'free counselling',
             'free counseling call' => 'free counselling',
             'training' => 'training session',
