@@ -22,6 +22,15 @@ const emptyAnalytics: AnalyticsPayload = {
   },
 }
 
+const getScheduledMinutes = (task?: ExpertTaskItem) => {
+  if (!task) return 0
+  const [startHour, startMinute] = task.start_time.split(':').map(Number)
+  const [endHour, endMinute] = task.end_time.split(':').map(Number)
+  if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return 0
+  const difference = (endHour * 60 + endMinute) - (startHour * 60 + startMinute)
+  return difference >= 0 ? difference : difference + 1440
+}
+
 const ExpertDashboard = () => {
   const { user } = useAuth()
   const { showToast } = useAlert()
@@ -103,6 +112,19 @@ Skipped: ${result.skipped} tasks`,
       mounted = false
     }
   }, [dateRangeFilter, loadAnalytics, loadTasks])
+
+  useEffect(() => {
+    const refresh = window.setInterval(() => void Promise.all([loadTasks(dateRangeFilter, true), loadAnalytics(true)]), 30000)
+    const clock = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => { window.clearInterval(refresh); window.clearInterval(clock) }
+  }, [dateRangeFilter, loadAnalytics, loadTasks])
+
+  const runningTask = tasks.find((task) => String(task.status_name).trim().toLowerCase().includes('progress'))
+  const pendingFeedback = analytics.cards?.pending_feedback?.count ?? 0
+  const startAt = runningTask?.task_start_time ? new Date(runningTask.task_start_time.replace(' ', 'T') + 'Z').getTime() : 0
+  const elapsedMinutes = startAt ? Math.max(0, Math.floor((now - startAt) / 60000)) : 0
+  const scheduledMinutes = getScheduledMinutes(runningTask)
+  const overdueMinutes = scheduledMinutes && elapsedMinutes > scheduledMinutes ? elapsedMinutes - scheduledMinutes : 0
 
   useEffect(() => {
     const refresh = window.setInterval(() => void Promise.all([loadTasks(dateRangeFilter, true), loadAnalytics(true)]), 30000)
