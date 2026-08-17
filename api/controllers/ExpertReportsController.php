@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . "/config/database.php";
+require_once dirname(__DIR__) . "/services/FeedbackEligibility.php";
 
 class ExpertReportsController {
     private function getStatusIdByName(PDO $conn, string $name): ?int {
@@ -71,21 +72,41 @@ class ExpertReportsController {
             $this->repairFeedbackCompletedTasks($conn, $expertUserId);
 
             $page = max(1, (int)($_GET['page'] ?? 1));
-            $limit = max(1, min(100, (int)($_GET['limit'] ?? 20)));
+            $limit = max(1, min(500, (int)($_GET['limit'] ?? 20)));
             $offset = ($page - 1) * $limit;
             $candidateName = trim((string)($_GET['candidate_name'] ?? ''));
             $taskType = trim((string)($_GET['task_type'] ?? ''));
             $statusName = trim((string)($_GET['status_name'] ?? ''));
             $dateFrom = trim((string)($_GET['date_from'] ?? ''));
             $dateTo = trim((string)($_GET['date_to'] ?? ''));
+            $search = trim((string)($_GET['search'] ?? ''));
+            $feedbackStatus = strtolower(trim((string)($_GET['feedback_status'] ?? '')));
+            $feedbackGroup = strtolower(trim((string)($_GET['feedback_group'] ?? '')));
 
             $where = ["ta.user_id = ?"];
             $params = [$expertUserId];
             if ($candidateName !== '') { $where[] = "LOWER(COALESCE(c.name, '')) = LOWER(?)"; $params[] = $candidateName; }
             if ($taskType !== '') { $where[] = "LOWER(COALESCE(tt.name, '')) = LOWER(?)"; $params[] = $taskType; }
             if ($statusName !== '') { $where[] = "LOWER(COALESCE(ts.name, '')) = LOWER(?)"; $params[] = $statusName; }
-            if ($dateFrom !== '') { $where[] = 'DATE(t.due_date) >= ?'; $params[] = $dateFrom; }
-            if ($dateTo !== '') { $where[] = 'DATE(t.due_date) <= ?'; $params[] = $dateTo; }
+            if ($dateFrom !== '') { $where[] = 'DATE(CASE WHEN tf.id IS NULL THEN t.due_date ELSE tf.created_at END) >= ?'; $params[] = $dateFrom; }
+            if ($dateTo !== '') { $where[] = 'DATE(CASE WHEN tf.id IS NULL THEN t.due_date ELSE tf.created_at END) <= ?'; $params[] = $dateTo; }
+            if ($search !== '') {
+                $where[] = "(LOWER(COALESCE(c.name, '')) LIKE LOWER(?) OR LOWER(COALESCE(tt.name, '')) LIKE LOWER(?) OR LOWER(COALESCE(ex.name, '')) LIKE LOWER(?) OR CAST(t.id AS CHAR) LIKE ?)";
+                $term = '%' . $search . '%';
+                array_push($params, $term, $term, $term, $term);
+            }
+            $eligibleSql = FeedbackEligibility::sql('tt.name', 'ts.name');
+            if ($feedbackStatus === 'pending') { $where[] = "({$eligibleSql}) AND tf.id IS NULL"; }
+            if ($feedbackStatus === 'submitted') { $where[] = 'tf.id IS NOT NULL'; }
+            if ($feedbackGroup === 'pending') {
+                $where[] = "({$eligibleSql}) AND tf.id IS NULL";
+            } elseif ($feedbackGroup === 'week') {
+                $where[] = "tf.id IS NOT NULL AND DATE(tf.created_at) BETWEEN DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND CURDATE() AND YEARWEEK(tf.created_at, 1) = YEARWEEK(CURDATE(), 1)";
+            } elseif ($feedbackGroup === 'month') {
+                $where[] = "tf.id IS NOT NULL AND DATE(tf.created_at) BETWEEN DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND CURDATE() AND YEAR(tf.created_at) = YEAR(CURDATE()) AND MONTH(tf.created_at) = MONTH(CURDATE()) AND YEARWEEK(tf.created_at, 1) <> YEARWEEK(CURDATE(), 1)";
+            } elseif ($feedbackGroup === 'earlier') {
+                $where[] = "tf.id IS NOT NULL AND DATE(tf.created_at) BETWEEN DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND CURDATE() AND YEARWEEK(tf.created_at, 1) <> YEARWEEK(CURDATE(), 1) AND (YEAR(tf.created_at) <> YEAR(CURDATE()) OR MONTH(tf.created_at) <> MONTH(CURDATE()))";
+            }
             $whereClause = implode(' AND ', $where);
 
             $baseFrom = "
@@ -108,6 +129,7 @@ class ExpertReportsController {
             $countStmt->execute($params);
             $total = (int)$countStmt->fetchColumn();
             $pages = max(1, (int)ceil($total / $limit));
+            $limitClause = $feedbackGroup === 'pending' ? '' : "LIMIT {$limit} OFFSET {$offset}";
 
             $listSql = "
                 SELECT
@@ -121,15 +143,16 @@ class ExpertReportsController {
                     COALESCE(t.end_time, '') AS ist_end_time,
                     COALESCE(t.duration, 0) AS duration,
                     CASE
-                        WHEN LOWER(COALESCE(ts.name, '')) = 'completed' AND tf.id IS NOT NULL THEN 'Submitted'
-                        WHEN LOWER(COALESCE(ts.name, '')) = 'completed' THEN 'Pending'
+                        WHEN tf.id IS NOT NULL THEN 'Submitted'
+                        WHEN {$eligibleSql} THEN 'Pending'
                         ELSE 'Not Available'
                     END AS feedback_status,
+                    DATE_FORMAT(tf.created_at, '%Y-%m-%d %H:%i') AS feedback_submitted_at,
                     t.created_at,
-                    CASE WHEN LOWER(COALESCE(ts.name, '')) = 'completed' THEN tf.id ELSE NULL END AS feedback_id
+                    tf.id AS feedback_id
                 {$baseFrom}
                 ORDER BY DATE(t.due_date) DESC, t.created_at DESC
-                LIMIT {$limit} OFFSET {$offset}
+                {$limitClause}
             ";
             $stmt = $conn->prepare($listSql);
             $stmt->execute($params);
