@@ -88,8 +88,8 @@ class ExpertReportsController {
             if ($candidateName !== '') { $where[] = "LOWER(COALESCE(c.name, '')) = LOWER(?)"; $params[] = $candidateName; }
             if ($taskType !== '') { $where[] = "LOWER(COALESCE(tt.name, '')) = LOWER(?)"; $params[] = $taskType; }
             if ($statusName !== '') { $where[] = "LOWER(COALESCE(ts.name, '')) = LOWER(?)"; $params[] = $statusName; }
-            if ($dateFrom !== '') { $where[] = 'DATE(t.due_date) >= ?'; $params[] = $dateFrom; }
-            if ($dateTo !== '') { $where[] = 'DATE(t.due_date) <= ?'; $params[] = $dateTo; }
+            if ($dateFrom !== '') { $where[] = 'DATE(CASE WHEN tf.id IS NULL THEN t.due_date ELSE tf.created_at END) >= ?'; $params[] = $dateFrom; }
+            if ($dateTo !== '') { $where[] = 'DATE(CASE WHEN tf.id IS NULL THEN t.due_date ELSE tf.created_at END) <= ?'; $params[] = $dateTo; }
             if ($search !== '') {
                 $where[] = "(LOWER(COALESCE(c.name, '')) LIKE LOWER(?) OR LOWER(COALESCE(tt.name, '')) LIKE LOWER(?) OR LOWER(COALESCE(ex.name, '')) LIKE LOWER(?) OR CAST(t.id AS CHAR) LIKE ?)";
                 $term = '%' . $search . '%';
@@ -101,11 +101,11 @@ class ExpertReportsController {
             if ($feedbackGroup === 'pending') {
                 $where[] = "({$eligibleSql}) AND tf.id IS NULL";
             } elseif ($feedbackGroup === 'week') {
-                $where[] = "tf.id IS NOT NULL AND YEARWEEK(tf.created_at, 1) = YEARWEEK(CURDATE(), 1)";
+                $where[] = "tf.id IS NOT NULL AND DATE(tf.created_at) BETWEEN DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND CURDATE() AND YEARWEEK(tf.created_at, 1) = YEARWEEK(CURDATE(), 1)";
             } elseif ($feedbackGroup === 'month') {
-                $where[] = "tf.id IS NOT NULL AND YEAR(tf.created_at) = YEAR(CURDATE()) AND MONTH(tf.created_at) = MONTH(CURDATE()) AND YEARWEEK(tf.created_at, 1) <> YEARWEEK(CURDATE(), 1)";
-            } elseif ($feedbackGroup === 'previous') {
-                $where[] = "tf.id IS NOT NULL AND (YEAR(tf.created_at) <> YEAR(CURDATE()) OR MONTH(tf.created_at) <> MONTH(CURDATE()))";
+                $where[] = "tf.id IS NOT NULL AND DATE(tf.created_at) BETWEEN DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND CURDATE() AND YEAR(tf.created_at) = YEAR(CURDATE()) AND MONTH(tf.created_at) = MONTH(CURDATE()) AND YEARWEEK(tf.created_at, 1) <> YEARWEEK(CURDATE(), 1)";
+            } elseif ($feedbackGroup === 'earlier') {
+                $where[] = "tf.id IS NOT NULL AND DATE(tf.created_at) BETWEEN DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND CURDATE() AND YEARWEEK(tf.created_at, 1) <> YEARWEEK(CURDATE(), 1) AND (YEAR(tf.created_at) <> YEAR(CURDATE()) OR MONTH(tf.created_at) <> MONTH(CURDATE()))";
             }
             $whereClause = implode(' AND ', $where);
 
@@ -129,6 +129,7 @@ class ExpertReportsController {
             $countStmt->execute($params);
             $total = (int)$countStmt->fetchColumn();
             $pages = max(1, (int)ceil($total / $limit));
+            $limitClause = $feedbackGroup === 'pending' ? '' : "LIMIT {$limit} OFFSET {$offset}";
 
             $listSql = "
                 SELECT
@@ -151,7 +152,7 @@ class ExpertReportsController {
                     tf.id AS feedback_id
                 {$baseFrom}
                 ORDER BY DATE(t.due_date) DESC, t.created_at DESC
-                LIMIT {$limit} OFFSET {$offset}
+                {$limitClause}
             ";
             $stmt = $conn->prepare($listSql);
             $stmt->execute($params);
