@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . "/config/database.php";
 require_once dirname(__DIR__) . "/utils/jwt.php";
 require_once dirname(__DIR__) . "/middleware/auth.php";
 require_once dirname(__DIR__) . "/services/LoggerService.php";
+require_once dirname(__DIR__) . "/services/EmailService.php";
 
 class AuthController {
 
@@ -67,6 +68,24 @@ class AuthController {
             // 🔐 TOKEN
             $jwt = new JWTHandler();
             $token = $jwt->generateToken($user);
+
+            // Authentication and session creation are complete. This best-effort
+            // delivery must never change the successful login response.
+            if (strtolower((string)$user['role']) === 'technical expert') {
+                try {
+                    $yesterday = (new DateTime('yesterday', new DateTimeZone('Asia/Kolkata')))->format('Y-m-d');
+                    EmailService::sendDailyReportForUser((int)$user['id'], $yesterday);
+                } catch (Throwable $reportError) {
+                    LoggerService::logError('Post-login daily report attempt failed', [
+                        'timestamp' => gmdate('c'),
+                        'email_type' => 'technical_expert_daily_report',
+                        'recipient_count' => 3,
+                        'user_id' => (int)$user['id'],
+                        'report_date' => $yesterday,
+                        'error' => $reportError->getMessage(),
+                    ]);
+                }
+            }
 
             echo json_encode([
                 "status" => "success",
