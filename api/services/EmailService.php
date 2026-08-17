@@ -515,6 +515,7 @@ class EmailService
         try {
             $tasks = self::fetchDailyReportTasks($conn, $userId, $date);
             $report = self::calculateDailyReport($tasks);
+            $report['pending_feedback'] = self::fetchPendingFeedbackTasks($conn, $userId, $date);
             [$htmlBody, $plainBody] = self::buildDailyReportBody((string)$user['name'], $date, $report);
             $displayDate = DateTime::createFromFormat('!Y-m-d', $date, $timezone)->format('d M Y');
             $result = self::sendRawEmail(
@@ -611,12 +612,31 @@ class EmailService
             $report['scheduled_minutes'] += self::minutesBetween($task['start_time'] ?? null, $task['end_time'] ?? null);
             $actual = self::minutesBetween($task['task_start_time'] ?? null, $task['task_end_time'] ?? null);
             $report['actual_minutes'] += $actual > 0 ? $actual : max(0, (int)($task['duration'] ?? 0));
-            if (empty($task['feedback_id']) && FeedbackEligibility::isEligible($type, (string)$task['status_name'])) {
-                $report['pending_feedback'][] = $task;
-            }
         }
         ksort($report['types']);
         return $report;
+    }
+
+    /** Pending feedback is an operational backlog, so it includes every eligible task through the report date. */
+    private static function fetchPendingFeedbackTasks(PDO $conn, int $userId, string $date): array
+    {
+        $eligibleSql = FeedbackEligibility::sql('tt.name', 'ts.name');
+        $stmt = $conn->prepare("
+            SELECT t.id, t.title, DATE(t.due_date) AS task_date,
+                   COALESCE(c.name, '') AS candidate_name,
+                   COALESCE(tt.name, 'Unspecified') AS task_type
+            FROM tasks t
+            INNER JOIN task_assignments ta ON ta.task_id = t.id AND ta.user_id = ?
+            LEFT JOIN candidates c ON c.id = t.candidate_id
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN task_feedback tf ON tf.task_id = t.id
+            WHERE DATE(t.due_date) <= ? AND tf.id IS NULL AND ({$eligibleSql})
+            GROUP BY t.id, t.title, t.due_date, c.name, tt.name
+            ORDER BY t.due_date DESC, t.id DESC
+        ");
+        $stmt->execute([$userId, $date]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     private static function minutesBetween($start, $end): int
@@ -656,9 +676,18 @@ class EmailService
                 . $e(self::formatMinutes(($actual = self::minutesBetween($task['task_start_time'], $task['task_end_time'])) > 0 ? $actual : (int)$task['duration'])) . '</td></tr>';
         }
         if (!empty($report['tasks'])) $activity .= '</table>';
-        $pendingFeedback = empty($report['pending_feedback']) ? '<p>No task feedback pending today.</p>' : '<ul>';
+        $pendingFeedbackCounts = [];
         foreach ($report['pending_feedback'] as $task) {
-            $pendingFeedback .= '<li><strong>TAS-' . (int)$task['id'] . '</strong> — ' . $e($task['task_type']) . ' · ' . $e($task['candidate_name'] ?: 'No candidate') . '</li>';
+            $pendingFeedbackCounts[$task['task_type']] = ($pendingFeedbackCounts[$task['task_type']] ?? 0) + 1;
+        }
+        ksort($pendingFeedbackCounts);
+        $pendingFeedback = empty($report['pending_feedback']) ? '<p>No task feedback pending through the report date.</p>' : '<p><strong>Counts by task type:</strong> ';
+        foreach ($pendingFeedbackCounts as $type => $count) {
+            $pendingFeedback .= $e($type) . ': ' . (int)$count . '; ';
+        }
+        if (!empty($report['pending_feedback'])) $pendingFeedback .= '</p><ul>';
+        foreach ($report['pending_feedback'] as $task) {
+            $pendingFeedback .= '<li><strong>TAS-' . (int)$task['id'] . '</strong> — ' . $e($task['task_type']) . ' · ' . $e($task['candidate_name'] ?: 'No candidate') . ' · ' . $e($task['task_date']) . '</li>';
         }
         if (!empty($report['pending_feedback'])) $pendingFeedback .= '</ul>';
         $rate = $report['assigned'] > 0 ? round(($report['completed'] / $report['assigned']) * 100, 1) : 0;
@@ -670,8 +699,9 @@ class EmailService
         $plain .= empty($report['tasks']) ? "\n\nNo tasks were recorded for this reporting date." : "\n\nToday's Task Activity";
         foreach ($report['tasks'] as $task) $plain .= "\n#{$task['id']} {$task['title']} | {$task['task_type']} | {$task['status_name']}";
         $plain .= "\n\nPending Task Feedback";
-        if (empty($report['pending_feedback'])) $plain .= "\nNo task feedback pending today.";
-        foreach ($report['pending_feedback'] as $task) $plain .= "\nTAS-{$task['id']} | {$task['task_type']} | " . ($task['candidate_name'] ?: 'No candidate');
+        if (empty($report['pending_feedback'])) $plain .= "\nNo task feedback pending through the report date.";
+        foreach ($pendingFeedbackCounts as $type => $count) $plain .= "\n{$type}: {$count}";
+        foreach ($report['pending_feedback'] as $task) $plain .= "\nTAS-{$task['id']} | {$task['task_type']} | " . ($task['candidate_name'] ?: 'No candidate') . " | {$task['task_date']}";
         $plain .= "\n\nPerformance Summary\nCompletion Rate: {$rate}%";
         return [$html, $plain];
     }
