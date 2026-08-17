@@ -639,6 +639,50 @@ class EmailService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /** Pending feedback is an operational backlog, so it includes every eligible task through the report date. */
+    private static function fetchPendingFeedbackTasks(PDO $conn, int $userId, string $date): array
+    {
+        $eligibleSql = FeedbackEligibility::sql('tt.name', 'ts.name');
+        $stmt = $conn->prepare("
+            SELECT t.id, t.title, DATE(t.due_date) AS task_date,
+                   COALESCE(c.name, '') AS candidate_name,
+                   COALESCE(tt.name, 'Unspecified') AS task_type
+            FROM tasks t
+            INNER JOIN task_assignments ta ON ta.task_id = t.id AND ta.user_id = ?
+            LEFT JOIN candidates c ON c.id = t.candidate_id
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN task_feedback tf ON tf.task_id = t.id
+            WHERE DATE(t.due_date) <= ? AND tf.id IS NULL AND ({$eligibleSql})
+            GROUP BY t.id, t.title, t.due_date, c.name, tt.name
+            ORDER BY t.due_date DESC, t.id DESC
+        ");
+        $stmt->execute([$userId, $date]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Pending feedback is an operational backlog, so it includes every eligible task through the report date. */
+    private static function fetchPendingFeedbackTasks(PDO $conn, int $userId, string $date): array
+    {
+        $eligibleSql = FeedbackEligibility::sql('tt.name', 'ts.name');
+        $stmt = $conn->prepare("
+            SELECT t.id, t.title, DATE(t.due_date) AS task_date,
+                   COALESCE(c.name, '') AS candidate_name,
+                   COALESCE(tt.name, 'Unspecified') AS task_type
+            FROM tasks t
+            INNER JOIN task_assignments ta ON ta.task_id = t.id AND ta.user_id = ?
+            LEFT JOIN candidates c ON c.id = t.candidate_id
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN task_feedback tf ON tf.task_id = t.id
+            WHERE DATE(t.due_date) <= ? AND tf.id IS NULL AND ({$eligibleSql})
+            GROUP BY t.id, t.title, t.due_date, c.name, tt.name
+            ORDER BY t.due_date DESC, t.id DESC
+        ");
+        $stmt->execute([$userId, $date]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     private static function minutesBetween($start, $end): int
     {
         if (empty($start) || empty($end)) return 0;
