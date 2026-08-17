@@ -5,6 +5,7 @@ import ExpertWorkspaceHeader from '../../../shared/components/ExpertWorkspaceHea
 import { useAuth } from '../../../context/AuthContext'
 import { getTaskAssignmentReport, getTaskReport, getTaskTypes, type TaskRecord, type TaskTypeOption } from '../api/tasksApi'
 import { getExpertTasks } from '../api/expertTasksApi'
+import ExpertDailyReportPage from './ExpertDailyReportPage'
 
 const ReportsTasksPage = () => {
   const { user } = useAuth()
@@ -128,6 +129,8 @@ const ReportsTasksPage = () => {
     if (Number.isNaN(date.getTime())) return '-'
     return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
   }
+
+  if (isExpertRole) return <ExpertDailyReportPage />
 
   return (
     <PageContainer title={user?.role === 'manager' || isExpertRole ? undefined : "Task Reports"} description={user?.role === 'manager' || isExpertRole ? undefined : "Role-based reporting across task status, schedule and assignments."}>
