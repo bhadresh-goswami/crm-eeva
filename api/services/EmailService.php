@@ -314,16 +314,41 @@ class EmailService
     {
         self::loadPhpMailerClasses();
 
+        $to = self::sanitizeEmails($recipients['to'] ?? []);
+        $cc = self::sanitizeEmails($recipients['cc'] ?? []);
+        $toLookup = array_fill_keys($to, true);
+        $cc = array_values(array_filter($cc, static function (string $email) use ($toLookup): bool {
+            return !isset($toLookup[$email]);
+        }));
+        if (empty($to)) {
+            throw new RuntimeException('Email has no valid TO recipients');
+        }
+
+        $smtp = $config['smtp'] ?? [];
+        $from = $config['from'] ?? [];
+        foreach (['host', 'port'] as $required) {
+            if (empty($smtp[$required])) {
+                throw new RuntimeException('Mail configuration is missing SMTP ' . $required);
+            }
+        }
+        if (!empty($smtp['auth']) && (empty($smtp['username']) || empty($smtp['password']))) {
+            throw new RuntimeException('Authenticated SMTP credentials are missing');
+        }
+        if (empty($from['email']) || !filter_var($from['email'], FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('Mail sender address is missing or invalid');
+        }
+
         $mailer = new PHPMailer(true);
         $mailer->isSMTP();
-        $mailer->Host = $config['smtp']['host'];
-        $mailer->SMTPAuth = (bool)$config['smtp']['auth'];
-        $mailer->Username = $config['smtp']['username'];
-        $mailer->Password = $config['smtp']['password'];
-        $mailer->SMTPSecure = $config['smtp']['encryption'];
-        $mailer->Port = (int)$config['smtp']['port'];
-        $mailer->Timeout = (int)($config['smtp']['timeout'] ?? 5);
-        $mailer->SMTPDebug = 2;
+        $mailer->Host = (string)$smtp['host'];
+        $mailer->SMTPAuth = (bool)($smtp['auth'] ?? true);
+        $mailer->Username = (string)($smtp['username'] ?? '');
+        $mailer->Password = (string)($smtp['password'] ?? '');
+        $mailer->SMTPSecure = (string)($smtp['encryption'] ?? 'tls');
+        $mailer->Port = (int)$smtp['port'];
+        $mailer->Timeout = (int)($smtp['timeout'] ?? 5);
+        $mailer->CharSet = PHPMailer::CHARSET_UTF8;
+        $mailer->SMTPDebug = !empty($smtp['debug']) ? 2 : 0;
         $mailer->Debugoutput = static function ($str, $level) {
             LoggerService::logInfo('SMTP DEBUG', [
                 'level' => $level,
@@ -331,12 +356,12 @@ class EmailService
             ]);
         };
 
-        $mailer->setFrom('support@bsquareg-developers.com', 'Support Team');
-        foreach ($recipients['to'] as $email) {
+        $mailer->setFrom((string)$from['email'], (string)($from['name'] ?? ''));
+        foreach ($to as $email) {
             $mailer->addAddress($email);
         }
 
-        foreach ($recipients['cc'] as $email) {
+        foreach ($cc as $email) {
             $mailer->addCC($email);
         }
 
@@ -357,10 +382,8 @@ class EmailService
         } catch (Exception $e) {
             LoggerService::logError('Email failed', [
                 'error' => $mailer->ErrorInfo,
-                'exception' => $e->getMessage(),
-                'to' => $recipients['to'],
-                'cc' => $recipients['cc'],
-                'subject' => $subject,
+                'recipient_count' => count($to) + count($cc),
+                'email_type' => $action,
             ]);
             throw $e;
         }
@@ -462,62 +485,182 @@ class EmailService
         );
     }
 
-    public static function sendDailyReportForUser(int $userId, bool $manual = false): array
+    public static function sendDailyReportForUser(int $userId, ?string $reportDate = null): array
     {
+        $timezone = new DateTimeZone('Asia/Kolkata');
+        $date = self::normalizeReportDate($reportDate, $timezone);
         $db = new Database();
         $conn = $db->connect();
-        $todayIst = (new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y-m-d');
 
-        $sentMap = self::readDailyReportMap();
-        $sentKey = $userId . '|' . $todayIst;
-        if (!$manual && isset($sentMap[$sentKey])) {
-            return ['success' => true, 'email_status' => 'skipped', 'email_error' => 'already_sent'];
-        }
-
-        $userStmt = $conn->prepare('SELECT id, email, name, status FROM users WHERE id = ? LIMIT 1');
+        $userStmt = $conn->prepare("
+            SELECT u.id, u.email, u.name, u.status, LOWER(r.name) AS role
+            FROM users u
+            INNER JOIN roles r ON r.id = u.role_id
+            WHERE u.id = ? LIMIT 1
+        ");
         $userStmt->execute([$userId]);
         $user = $userStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$user || (string)$user['status'] !== 'active' || trim((string)$user['email']) === '') {
-            return ['success' => true, 'email_status' => 'skipped', 'email_error' => 'inactive_or_missing_email'];
+        if (!$user || $user['status'] !== 'active' || $user['role'] !== 'technical expert') {
+            return ['success' => true, 'email_status' => 'skipped', 'email_error' => 'not_active_technical_expert'];
+        }
+        if (!filter_var(trim((string)$user['email']), FILTER_VALIDATE_EMAIL)) {
+            return ['success' => true, 'email_status' => 'skipped', 'email_error' => 'missing_or_invalid_expert_email'];
         }
 
-        $countStmt = $conn->prepare("
-            SELECT
-              SUM(CASE WHEN LOWER(ts.name) = 'completed' THEN 1 ELSE 0 END) AS completed_count,
-              SUM(CASE WHEN LOWER(ts.name) IN ('pending', 'assigned', 'in progress') THEN 1 ELSE 0 END) AS pending_count
-            FROM tasks t
-            INNER JOIN task_assignments ta ON ta.task_id = t.id
-            LEFT JOIN task_status_master ts ON ts.id = t.status_id
-            WHERE ta.user_id = ?
-              AND ta.is_active = 1
-              AND DATE(t.due_date) = ?
-        ");
-        $countStmt->execute([$userId, $todayIst]);
-        $counts = $countStmt->fetch(PDO::FETCH_ASSOC) ?: ['completed_count' => 0, 'pending_count' => 0];
-        $completed = (int)($counts['completed_count'] ?? 0);
-        $pending = (int)($counts['pending_count'] ?? 0);
-
-        if (($completed + $pending) === 0) {
-            return ['success' => true, 'email_status' => 'skipped', 'email_error' => 'no_tasks_today'];
+        if (!self::reserveDailyReportDelivery($conn, $userId, $date)) {
+            return ['success' => true, 'email_status' => 'skipped', 'email_error' => 'already_sent_or_sending'];
         }
 
-        $result = self::sendRawEmail(
-            [trim((string)$user['email'])],
-            ['support@bsquareg-developers.com'],
-            'Daily Task Report - ' . $todayIst,
-            '<p>Completed Tasks (Today): ' . $completed . '<br>Pending Tasks (Today): ' . $pending . '</p>',
-            "Completed Tasks (Today): {$completed}\nPending Tasks (Today): {$pending}"
-        );
+        try {
+            $tasks = self::fetchDailyReportTasks($conn, $userId, $date);
+            $report = self::calculateDailyReport($tasks);
+            [$htmlBody, $plainBody] = self::buildDailyReportBody((string)$user['name'], $date, $report);
+            $displayDate = DateTime::createFromFormat('!Y-m-d', $date, $timezone)->format('d M Y');
+            $result = self::sendRawEmail(
+                ['dipesh.sharma@bedgetechinc.com', trim((string)$user['email'])],
+                ['bhadresh@bedgetechinc.com'],
+                'Technical Expert Daily Report — ' . trim((string)$user['name']) . ' — ' . $displayDate,
+                $htmlBody,
+                $plainBody,
+                ['email_type' => 'technical_expert_daily_report', 'user_id' => $userId, 'report_date' => $date]
+            );
 
-        if (($result['email_status'] ?? '') === 'sent') {
-            $sentMap[$sentKey] = gmdate('c');
-            self::writeDailyReportMap($sentMap);
+            if (($result['email_status'] ?? '') === 'sent') {
+                $stmt = $conn->prepare("UPDATE technical_expert_daily_report_deliveries SET status = 'sent', sent_at = NOW() WHERE user_id = ? AND report_date = ?");
+                $stmt->execute([$userId, $date]);
+            } else {
+                self::releaseDailyReportDelivery($conn, $userId, $date);
+            }
+            return $result;
+        } catch (Throwable $e) {
+            self::releaseDailyReportDelivery($conn, $userId, $date);
+            LoggerService::logError('Technical expert daily report failed', [
+                'timestamp' => gmdate('c'), 'email_type' => 'technical_expert_daily_report',
+                'recipient_count' => 3, 'user_id' => $userId, 'report_date' => $date, 'error' => $e->getMessage(),
+            ]);
+            return ['success' => true, 'email_status' => 'failed', 'email_error' => $e->getMessage()];
         }
-
-        return $result;
     }
 
-    private static function sendRawEmail(array $to, array $cc, string $subject, string $htmlBody, string $plainBody): array
+    private static function normalizeReportDate(?string $reportDate, DateTimeZone $timezone): string
+    {
+        if ($reportDate === null || trim($reportDate) === '') {
+            return (new DateTime('now', $timezone))->format('Y-m-d');
+        }
+        $date = DateTime::createFromFormat('!Y-m-d', $reportDate, $timezone);
+        if (!$date || $date->format('Y-m-d') !== $reportDate) {
+            throw new InvalidArgumentException('report_date must use YYYY-MM-DD format');
+        }
+        return $date->format('Y-m-d');
+    }
+
+    private static function reserveDailyReportDelivery(PDO $conn, int $userId, string $date): bool
+    {
+        // A crashed worker must not suppress retries forever; successful rows are never removed.
+        $cleanup = $conn->prepare("DELETE FROM technical_expert_daily_report_deliveries WHERE user_id = ? AND report_date = ? AND status = 'sending' AND updated_at < (NOW() - INTERVAL 15 MINUTE)");
+        $cleanup->execute([$userId, $date]);
+        try {
+            $stmt = $conn->prepare("INSERT INTO technical_expert_daily_report_deliveries (user_id, report_date, status) VALUES (?, ?, 'sending')");
+            return $stmt->execute([$userId, $date]);
+        } catch (PDOException $e) {
+            if ((string)$e->getCode() === '23000') {
+                return false;
+            }
+            throw $e;
+        }
+    }
+
+    private static function releaseDailyReportDelivery(PDO $conn, int $userId, string $date): void
+    {
+        $stmt = $conn->prepare("DELETE FROM technical_expert_daily_report_deliveries WHERE user_id = ? AND report_date = ? AND status = 'sending'");
+        $stmt->execute([$userId, $date]);
+    }
+
+    private static function fetchDailyReportTasks(PDO $conn, int $userId, string $date): array
+    {
+        $stmt = $conn->prepare("
+            SELECT t.id, t.title, COALESCE(tt.name, 'Unspecified') AS task_type,
+                   COALESCE(ts.name, 'Pending') AS status_name, t.start_time, t.end_time,
+                   t.task_start_time, t.task_end_time, COALESCE(t.duration, 0) AS duration
+            FROM tasks t
+            INNER JOIN task_assignments ta ON ta.task_id = t.id AND ta.user_id = ?
+            LEFT JOIN task_types tt ON tt.id = t.task_type_id
+            LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            WHERE DATE(t.due_date) = ?
+            GROUP BY t.id, t.title, tt.name, ts.name, t.start_time, t.end_time, t.task_start_time, t.task_end_time, t.duration
+            ORDER BY t.start_time, t.id
+        ");
+        $stmt->execute([$userId, $date]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private static function calculateDailyReport(array $tasks): array
+    {
+        $report = ['assigned' => count($tasks), 'completed' => 0, 'pending' => 0, 'cancelled' => 0, 'scheduled_minutes' => 0, 'actual_minutes' => 0, 'types' => [], 'tasks' => $tasks];
+        foreach ($tasks as $task) {
+            $status = strtolower(trim((string)$task['status_name']));
+            if ($status === 'completed') $report['completed']++;
+            elseif (strpos($status, 'cancel') !== false || strpos($status, 'reschedul') !== false) $report['cancelled']++;
+            else $report['pending']++;
+            $type = trim((string)$task['task_type']) ?: 'Unspecified';
+            $report['types'][$type] = ($report['types'][$type] ?? 0) + 1;
+            $report['scheduled_minutes'] += self::minutesBetween($task['start_time'] ?? null, $task['end_time'] ?? null);
+            $actual = self::minutesBetween($task['task_start_time'] ?? null, $task['task_end_time'] ?? null);
+            $report['actual_minutes'] += $actual > 0 ? $actual : max(0, (int)($task['duration'] ?? 0));
+        }
+        ksort($report['types']);
+        return $report;
+    }
+
+    private static function minutesBetween($start, $end): int
+    {
+        if (empty($start) || empty($end)) return 0;
+        try {
+            $seconds = (new DateTime((string)$end))->getTimestamp() - (new DateTime((string)$start))->getTimestamp();
+            return max(0, (int)round($seconds / 60));
+        } catch (Throwable $e) { return 0; }
+    }
+
+    private static function formatMinutes(int $minutes): string
+    {
+        return sprintf('%dh %02dm', intdiv(max(0, $minutes), 60), max(0, $minutes) % 60);
+    }
+
+    private static function buildDailyReportBody(string $expertName, string $date, array $report): array
+    {
+        $e = static function ($value): string { return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8'); };
+        $displayDate = (new DateTime($date))->format('d M Y');
+        $metrics = [
+            'Assigned Tasks' => $report['assigned'], 'Completed Tasks' => $report['completed'],
+            'Pending Tasks' => $report['pending'], 'Cancelled / Rescheduled' => $report['cancelled'],
+            'Scheduled Duration' => self::formatMinutes($report['scheduled_minutes']),
+            'Actual Duration' => self::formatMinutes($report['actual_minutes']),
+        ];
+        $rows = '';
+        foreach ($metrics as $label => $value) $rows .= self::row($label, $value);
+        $types = empty($report['types']) ? '<p>No task types recorded.</p>' : '<ul>';
+        foreach ($report['types'] as $type => $count) $types .= '<li>' . $e($type) . ': ' . (int)$count . '</li>';
+        if (!empty($report['types'])) $types .= '</ul>';
+        $activity = empty($report['tasks']) ? '<p><strong>No tasks were recorded for this reporting date.</strong></p>' : '<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse"><tr><th>Task</th><th>Type</th><th>Status</th><th>Scheduled</th><th>Actual</th></tr>';
+        foreach ($report['tasks'] as $task) {
+            $activity .= '<tr><td>' . $e($task['title']) . '</td><td>' . $e($task['task_type']) . '</td><td>' . $e($task['status_name']) . '</td><td>'
+                . $e(self::formatMinutes(self::minutesBetween($task['start_time'], $task['end_time']))) . '</td><td>'
+                . $e(self::formatMinutes(($actual = self::minutesBetween($task['task_start_time'], $task['task_end_time'])) > 0 ? $actual : (int)$task['duration'])) . '</td></tr>';
+        }
+        if (!empty($report['tasks'])) $activity .= '</table>';
+        $rate = $report['assigned'] > 0 ? round(($report['completed'] / $report['assigned']) * 100, 1) : 0;
+        $html = '<div style="font-family:Arial,sans-serif"><h1>Technical Expert Daily Work Report</h1><p><strong>Expert Name:</strong> ' . $e($expertName) . '<br><strong>Report Date:</strong> ' . $e($displayDate) . '</p><h2>Daily Summary</h2><table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">' . $rows . '</table><h2>Task Type Breakdown</h2>' . $types . '<h2>Today\'s Task Activity</h2>' . $activity . '<h2>Performance Summary</h2><p>Completion Rate: ' . $rate . '%</p></div>';
+        $plain = "Technical Expert Daily Work Report\nExpert Name: {$expertName}\nReport Date: {$displayDate}\n\nDaily Summary";
+        foreach ($metrics as $label => $value) $plain .= "\n{$label}: {$value}";
+        $plain .= "\n\nTask Type Breakdown";
+        foreach ($report['types'] as $type => $count) $plain .= "\n{$type}: {$count}";
+        $plain .= empty($report['tasks']) ? "\n\nNo tasks were recorded for this reporting date." : "\n\nToday's Task Activity";
+        foreach ($report['tasks'] as $task) $plain .= "\n#{$task['id']} {$task['title']} | {$task['task_type']} | {$task['status_name']}";
+        $plain .= "\n\nPerformance Summary\nCompletion Rate: {$rate}%";
+        return [$html, $plain];
+    }
+
+    private static function sendRawEmail(array $to, array $cc, string $subject, string $htmlBody, string $plainBody, array $context = []): array
     {
         try {
             $config = self::loadMailConfig();
@@ -527,25 +670,11 @@ class EmailService
             self::dispatch($config, ['to' => self::sanitizeEmails($to), 'cc' => self::sanitizeEmails($cc)], $subject, $htmlBody, $plainBody, 'generic@bsquareg', 'generic');
             return ['success' => true, 'email_status' => 'sent', 'email_error' => null];
         } catch (Throwable $e) {
-            LoggerService::logError('Generic email failed', ['subject' => $subject, 'error' => $e->getMessage()]);
+            LoggerService::logError('Email delivery failed', array_merge([
+                'timestamp' => gmdate('c'), 'email_type' => 'generic',
+                'recipient_count' => count(self::sanitizeEmails(array_merge($to, $cc))), 'error' => $e->getMessage(),
+            ], $context));
             return ['success' => true, 'email_status' => 'failed', 'email_error' => $e->getMessage()];
         }
-    }
-
-    private static function readDailyReportMap(): array
-    {
-        $path = dirname(__DIR__) . '/logs/daily_report_sent.json';
-        if (!file_exists($path)) {
-            return [];
-        }
-        $raw = file_get_contents($path);
-        $decoded = json_decode((string)$raw, true);
-        return is_array($decoded) ? $decoded : [];
-    }
-
-    private static function writeDailyReportMap(array $map): void
-    {
-        $path = dirname(__DIR__) . '/logs/daily_report_sent.json';
-        file_put_contents($path, json_encode($map, JSON_PRETTY_PRINT), LOCK_EX);
     }
 }

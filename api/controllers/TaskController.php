@@ -1817,18 +1817,18 @@ public function downloadFile() {
     }
 
     public function sendDailyReport($user_id) {
-        $result = EmailService::sendDailyReportForUser((int)$user_id, true);
-        if (($result['email_status'] ?? '') === 'skipped' && ($result['email_error'] ?? '') === 'no_tasks_today') {
+        $data = json_decode(file_get_contents('php://input'));
+        $reportDate = is_object($data) && isset($data->report_date) ? (string)$data->report_date : null;
+        try {
+            $result = EmailService::sendDailyReportForUser((int)$user_id, $reportDate);
+        } catch (InvalidArgumentException $e) {
             http_response_code(422);
-            echo json_encode([
-                "success" => false,
-                "message" => "No tasks found for today.",
-            ]);
+            echo json_encode(["success" => false, "message" => $e->getMessage()]);
             return;
         }
 
         echo json_encode([
-            "success" => true,
+            "success" => ($result['email_status'] ?? '') !== 'failed',
             "email_status" => $result['email_status'] ?? 'failed',
             "email_error" => $result['email_error'] ?? null,
             "message" => "Daily report processed",
