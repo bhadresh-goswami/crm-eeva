@@ -73,8 +73,23 @@ const ExpertFeedbackReport = () => {
   const [groups, setGroups] = useState<Record<GroupKey, ExpertRow[]>>({ week: [], month: [], earlier: [] }); const [totals, setTotals] = useState<Record<GroupKey, number>>({ week: 0, month: 0, earlier: 0 })
   const [expanded, setExpanded] = useState<Record<GroupKey, boolean>>({ week: true, month: true, earlier: true }); const [filterOpen, setFilterOpen] = useState(false)
   const [page, setPage] = useState(1); const [limit, setLimit] = useState(10); const [loading, setLoading] = useState(false); const [selected, setSelected] = useState<ExpertRow | null>(null)
+  const [options, setOptions] = useState<{ candidates: string[]; types: string[] }>({ candidates: [], types: [] })
   const panelRef = useRef<HTMLDivElement>(null); const activeCount = [filters.candidate_name, filters.task_type, filters.date_preset].filter(Boolean).length
   const dates = useMemo(() => dateBounds(filters.date_preset, filters.date_from, filters.date_to), [filters])
+  const fetchFilterOptions = useCallback(async () => {
+    if (!expertId) return
+    const keys: GroupKey[] = ['week', 'month', 'earlier']
+    const rows = (await Promise.all(keys.map(async feedback_group => {
+      const first = await loadTaskForFeedback({ feedback_status: 'submitted', feedback_group, page: 1, limit: 500 })
+      const pages = Number(first.pagination?.total_pages || 1)
+      const remaining = pages > 1 ? await Promise.all(Array.from({ length: pages - 1 }, (_, index) => loadTaskForFeedback({ feedback_status: 'submitted', feedback_group, page: index + 2, limit: 500 }))) : []
+      return [first, ...remaining].flatMap(result => result.items || []) as Row[]
+    }))).flat()
+    setOptions({
+      candidates: [...new Set(rows.map(row => String(row.candidate_name || '').trim()).filter(Boolean))].sort(),
+      types: [...new Set(rows.map(row => String(row.task_type || '').trim()).filter(Boolean))].sort(),
+    })
+  }, [expertId])
   const fetchRows = useCallback(async () => {
     if (!expertId) return
     setLoading(true)
@@ -88,13 +103,13 @@ const ExpertFeedbackReport = () => {
     } finally { setLoading(false) }
   }, [expertId, filters, dates.from, dates.to, page, limit])
   useEffect(() => { void fetchRows() }, [fetchRows])
+  useEffect(() => { void fetchFilterOptions() }, [fetchFilterOptions])
   useEffect(() => {
     const close = (event: MouseEvent) => { if (panelRef.current && !panelRef.current.contains(event.target as Node)) setFilterOpen(false) }
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setFilterOpen(false) }
     document.addEventListener('mousedown', close); document.addEventListener('keydown', escape)
     return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', escape) }
   }, [])
-  const options = useMemo(() => ({ candidates: [...new Set(Object.values(groups).flat().map(row => String(row.candidate_name || '')).filter(Boolean))].sort(), types: [...new Set(Object.values(groups).flat().map(row => String(row.task_type || '')).filter(Boolean))].sort() }), [groups])
   const clear = () => { setDraft(emptyFilters); setFilters(emptyFilters); setPage(1) }
   const totalSubmitted = totals.week + totals.month + totals.earlier
   return <PageContainer><ExpertWorkspaceHeader title="Feedback Reports" /><main className="feedback-workspace feedback-report-workspace">
@@ -104,7 +119,7 @@ const ExpertFeedbackReport = () => {
           <div className="quick-filter-grid report-filter-grid"><label>Candidate<select value={draft.candidate_name} onChange={event => setDraft(current => ({ ...current, candidate_name: event.target.value }))}><option value="">All candidates</option>{options.candidates.map(value => <option key={value}>{value}</option>)}</select></label><label>Task Type<select value={draft.task_type} onChange={event => setDraft(current => ({ ...current, task_type: event.target.value }))}><option value="">All task types</option>{options.types.map(value => <option key={value}>{value}</option>)}</select></label><label>Feedback Date<select value={draft.date_preset} onChange={event => setDraft(current => ({ ...current, date_preset: event.target.value }))}><option value="">Any date</option><option value="today">Today</option><option value="week">Current Week</option><option value="month">Current Month</option><option value="last30">Last 30 Days</option><option value="last90">Last 90 Days</option><option value="custom">Custom Date Range</option></select></label></div>
           {draft.date_preset === 'custom' && <div className="custom-dates"><label>Date From<input type="date" value={draft.date_from} onChange={event => setDraft(current => ({ ...current, date_from: event.target.value }))} /></label><label>Date To<input type="date" value={draft.date_to} onChange={event => setDraft(current => ({ ...current, date_to: event.target.value }))} /></label></div>}
           <div className="quick-filter-footer"><button onClick={clear}>Clear All</button><button className="apply" onClick={() => { setFilters(draft); setPage(1); setFilterOpen(false) }}>Apply Filters</button></div></div>}
-      </div><span className="submitted-total">{totalSubmitted} feedback records</span><button className="toolbar-button refresh" onClick={() => void fetchRows()} disabled={loading}><BsArrowClockwise className={loading ? 'is-spinning' : ''} /> Refresh</button></div>
+      </div><span className="submitted-total">{totalSubmitted} feedback records</span><button className="toolbar-button refresh" onClick={() => void Promise.all([fetchRows(), fetchFilterOptions()])} disabled={loading}><BsArrowClockwise className={loading ? 'is-spinning' : ''} /> Refresh</button></div>
     {activeCount > 0 && <div className="active-filter-chips">{filters.candidate_name && <button onClick={() => { const next = { ...filters, candidate_name: '' }; setFilters(next); setDraft(next); setPage(1) }}>Candidate: {filters.candidate_name} <BsX /></button>}{filters.task_type && <button onClick={() => { const next = { ...filters, task_type: '' }; setFilters(next); setDraft(next); setPage(1) }}>Task Type: {filters.task_type} <BsX /></button>}{filters.date_preset && <button onClick={() => { const next = { ...filters, date_preset: '', date_from: '', date_to: '' }; setFilters(next); setDraft(next); setPage(1) }}>Feedback Date: {({ today: 'Today', week: 'This Week', month: 'This Month', last30: 'Last 30 Days', last90: 'Last 90 Days', custom: 'Custom Range' } as Record<string, string>)[filters.date_preset]} <BsX /></button>}<button className="clear-filter-chip" onClick={clear}>Clear All</button></div>}
     <div className="report-summary" aria-label="Feedback status summary">
       <div className="completed"><StatusIcon value="Completed" /><span>Completed<strong>{totalSubmitted}</strong></span></div><div className="pending"><StatusIcon value="Pending" /><span>Pending<strong>0</strong></span></div><div className="assigned"><StatusIcon value="Assigned" /><span>Assigned<strong>0</strong></span></div><div className="review"><StatusIcon value="Pending Review" /><span>Pending Review<strong>0</strong></span></div><div className="cancelled"><StatusIcon value="Cancelled" /><span>Cancelled<strong>0</strong></span></div>
