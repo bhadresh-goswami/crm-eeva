@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BsArrowClockwise, BsChevronDown, BsChevronRight, BsEye, BsFunnel, BsSearch, BsX } from 'react-icons/bs'
+import { BsArrowClockwise, BsCheck, BsChevronBarLeft, BsChevronBarRight, BsChevronDown, BsChevronLeft, BsChevronRight, BsClock, BsEye, BsExclamation, BsFunnel, BsInfoCircle, BsPerson, BsSearch, BsX } from 'react-icons/bs'
 import PageContainer from '../../../shared/components/PageContainer'
 import ExpertWorkspaceHeader from '../../../shared/components/ExpertWorkspaceHeader'
 import { useAuth } from '../../../context/AuthContext'
@@ -37,12 +37,33 @@ const prettyDate = (value: unknown) => {
   return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: String(value).includes(':') ? 'short' : undefined }).format(date)
 }
 
+const statusDetails = (value: unknown) => {
+  const status = String(value || 'Completed').trim()
+  const normalized = status.toLowerCase()
+  if (normalized.includes('cancel') || normalized.includes('reject') || normalized.includes('no show')) return { label: status || 'Cancelled', kind: 'cancelled', icon: <BsX /> }
+  if (normalized.includes('review')) return { label: status || 'Pending Review', kind: 'review', icon: <BsExclamation /> }
+  if (normalized.includes('pending')) return { label: status || 'Pending', kind: 'pending', icon: <BsClock /> }
+  if (normalized.includes('assign')) return { label: status || 'Assigned', kind: 'assigned', icon: <BsPerson /> }
+  return { label: status || 'Completed', kind: 'completed', icon: <BsCheck /> }
+}
+
+const numericRating = (row: ExpertRow) => {
+  const value = row.rating ?? row.overall_rating ?? row.overall
+  const rating = Number(value)
+  return value !== null && value !== '' && Number.isFinite(rating) ? rating.toFixed(1) : '—'
+}
+
+const StatusIcon = ({ value }: { value: unknown }) => {
+  const status = statusDetails(value)
+  return <span className={`report-status-icon report-status-${status.kind}`} title={status.label} aria-label={status.label}>{status.icon}</span>
+}
+
 const SubmittedTable = ({ rows, loading, empty, filtered, onView }: { rows: ExpertRow[]; loading: boolean; empty: string; filtered: boolean; onView: (row: ExpertRow) => void }) => <div className="feedback-table-wrap">
-  <table className="feedback-table submitted-feedback-table"><thead><tr><th>Action</th><th>Feedback date</th><th>Task date</th><th>Candidate name</th><th>Task type</th><th>Status</th><th>Expert</th></tr></thead>
-    <tbody>{loading ? <tr><td colSpan={7} className="feedback-empty"><span className="spinner-border spinner-border-sm text-primary" /> Loading submitted feedback…</td></tr> : rows.length === 0 ? <tr><td colSpan={7} className="feedback-empty">{filtered ? 'No feedback matches the selected filters.' : empty}</td></tr> : rows.map(row => <tr key={row.id}>
+  <table className="feedback-table submitted-feedback-table"><thead><tr><th>Action</th><th>Feedback date</th><th>Task date</th><th>Candidate</th><th>Task type</th><th>Task / title</th><th>Status</th><th>Rating</th></tr></thead>
+    <tbody>{loading ? <tr><td colSpan={8} className="feedback-empty"><span className="spinner-border spinner-border-sm text-primary" /> Loading submitted feedback…</td></tr> : rows.length === 0 ? <tr><td colSpan={8} className="feedback-empty">{filtered ? 'No feedback matches the selected filters.' : empty}</td></tr> : rows.map(row => <tr key={row.id}>
       <td><button className="feedback-action view" onClick={() => onView(row)} title="View Feedback" aria-label="View Feedback"><BsEye /></button></td>
       <td>{prettyDate(row.feedback_submitted_at)}</td><td>{prettyDate(row.task_date)}</td><td className="feedback-person">{String(row.candidate_name || '—')}</td><td>{String(row.task_type || '—')}</td>
-      <td><span className={`feedback-badge status-${String(row.status_name || '').toLowerCase().replaceAll(' ', '-')}`}>{String(row.status_name || 'Submitted')}</span></td><td>{String(row.expert_name || '—')}</td>
+      <td>{String(row.task_title || row.title || `Task #${row.id}`)}</td><td><StatusIcon value={row.status_name} /></td><td className="report-rating">{numericRating(row)}</td>
     </tr>)}</tbody></table></div>
 
 const ExpertFeedbackReport = () => {
@@ -67,7 +88,12 @@ const ExpertFeedbackReport = () => {
     } finally { setLoading(false) }
   }, [expertId, filters, dates.from, dates.to, page, limit])
   useEffect(() => { void fetchRows() }, [fetchRows])
-  useEffect(() => { const close = (event: MouseEvent) => { if (panelRef.current && !panelRef.current.contains(event.target as Node)) setFilterOpen(false) }; document.addEventListener('mousedown', close); return () => document.removeEventListener('mousedown', close) }, [])
+  useEffect(() => {
+    const close = (event: MouseEvent) => { if (panelRef.current && !panelRef.current.contains(event.target as Node)) setFilterOpen(false) }
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setFilterOpen(false) }
+    document.addEventListener('mousedown', close); document.addEventListener('keydown', escape)
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', escape) }
+  }, [])
   const options = useMemo(() => ({ candidates: [...new Set(Object.values(groups).flat().map(row => String(row.candidate_name || '')).filter(Boolean))].sort(), types: [...new Set(Object.values(groups).flat().map(row => String(row.task_type || '')).filter(Boolean))].sort() }), [groups])
   const clear = () => { setDraft(emptyFilters); setFilters(emptyFilters); setPage(1) }
   const totalSubmitted = totals.week + totals.month + totals.earlier
@@ -78,9 +104,13 @@ const ExpertFeedbackReport = () => {
           <div className="quick-filter-grid report-filter-grid"><label>Candidate<select value={draft.candidate_name} onChange={event => setDraft(current => ({ ...current, candidate_name: event.target.value }))}><option value="">All candidates</option>{options.candidates.map(value => <option key={value}>{value}</option>)}</select></label><label>Task Type<select value={draft.task_type} onChange={event => setDraft(current => ({ ...current, task_type: event.target.value }))}><option value="">All task types</option>{options.types.map(value => <option key={value}>{value}</option>)}</select></label><label>Feedback Date<select value={draft.date_preset} onChange={event => setDraft(current => ({ ...current, date_preset: event.target.value }))}><option value="">Any date</option><option value="today">Today</option><option value="week">Current Week</option><option value="month">Current Month</option><option value="last30">Last 30 Days</option><option value="last90">Last 90 Days</option><option value="custom">Custom Date Range</option></select></label></div>
           {draft.date_preset === 'custom' && <div className="custom-dates"><label>Date From<input type="date" value={draft.date_from} onChange={event => setDraft(current => ({ ...current, date_from: event.target.value }))} /></label><label>Date To<input type="date" value={draft.date_to} onChange={event => setDraft(current => ({ ...current, date_to: event.target.value }))} /></label></div>}
           <div className="quick-filter-footer"><button onClick={clear}>Clear All</button><button className="apply" onClick={() => { setFilters(draft); setPage(1); setFilterOpen(false) }}>Apply Filters</button></div></div>}
-      </div><span className="submitted-total">Showing {totalSubmitted} submitted feedback records</span><button className="toolbar-button refresh" onClick={() => void fetchRows()} disabled={loading}><BsArrowClockwise /> Refresh</button></div>
-    {activeCount > 0 && <div className="active-filter-chips">{filters.candidate_name && <button onClick={() => { const next = { ...filters, candidate_name: '' }; setFilters(next); setDraft(next); setPage(1) }}>Candidate: {filters.candidate_name} <BsX /></button>}{filters.task_type && <button onClick={() => { const next = { ...filters, task_type: '' }; setFilters(next); setDraft(next); setPage(1) }}>Task: {filters.task_type} <BsX /></button>}{filters.date_preset && <button onClick={() => { const next = { ...filters, date_preset: '', date_from: '', date_to: '' }; setFilters(next); setDraft(next); setPage(1) }}>Date: {filters.date_preset} <BsX /></button>}<button className="clear-filter-chip" onClick={clear}>Clear All</button></div>}
-    {(['week', 'month', 'earlier'] as GroupKey[]).map(key => { const info = groupInfo[key]; const totalPages = Math.max(1, Math.ceil(totals.earlier / limit)); const numbered = pagesToShow(page, totalPages); return <section className={`feedback-group group-${key}`} key={key}><button className="feedback-group-header" onClick={() => setExpanded(current => ({ ...current, [key]: !current[key] }))}>{expanded[key] ? <BsChevronDown /> : <BsChevronRight />}<span><strong>{info.title}</strong><small>{info.subtitle}</small></span><em>{totals[key]} Feedback{totals[key] === 1 ? '' : 's'}</em></button>{expanded[key] && <><SubmittedTable rows={groups[key]} loading={loading} empty={info.empty} filtered={activeCount > 0} onView={setSelected} />{key === 'earlier' && <footer className="feedback-pagination"><span>Showing {totals.earlier ? (page - 1) * limit + 1 : 0}–{Math.min(page * limit, totals.earlier)} of {totals.earlier} feedback records</span><label>Rows per page <select value={limit} onChange={event => { setLimit(Number(event.target.value)); setPage(1) }}>{[10, 50, 100, 200, 500].map(size => <option key={size}>{size}</option>)}</select></label><nav aria-label="Previous feedback pages"><button disabled={page === 1} onClick={() => setPage(value => value - 1)} aria-label="Previous page">‹</button>{numbered.map((number, index) => <span key={number}>{index > 0 && number - numbered[index - 1] > 1 && <i>…</i>}<button className={number === page ? 'current' : ''} onClick={() => setPage(number)} aria-current={number === page ? 'page' : undefined}>{number}</button></span>)}<button disabled={page === totalPages} onClick={() => setPage(value => value + 1)} aria-label="Next page">›</button></nav></footer>}</>}</section> })}
+      </div><span className="submitted-total">{totalSubmitted} feedback records</span><button className="toolbar-button refresh" onClick={() => void fetchRows()} disabled={loading}><BsArrowClockwise className={loading ? 'is-spinning' : ''} /> Refresh</button></div>
+    {activeCount > 0 && <div className="active-filter-chips">{filters.candidate_name && <button onClick={() => { const next = { ...filters, candidate_name: '' }; setFilters(next); setDraft(next); setPage(1) }}>Candidate: {filters.candidate_name} <BsX /></button>}{filters.task_type && <button onClick={() => { const next = { ...filters, task_type: '' }; setFilters(next); setDraft(next); setPage(1) }}>Task Type: {filters.task_type} <BsX /></button>}{filters.date_preset && <button onClick={() => { const next = { ...filters, date_preset: '', date_from: '', date_to: '' }; setFilters(next); setDraft(next); setPage(1) }}>Feedback Date: {({ today: 'Today', week: 'This Week', month: 'This Month', last30: 'Last 30 Days', last90: 'Last 90 Days', custom: 'Custom Range' } as Record<string, string>)[filters.date_preset]} <BsX /></button>}<button className="clear-filter-chip" onClick={clear}>Clear All</button></div>}
+    <div className="report-summary" aria-label="Feedback status summary">
+      <div className="completed"><StatusIcon value="Completed" /><span>Completed<strong>{totalSubmitted}</strong></span></div><div className="pending"><StatusIcon value="Pending" /><span>Pending<strong>0</strong></span></div><div className="assigned"><StatusIcon value="Assigned" /><span>Assigned<strong>0</strong></span></div><div className="review"><StatusIcon value="Pending Review" /><span>Pending Review<strong>0</strong></span></div><div className="cancelled"><StatusIcon value="Cancelled" /><span>Cancelled<strong>0</strong></span></div>
+    </div>
+    <div className="status-legend" tabIndex={0}><BsInfoCircle /> Status icons<div className="status-legend-popover"><span><StatusIcon value="Completed" /> Completed</span><span><StatusIcon value="Pending" /> Pending</span><span><StatusIcon value="Assigned" /> Assigned</span><span><StatusIcon value="Pending Review" /> Pending Review</span><span><StatusIcon value="Cancelled" /> Cancelled</span></div></div>
+    {(['week', 'month', 'earlier'] as GroupKey[]).map(key => { const info = groupInfo[key]; const totalPages = Math.max(1, Math.ceil(totals.earlier / limit)); const numbered = pagesToShow(page, totalPages); return <section className={`feedback-group group-${key}`} key={key}><button className="feedback-group-header" onClick={() => setExpanded(current => ({ ...current, [key]: !current[key] }))} aria-expanded={expanded[key]}>{expanded[key] ? <BsChevronDown /> : <BsChevronRight />}<span><strong>{info.title}</strong><small>{info.subtitle}</small></span><em>{totals[key]} Feedback{totals[key] === 1 ? '' : 's'}</em></button>{expanded[key] && <><SubmittedTable rows={groups[key]} loading={loading} empty={info.empty} filtered={activeCount > 0 || Boolean(filters.search)} onView={setSelected} />{key === 'earlier' && <footer className="feedback-pagination"><span>Showing {totals.earlier ? (page - 1) * limit + 1 : 0}–{Math.min(page * limit, totals.earlier)} of {totals.earlier} records</span><label>Rows per page <select value={limit} onChange={event => { setLimit(Number(event.target.value)); setPage(1) }}>{[10, 50, 100, 200, 500].map(size => <option key={size}>{size}</option>)}</select></label><nav aria-label="Previous feedback pages"><button disabled={page === 1} onClick={() => setPage(1)} aria-label="First page"><BsChevronBarLeft /></button><button disabled={page === 1} onClick={() => setPage(value => value - 1)} aria-label="Previous page"><BsChevronLeft /></button>{numbered.map((number, index) => <span key={number}>{index > 0 && number - numbered[index - 1] > 1 && <i>…</i>}<button className={number === page ? 'current' : ''} onClick={() => setPage(number)} aria-current={number === page ? 'page' : undefined}>{number}</button></span>)}<button disabled={page === totalPages} onClick={() => setPage(value => value + 1)} aria-label="Next page"><BsChevronRight /></button><button disabled={page === totalPages} onClick={() => setPage(totalPages)} aria-label="Last page"><BsChevronBarRight /></button></nav></footer>}</>}</section> })}
   </main><FeedbackModal open={selected !== null} mode="VIEW" taskId={selected?.id ?? null} taskType={String(selected?.task_type ?? '')} onClose={() => setSelected(null)} onSubmitted={() => undefined} /></PageContainer>
 }
 
