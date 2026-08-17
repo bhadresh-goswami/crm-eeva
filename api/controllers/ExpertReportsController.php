@@ -101,11 +101,11 @@ class ExpertReportsController {
             if ($feedbackGroup === 'pending') {
                 $where[] = "({$eligibleSql}) AND tf.id IS NULL";
             } elseif ($feedbackGroup === 'week') {
-                $where[] = "tf.id IS NOT NULL AND DATE(tf.created_at) BETWEEN DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND CURDATE() AND YEARWEEK(tf.created_at, 1) = YEARWEEK(CURDATE(), 1)";
+                $where[] = "tf.id IS NOT NULL AND YEARWEEK(tf.created_at, 1) = YEARWEEK(CURDATE(), 1)";
             } elseif ($feedbackGroup === 'month') {
-                $where[] = "tf.id IS NOT NULL AND DATE(tf.created_at) BETWEEN DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND CURDATE() AND YEAR(tf.created_at) = YEAR(CURDATE()) AND MONTH(tf.created_at) = MONTH(CURDATE()) AND YEARWEEK(tf.created_at, 1) <> YEARWEEK(CURDATE(), 1)";
+                $where[] = "tf.id IS NOT NULL AND YEAR(tf.created_at) = YEAR(CURDATE()) AND MONTH(tf.created_at) = MONTH(CURDATE()) AND YEARWEEK(tf.created_at, 1) <> YEARWEEK(CURDATE(), 1)";
             } elseif ($feedbackGroup === 'earlier') {
-                $where[] = "tf.id IS NOT NULL AND DATE(tf.created_at) BETWEEN DATE_SUB(CURDATE(), INTERVAL 29 DAY) AND CURDATE() AND YEARWEEK(tf.created_at, 1) <> YEARWEEK(CURDATE(), 1) AND (YEAR(tf.created_at) <> YEAR(CURDATE()) OR MONTH(tf.created_at) <> MONTH(CURDATE()))";
+                $where[] = "tf.id IS NOT NULL AND (YEAR(tf.created_at) <> YEAR(CURDATE()) OR MONTH(tf.created_at) <> MONTH(CURDATE()))";
             }
             $whereClause = implode(' AND ', $where);
 
@@ -151,7 +151,7 @@ class ExpertReportsController {
                     t.created_at,
                     tf.id AS feedback_id
                 {$baseFrom}
-                ORDER BY DATE(t.due_date) DESC, t.created_at DESC
+                ORDER BY COALESCE(tf.created_at, t.due_date) DESC, t.created_at DESC
                 {$limitClause}
             ";
             $stmt = $conn->prepare($listSql);
