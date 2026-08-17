@@ -2,6 +2,7 @@
 
 require_once dirname(__DIR__) . '/config/database.php';
 require_once dirname(__DIR__) . '/services/LoggerService.php';
+require_once dirname(__DIR__) . '/services/FeedbackEligibility.php';
 require_once dirname(__DIR__) . '/libs/PHPMailer/PHPMailer.php';
 require_once dirname(__DIR__) . '/libs/PHPMailer/SMTP.php';
 require_once dirname(__DIR__) . '/libs/PHPMailer/Exception.php';
@@ -579,15 +580,18 @@ class EmailService
     private static function fetchDailyReportTasks(PDO $conn, int $userId, string $date): array
     {
         $stmt = $conn->prepare("
-            SELECT t.id, t.title, COALESCE(tt.name, 'Unspecified') AS task_type,
+            SELECT t.id, t.title, COALESCE(c.name, '') AS candidate_name, COALESCE(tt.name, 'Unspecified') AS task_type,
                    COALESCE(ts.name, 'Pending') AS status_name, t.start_time, t.end_time,
-                   t.task_start_time, t.task_end_time, COALESCE(t.duration, 0) AS duration
+                   t.task_start_time, t.task_end_time, COALESCE(t.duration, 0) AS duration,
+                   MAX(tf.id) AS feedback_id
             FROM tasks t
             INNER JOIN task_assignments ta ON ta.task_id = t.id AND ta.user_id = ?
             LEFT JOIN task_types tt ON tt.id = t.task_type_id
             LEFT JOIN task_status_master ts ON ts.id = t.status_id
+            LEFT JOIN candidates c ON c.id = t.candidate_id
+            LEFT JOIN task_feedback tf ON tf.task_id = t.id
             WHERE DATE(t.due_date) = ?
-            GROUP BY t.id, t.title, tt.name, ts.name, t.start_time, t.end_time, t.task_start_time, t.task_end_time, t.duration
+            GROUP BY t.id, t.title, c.name, tt.name, ts.name, t.start_time, t.end_time, t.task_start_time, t.task_end_time, t.duration
             ORDER BY t.start_time, t.id
         ");
         $stmt->execute([$userId, $date]);
@@ -596,7 +600,7 @@ class EmailService
 
     private static function calculateDailyReport(array $tasks): array
     {
-        $report = ['assigned' => count($tasks), 'completed' => 0, 'pending' => 0, 'cancelled' => 0, 'scheduled_minutes' => 0, 'actual_minutes' => 0, 'types' => [], 'tasks' => $tasks];
+        $report = ['assigned' => count($tasks), 'completed' => 0, 'pending' => 0, 'cancelled' => 0, 'scheduled_minutes' => 0, 'actual_minutes' => 0, 'pending_feedback' => [], 'types' => [], 'tasks' => $tasks];
         foreach ($tasks as $task) {
             $status = strtolower(trim((string)$task['status_name']));
             if ($status === 'completed') $report['completed']++;
@@ -607,6 +611,9 @@ class EmailService
             $report['scheduled_minutes'] += self::minutesBetween($task['start_time'] ?? null, $task['end_time'] ?? null);
             $actual = self::minutesBetween($task['task_start_time'] ?? null, $task['task_end_time'] ?? null);
             $report['actual_minutes'] += $actual > 0 ? $actual : max(0, (int)($task['duration'] ?? 0));
+            if (empty($task['feedback_id']) && FeedbackEligibility::isEligible($type, (string)$task['status_name'])) {
+                $report['pending_feedback'][] = $task;
+            }
         }
         ksort($report['types']);
         return $report;
@@ -635,6 +642,7 @@ class EmailService
             'Pending Tasks' => $report['pending'], 'Cancelled / Rescheduled' => $report['cancelled'],
             'Scheduled Duration' => self::formatMinutes($report['scheduled_minutes']),
             'Actual Duration' => self::formatMinutes($report['actual_minutes']),
+            'Pending Task Feedback' => count($report['pending_feedback']),
         ];
         $rows = '';
         foreach ($metrics as $label => $value) $rows .= self::row($label, $value);
@@ -648,14 +656,22 @@ class EmailService
                 . $e(self::formatMinutes(($actual = self::minutesBetween($task['task_start_time'], $task['task_end_time'])) > 0 ? $actual : (int)$task['duration'])) . '</td></tr>';
         }
         if (!empty($report['tasks'])) $activity .= '</table>';
+        $pendingFeedback = empty($report['pending_feedback']) ? '<p>No task feedback pending today.</p>' : '<ul>';
+        foreach ($report['pending_feedback'] as $task) {
+            $pendingFeedback .= '<li><strong>TAS-' . (int)$task['id'] . '</strong> — ' . $e($task['task_type']) . ' · ' . $e($task['candidate_name'] ?: 'No candidate') . '</li>';
+        }
+        if (!empty($report['pending_feedback'])) $pendingFeedback .= '</ul>';
         $rate = $report['assigned'] > 0 ? round(($report['completed'] / $report['assigned']) * 100, 1) : 0;
-        $html = '<div style="font-family:Arial,sans-serif"><h1>Technical Expert Daily Work Report</h1><p><strong>Expert Name:</strong> ' . $e($expertName) . '<br><strong>Report Date:</strong> ' . $e($displayDate) . '</p><h2>Daily Summary</h2><table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">' . $rows . '</table><h2>Task Type Breakdown</h2>' . $types . '<h2>Today\'s Task Activity</h2>' . $activity . '<h2>Performance Summary</h2><p>Completion Rate: ' . $rate . '%</p></div>';
+        $html = '<div style="font-family:Arial,sans-serif"><h1>Technical Expert Daily Work Report</h1><p><strong>Expert Name:</strong> ' . $e($expertName) . '<br><strong>Report Date:</strong> ' . $e($displayDate) . '</p><h2>Daily Summary</h2><table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">' . $rows . '</table><h2>Task Type Breakdown</h2>' . $types . '<h2>Today\'s Task Activity</h2>' . $activity . '<h2>Pending Task Feedback</h2>' . $pendingFeedback . '<h2>Performance Summary</h2><p>Completion Rate: ' . $rate . '%</p></div>';
         $plain = "Technical Expert Daily Work Report\nExpert Name: {$expertName}\nReport Date: {$displayDate}\n\nDaily Summary";
         foreach ($metrics as $label => $value) $plain .= "\n{$label}: {$value}";
         $plain .= "\n\nTask Type Breakdown";
         foreach ($report['types'] as $type => $count) $plain .= "\n{$type}: {$count}";
         $plain .= empty($report['tasks']) ? "\n\nNo tasks were recorded for this reporting date." : "\n\nToday's Task Activity";
         foreach ($report['tasks'] as $task) $plain .= "\n#{$task['id']} {$task['title']} | {$task['task_type']} | {$task['status_name']}";
+        $plain .= "\n\nPending Task Feedback";
+        if (empty($report['pending_feedback'])) $plain .= "\nNo task feedback pending today.";
+        foreach ($report['pending_feedback'] as $task) $plain .= "\nTAS-{$task['id']} | {$task['task_type']} | " . ($task['candidate_name'] ?: 'No candidate');
         $plain .= "\n\nPerformance Summary\nCompletion Rate: {$rate}%";
         return [$html, $plain];
     }
