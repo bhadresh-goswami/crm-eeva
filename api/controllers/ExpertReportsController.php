@@ -4,6 +4,33 @@ require_once dirname(__DIR__) . "/config/database.php";
 require_once dirname(__DIR__) . "/services/FeedbackEligibility.php";
 
 class ExpertReportsController {
+    public function daily($authUser): void {
+        try {
+            $userId = is_array($authUser) ? (int)($authUser['id'] ?? 0) : (int)($authUser->id ?? 0);
+            $date = trim((string)($_GET['report_date'] ?? ''));
+            $parsed = DateTime::createFromFormat('!Y-m-d', $date ?: (new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y-m-d'));
+            if (!$parsed || ($date !== '' && $parsed->format('Y-m-d') !== $date)) { throw new InvalidArgumentException('report_date must use YYYY-MM-DD format'); }
+            $date = $parsed->format('Y-m-d');
+            $conn = (new Database())->connect();
+            $stmt = $conn->prepare("SELECT t.id, t.title, t.description, DATE(t.due_date) task_date, COALESCE(c.name,'') candidate_name, COALESCE(tt.name,'Unspecified') task_type, COALESCE(ts.name,'Pending') status_name, t.start_time, t.end_time, t.task_start_time, t.task_end_time, COALESCE(t.duration,0) duration, COALESCE(tf.area_of_improvements,'') feedback, COALESCE(tf.overall,0) feedback_score FROM tasks t INNER JOIN task_assignments ta ON ta.task_id=t.id AND ta.user_id=? LEFT JOIN candidates c ON c.id=t.candidate_id LEFT JOIN task_types tt ON tt.id=t.task_type_id LEFT JOIN task_status_master ts ON ts.id=t.status_id LEFT JOIN task_feedback tf ON tf.task_id=t.id WHERE DATE(t.due_date)=? GROUP BY t.id ORDER BY t.start_time,t.id");
+            $stmt->execute([$userId, $date]); $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $summary = ['assigned'=>count($tasks),'completed'=>0,'pending'=>0,'cancelled'=>0,'scheduled_minutes'=>0,'actual_minutes'=>0]; $types=[]; $positive=[]; $negative=[]; $eligible=0; $successful=0;
+            foreach ($tasks as &$task) {
+                $status=strtolower(trim((string)$task['status_name']));
+                if (in_array($status,['completed','success'],true)) $summary['completed']++; elseif (str_contains($status,'cancel') || str_contains($status,'reschedul')) $summary['cancelled']++; else $summary['pending']++;
+                $type=(string)$task['task_type']; $types[$type]=($types[$type]??0)+1;
+                $minutes=function($a,$b){ if(!$a||!$b)return 0; try{return max(0,(int)round(((new DateTime($b))->getTimestamp()-(new DateTime($a))->getTimestamp())/60));}catch(Throwable $e){return 0;} };
+                $task['planned_minutes']=$minutes($task['start_time'],$task['end_time']); $actual=$minutes($task['task_start_time'],$task['task_end_time']); $task['actual_minutes']=$actual ?: max(0,(int)$task['duration']);
+                $summary['scheduled_minutes']+=$task['planned_minutes']; $summary['actual_minutes']+=$task['actual_minutes'];
+                if (in_array($status,['success','rejected'],true)) { $eligible++; if($status==='success')$successful++; }
+                $feedback=trim(strip_tags((string)$task['feedback'])); if($feedback!=='') { $item=['text'=>$feedback,'task_type'=>$type,'candidate_name'=>$task['candidate_name']]; if((float)$task['feedback_score']>=3.5)$positive[]=$item; else $negative[]=$item; }
+            } unset($task); ksort($types);
+            $breakStmt=$conn->prepare("SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE,break_in_time,CASE WHEN break_out_time IS NOT NULL THEN break_out_time WHEN status='break' AND created_date=CURDATE() THEN NOW() ELSE break_in_time END)),0) FROM user_sessions WHERE user_id=? AND created_date=?"); $breakStmt->execute([$userId,$date]);
+            $delivery=$conn->prepare("SELECT status,sent_at FROM technical_expert_daily_report_deliveries WHERE user_id=? AND report_date=? LIMIT 1"); $delivery->execute([$userId,$date]); $sent=$delivery->fetch(PDO::FETCH_ASSOC) ?: null;
+            $userStmt=$conn->prepare('SELECT name,email FROM users WHERE id=?'); $userStmt->execute([$userId]); $expert=$userStmt->fetch(PDO::FETCH_ASSOC);
+            echo json_encode(['success'=>true,'data'=>['report_date'=>$date,'expert'=>$expert,'summary'=>$summary,'task_types'=>$types,'tasks'=>$tasks,'break_minutes'=>(int)$breakStmt->fetchColumn(),'success_ratio'=>['eligible'=>$eligible,'successful'=>$successful,'other'=>$eligible-$successful,'percentage'=>$eligible?round($successful/$eligible*100):null],'positive_feedback'=>array_slice($positive,0,3),'negative_feedback'=>array_slice($negative,0,3),'delivery'=>$sent]]);
+        } catch (Throwable $e) { http_response_code(500); echo json_encode(['success'=>false,'message'=>$e->getMessage()]); }
+    }
     private function getStatusIdByName(PDO $conn, string $name): ?int {
         $stmt = $conn->prepare("SELECT id FROM task_status_master WHERE LOWER(name) = LOWER(?) LIMIT 1");
         $stmt->execute([$name]);
