@@ -17,6 +17,7 @@ export type SessionStatus = 'logged_in' | 'break' | 'logged_out'
 type AuthUser = {
   id: string
   name: string
+  email: string
   role: UserRole
 }
 
@@ -31,6 +32,7 @@ type LoginResponse = {
   user?: {
     id?: string | number
     name?: string
+    email?: string
     role?: string
     user_role?: string
   }
@@ -40,6 +42,7 @@ type LoginResponse = {
     user?: {
       id?: string | number
       name?: string
+      email?: string
       role?: string
       user_role?: string
     }
@@ -85,9 +88,10 @@ const normalizeRole = (role: string | undefined): UserRole => {
   return 'expert'
 }
 
-const normalizeUser = (user: { id?: string | number; name?: string; role?: string; user_role?: string }): AuthUser => ({
+const normalizeUser = (user: { id?: string | number; name?: string; email?: string; role?: string; user_role?: string }): AuthUser => ({
   id: String(user.id ?? ''),
   name: String(user.name ?? '').trim(),
+  email: String(user.email ?? '').trim(),
   role: normalizeRole(user.role ?? user.user_role),
 })
 
