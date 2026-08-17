@@ -1,44 +1,27 @@
 <?php
+class Database {
+    private $host = "localhost";
+    private $db_name = "u653761806_supportb2G";
+    private $username = "u653761806_supportb2G";
+    private $password = "Eeshani@2016";
 
-class Database
-{
-    public ?PDO $conn = null;
+    public $conn;
 
-    public function connect(): PDO
-    {
-        $host = self::environment('DB_HOST', '127.0.0.1');
-        $port = self::environment('DB_PORT', '3306');
-        $database = self::environment('DB_NAME');
-        $username = self::environment('DB_USER');
-        $password = self::environment('DB_PASSWORD');
+    public function connect() {
+        $this->conn = null;
 
-        if ($database === '' || $username === '') {
-            throw new RuntimeException('Database configuration is incomplete: DB_NAME and DB_USER are required');
+        try {
+            $this->conn = new PDO(
+                "mysql:host=" . $this->host . ";dbname=" . $this->db_name,
+                $this->username,
+                $this->password
+            );
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        } catch(PDOException $e) {
+            echo "Connection Error: " . $e->getMessage();
         }
-
-        $dsn = sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-            $host,
-            $port,
-            $database
-        );
-
-        // Do not swallow connection exceptions or print them into JSON responses.
-        // Callers and the API exception handler need the original SQLSTATE to
-        // diagnose infrastructure failures accurately.
-        $this->conn = new PDO($dsn, $username, $password, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ]);
 
         return $this->conn;
     }
-
-    private static function environment(string $name, string $default = ''): string
-    {
-        $value = getenv($name);
-
-        return $value === false ? $default : trim((string)$value);
-    }
 }
+?>
