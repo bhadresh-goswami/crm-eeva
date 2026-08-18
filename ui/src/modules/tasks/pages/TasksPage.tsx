@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BsDownload, BsEye, BsPencil, BsPersonPlus, BsSearch, BsCalendarCheck, BsClock, BsCheckCircle, BsXCircle, BsHourglassSplit, BsPaperclip } from 'react-icons/bs'
+import { BsDownload, BsEye, BsPencil, BsPersonPlus, BsSearch, BsCalendarCheck, BsClock, BsCheckCircle, BsXCircle, BsHourglassSplit, BsPaperclip, BsFunnel } from 'react-icons/bs'
 import './TasksPage.css'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { useAuth } from '../../../context/AuthContext'
@@ -355,6 +355,7 @@ const TasksPage = () => {
     setError(null)
     try {
       const result = await getTaskPage({ section: activeSection, page: currentPage, pageSize: rowsPerPage, search: taskIdFilter.trim() || debouncedSearch, companyId: companyFilter, candidateId: candidateFilter, taskTypeId: taskTypeFilter, assignedTo: assigneeFilter, dateFrom, dateTo, sort: sortConfig.key, direction: sortConfig.direction }, controller.signal)
+      if (listAbortRef.current !== controller) return
       setTasks(result.tasks)
       setTotalTasks(result.pagination.total)
       const latestTaskId = result.tasks.reduce((max, task) => (task.id > max ? task.id : max), 0)
@@ -363,7 +364,7 @@ const TasksPage = () => {
       if (err instanceof DOMException && err.name === 'AbortError') return
       setError(normalizeError(err, 'Failed to load tasks.'))
     } finally {
-      setLoading(false)
+      if (listAbortRef.current === controller) setLoading(false)
     }
   }, [activeSection, assigneeFilter, candidateFilter, companyFilter, currentPage, dateFrom, dateTo, debouncedSearch, rowsPerPage, sortConfig.direction, sortConfig.key, taskIdFilter, taskTypeFilter])
 
@@ -439,7 +440,7 @@ const TasksPage = () => {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeSection, assigneeFilter, candidateFilter, companyFilter, dateFrom, dateTo, debouncedSearch, rowsPerPage, taskTypeFilter])
+  }, [activeSection, assigneeFilter, candidateFilter, companyFilter, dateFrom, dateTo, debouncedSearch, rowsPerPage, taskIdFilter, taskTypeFilter])
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -789,6 +790,12 @@ const TasksPage = () => {
   }
 
   const clearFilters = () => { setCandidateFilter(null);setCompanyFilter(null);setTaskTypeFilter(null);setAssigneeFilter(null);setTaskIdFilter('');setDateFrom('');setDateTo('');setSearch('') }
+  const activeFilterCount = [candidateFilter, companyFilter, taskTypeFilter, assigneeFilter, taskIdFilter, dateFrom, dateTo].filter(Boolean).length
+  const handleSectionChange = (section: string) => {
+    setCurrentPage(1)
+    setSelectedTaskIds([])
+    setActiveSection(section)
+  }
 
   return (
     <section className="task-workspace">
@@ -828,42 +835,20 @@ const TasksPage = () => {
       {success ? <p className="roles-success roles-feedback">{success}</p> : null}
 
       <nav className="task-status-tabs" aria-label="Task status sections">
-        {([['pending','Pending',BsHourglassSplit],['in_progress','In Progress',BsClock],['assigned','Assigned',BsCalendarCheck],['completed','Completed',BsCheckCircle]] as const).map(([key,label,Icon]) => <button key={key} className={activeSection === key ? 'active' : ''} aria-current={activeSection === key ? 'page' : undefined} onClick={() => setActiveSection(key)}><Icon/><span>{label}</span><strong>{summary[key]}</strong></button>)}
+        {([['pending','Pending',BsHourglassSplit],['in_progress','In Progress',BsClock],['assigned','Assigned',BsCalendarCheck],['completed','Completed',BsCheckCircle]] as const).map(([key,label,Icon]) => <button type="button" key={key} className={activeSection === key ? 'active' : ''} aria-current={activeSection === key ? 'page' : undefined} onClick={() => handleSectionChange(key)}><Icon/><span>{label}</span><strong>{summary[key]}</strong></button>)}
       </nav>
 
       <div className="card tasks-filters task-filter-card">
-        <div className="task-search"><BsSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search task, candidate, company or Task ID..." aria-label="Search tasks" /></div>
+        <div className="task-filter-toolbar">
+          <div className="task-search"><BsSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." aria-label="Search task, candidate, company or Task ID" /></div>
+          <button type="button" className={`task-filter-trigger ${showMoreFilters ? 'is-open' : ''}`} aria-expanded={showMoreFilters} onClick={() => setShowMoreFilters((value) => !value)}><BsFunnel/> Filter {activeFilterCount > 0 ? <strong>{activeFilterCount}</strong> : null}<span>⌄</span></button>
+          <button type="button" className="task-toolbar-control" onClick={() => setShowMoreFilters(true)}>Company</button>
+          <button type="button" className="task-toolbar-control" onClick={() => setShowMoreFilters(true)}>Candidate</button>
+          <button type="button" className="task-toolbar-control" onClick={() => setShowMoreFilters(true)}>Task Type</button>
+          {activeFilterCount > 0 || search ? <button type="button" className="task-clear-toolbar" onClick={clearFilters}>Clear all</button> : null}
+        </div>
         {filterOptionsError ? <small className="auth-card__error">{filterOptionsError}</small> : null}
-        <label className="auth-card__field">
-          Candidate
-          <select value={candidateFilter ?? ''} onChange={(event) => setCandidateFilter(event.target.value ? Number(event.target.value) : null)} disabled={loadingFilters}>
-            <option value="">All Candidates</option>
-            {filterCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
-          </select>
-        </label>
-        <label className="auth-card__field">
-          Company
-          <select value={companyFilter ?? ''} onChange={(event) => {setCandidateFilter(null);setCompanyFilter(event.target.value ? Number(event.target.value) : null)}} disabled={loadingFilters}>
-            <option value="">All Companies</option>
-            {filterCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-          </select>
-        </label>
-        <label className="auth-card__field">
-          Task Type
-          <select value={taskTypeFilter ?? ''} onChange={(event) => setTaskTypeFilter(event.target.value ? Number(event.target.value) : null)} disabled={loadingFilters}>
-            <option value="">All Task Types</option>
-            {taskTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
-          </select>
-        </label>
-        <label className="auth-card__field">
-          Assign To
-          <select value={assigneeFilter ?? ''} onChange={(event) => setAssigneeFilter(event.target.value ? Number(event.target.value) : null)} disabled={loadingFilters}>
-            <option value="">All Experts</option>
-            {assigneeOptions.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}
-          </select>
-        </label>
-        <button type="button" className="task-more-filters" onClick={() => setShowMoreFilters((value) => !value)}>More Filters {showMoreFilters ? '⌃' : '⌄'}</button>
-        {showMoreFilters ? <div className="task-advanced"><label className="auth-card__field">Task ID<input value={taskIdFilter} onChange={(event) => setTaskIdFilter(event.target.value)} placeholder="TAS-2589" /></label><label className="auth-card__field">Date From<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label className="auth-card__field">Date To<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label></div> : null}
+        {showMoreFilters ? <div className="task-filter-popover"><header><div><strong>Quick filters</strong><span>Showing {totalTasks} {activeSection.replace('_',' ')} tasks</span></div><button type="button" onClick={() => setShowMoreFilters(false)} aria-label="Close filters">×</button></header><div className="task-filter-grid"><label>Company<select value={companyFilter ?? ''} onChange={(event) => {setCandidateFilter(null);setCompanyFilter(event.target.value ? Number(event.target.value) : null)}} disabled={loadingFilters}><option value="">All Companies</option>{filterCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label><label>Candidate<select value={candidateFilter ?? ''} onChange={(event) => setCandidateFilter(event.target.value ? Number(event.target.value) : null)} disabled={loadingFilters}><option value="">All Candidates</option>{filterCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select></label><label>Task Type<select value={taskTypeFilter ?? ''} onChange={(event) => setTaskTypeFilter(event.target.value ? Number(event.target.value) : null)} disabled={loadingFilters}><option value="">All Task Types</option>{taskTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label><label>Assigned To<select value={assigneeFilter ?? ''} onChange={(event) => setAssigneeFilter(event.target.value ? Number(event.target.value) : null)} disabled={loadingFilters}><option value="">All Experts</option>{assigneeOptions.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}</select></label><label>Task ID<input value={taskIdFilter} onChange={(event) => setTaskIdFilter(event.target.value)} placeholder="TAS-2589" /></label><label>Date From<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label>Date To<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label></div><footer><button type="button" onClick={clearFilters}>Clear all</button><button type="button" className="button button--primary" onClick={() => setShowMoreFilters(false)}>Done</button></footer></div> : null}
         {(candidateFilter || companyFilter || taskTypeFilter || assigneeFilter || taskIdFilter || dateFrom || dateTo) ? <div className="task-chips"><strong>Active filters</strong>{candidateFilter && <button onClick={() => setCandidateFilter(null)}>Candidate: {filterCandidates.find(v=>v.id===candidateFilter)?.name} ×</button>}{companyFilter && <button onClick={() => {setCompanyFilter(null);setCandidateFilter(null)}}>Company: {filterCompanies.find(v=>v.id===companyFilter)?.name} ×</button>}{taskTypeFilter && <button onClick={() => setTaskTypeFilter(null)}>Task Type: {taskTypes.find(v=>v.id===taskTypeFilter)?.name} ×</button>}{assigneeFilter && <button onClick={() => setAssigneeFilter(null)}>Expert: {assigneeOptions.find(v=>v.id===assigneeFilter)?.name} ×</button>}<button className="task-clear" onClick={clearFilters}>Clear all</button></div> : null}
       </div>
 
@@ -895,9 +880,10 @@ const TasksPage = () => {
 
 
       <div className="card table-container tasks-table__wrapper task-list-card">
-        {loading ? <div className="task-skeleton">{Array.from({length: 7}, (_, index) => <div key={index}><span/><span/><span/><span/><span/></div>)}</div> : null}
+        {loading && tasks.length === 0 ? <div className="task-skeleton">{Array.from({length: 7}, (_, index) => <div key={index}><span/><span/><span/><span/><span/></div>)}</div> : null}
+        {loading && tasks.length > 0 ? <div className="task-table-progress" role="status">Updating tasks…</div> : null}
         {!loading && sortedTasks.length === 0 ? <div className="task-empty"><BsSearch/><h3>No tasks match your current filters.</h3><p>Try changing the section or clearing your filters.</p><button className="button" onClick={clearFilters}>Clear Filters</button></div> : null}
-        {!loading && sortedTasks.length > 0 ? (
+        {sortedTasks.length > 0 ? (
           <div className="tasks-table-scroll">
             <table className="roles-table users-table tasks-table">
               <thead>

@@ -806,7 +806,11 @@ public function downloadFile() {
         if ($status !== '') {
             $normalizedStatus = str_replace('_', ' ', strtolower($status));
             if ($normalizedStatus === 'assigned') {
-                $query .= " AND (LOWER(ts.name) = 'assigned' OR ta.user_id IS NOT NULL)";
+                // A small number of legacy rows remained Pending after an active
+                // assignment was created. Treat only those rows as Assigned; an
+                // active assignment must not pull In Progress/Completed tasks into
+                // the Assigned section.
+                $query .= " AND (LOWER(ts.name) = 'assigned' OR (LOWER(ts.name) = 'pending' AND ta.user_id IS NOT NULL))";
             } elseif ($normalizedStatus === 'pending') {
                 $query .= " AND LOWER(ts.name) = 'pending' AND ta.user_id IS NULL";
             } elseif ($normalizedStatus === 'in progress') {

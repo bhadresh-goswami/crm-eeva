@@ -27,4 +27,9 @@ foreach (['summary', 'searchCandidates', 'detail'] as $method) {
     }
 }
 
+if (str_contains($controller, "LOWER(ts.name) = 'assigned' OR ta.user_id IS NOT NULL")) {
+    fwrite(STDERR, "Assigned section incorrectly includes every actively assigned status\n");
+    exit(1);
+}
+
 echo "Task workspace route tests passed\n";

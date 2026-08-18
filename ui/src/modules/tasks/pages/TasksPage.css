@@ -9,4 +9,29 @@
 .task-workspace .task-bulk-bar{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:8px!important;min-height:48px!important;height:auto!important;flex-wrap:wrap!important}
 .task-workspace .task-bulk-bar>label{margin-right:auto}
 .task-workspace .task-bulk-bar>.button{width:auto!important;margin:0!important}
-.task-workspace .task-list-card{height:auto;min-height:260px;max-height:none}
+.task-workspace .task-list-card{position:relative;height:auto;min-height:260px;max-height:none}
+
+/* Monday-style compact filter toolbar and progressively disclosed quick filters. */
+.task-workspace .task-filter-card{position:relative;display:block!important;padding:10px 14px!important;overflow:visible}
+.task-filter-toolbar{display:flex;align-items:center;gap:6px;min-height:38px;flex-wrap:wrap}
+.task-filter-toolbar .task-search{flex:0 1 310px;min-width:220px}
+.task-filter-toolbar .task-search input{height:36px;border-color:transparent;background:#fff;padding-top:0;padding-bottom:0}
+.task-filter-toolbar .task-search input:focus{border-color:#2684ff;box-shadow:0 0 0 2px rgba(38,132,255,.15)}
+.task-filter-trigger,.task-toolbar-control,.task-clear-toolbar{height:36px;display:inline-flex;align-items:center;gap:7px;border:1px solid transparent;border-radius:7px;background:#fff;color:#26324a;padding:0 11px;font:inherit;font-size:13px;cursor:pointer}
+.task-filter-trigger:hover,.task-toolbar-control:hover{background:#f2f6fb}
+.task-filter-trigger.is-open{border-color:#2684ff;background:#e9f3ff;box-shadow:0 0 0 2px rgba(38,132,255,.2)}
+.task-filter-trigger strong{min-width:19px;height:19px;display:grid;place-items:center;border-radius:10px;background:#2684ff;color:#fff;font-size:10px}
+.task-clear-toolbar{color:#1769d2;margin-left:auto}
+.task-filter-popover{position:absolute;left:330px;top:54px;width:min(820px,calc(100vw - 80px));z-index:80;border:1px solid #e0e5ec;border-radius:10px;background:#fff;box-shadow:0 14px 38px rgba(25,37,58,.18)}
+.task-filter-popover>header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid #edf0f4}
+.task-filter-popover>header>div{display:flex;align-items:baseline;gap:12px}.task-filter-popover>header span{color:#68768d;font-size:12px;text-transform:capitalize}
+.task-filter-popover>header button{border:0;background:transparent;font-size:22px;color:#667085;cursor:pointer}
+.task-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px;padding:18px}
+.task-filter-grid label{display:grid;gap:7px;color:#445168;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.task-filter-grid select,.task-filter-grid input{height:38px;min-width:0;border:1px solid #dce3ec;border-radius:7px;background:#f6f7f9;padding:0 10px;color:#26324a;font:inherit;text-transform:none;letter-spacing:normal}
+.task-filter-grid select:focus,.task-filter-grid input:focus{outline:0;border-color:#2684ff;background:#fff}
+.task-filter-popover>footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid #edf0f4}.task-filter-popover>footer>button:first-child{border:0;background:transparent;color:#1769d2}
+.task-filter-card>.task-chips{padding-top:9px;margin-top:8px;border-top:1px solid #edf0f4}
+@media(max-width:900px){.task-filter-popover{left:12px;right:12px;width:auto}.task-filter-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}.task-filter-toolbar .task-search{flex:1 1 100%}}
+@media(max-width:560px){.task-toolbar-control{display:none}.task-filter-grid{grid-template-columns:1fr}.task-filter-popover{position:fixed;top:90px;bottom:20px;overflow:auto}.task-filter-popover>footer{position:sticky;bottom:0;background:#fff}}
+.task-table-progress{height:3px;position:absolute;left:0;right:0;z-index:2;overflow:hidden;color:transparent;background:#dcecff}.task-table-progress:after{content:"";display:block;width:35%;height:100%;background:#2684ff;animation:task-progress 1s ease-in-out infinite}@keyframes task-progress{from{transform:translateX(-100%)}to{transform:translateX(385%)}}
