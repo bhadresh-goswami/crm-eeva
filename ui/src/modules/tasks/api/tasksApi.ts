@@ -24,6 +24,7 @@ export type TaskRecord = {
   assigned_to_id: number | null
   assigned_to_name: string
   file_url: string
+  has_attachment: boolean
   resume_url: string
   can_assign: boolean
   task_start_time?: string
@@ -70,7 +71,23 @@ export type TaskTypeOption = {
 type TaskQuery = {
   status?: string
   excludeStatus?: string
+  section?: string
+  page?: number
+  pageSize?: number
+  search?: string
+  companyId?: number | null
+  candidateId?: number | null
+  taskTypeId?: number | null
+  assignedTo?: number | null
+  dateFrom?: string
+  dateTo?: string
+  sort?: string
+  direction?: 'asc' | 'desc'
 }
+
+export type TaskPagination = { page: number; page_size: number; total: number; total_pages: number; has_next: boolean; has_previous: boolean }
+export type TaskListResponse = { tasks: TaskRecord[]; pagination: TaskPagination }
+export type TaskSummary = { pending: number; in_progress: number; assigned: number; completed: number; cancelled: number }
 
 export type TaskUpdateCheck = {
   newTasks: TaskRecord[]
@@ -78,7 +95,7 @@ export type TaskUpdateCheck = {
 }
 
 export type TaskFilterOptions = {
-  companies: string[]
+  companies: { id: number; name: string }[]
   statuses: string[]
   assignees: { id: number; name: string }[]
   task_types: { id: number; name: string }[]
@@ -104,7 +121,7 @@ export const getTaskFilterOptions = async (): Promise<TaskFilterOptions> => {
 
   return {
     companies: Array.isArray(companiesRaw)
-      ? companiesRaw.map((v) => String(v).trim()).filter(Boolean)
+      ? companiesRaw.map((v) => typeof v === 'object' && v ? ({ id: Number((v as UnknownMap).id), name: String((v as UnknownMap).name ?? (v as UnknownMap).company_name ?? '') }) : ({ id: 0, name: String(v) })).filter((v) => v.name)
       : [],
     statuses: Array.isArray(statusesRaw)
       ? statusesRaw.map((v) => String(v).trim().toLowerCase()).filter(Boolean)
@@ -221,6 +238,7 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
     if (value.startsWith('http://') || value.startsWith('https://')) return value
     return `${FILE_BASE_URL}/${value}`
   })(),
+  has_attachment: Boolean(raw.has_attachment ?? raw.file ?? raw.file_url ?? raw.attachment),
   resume_url: (() => {
     const value = String(raw.resume_url ?? raw.resume ?? raw.candidate_resume ?? raw.cv_url ?? '').trim()
     if (!value) return ''
@@ -230,16 +248,69 @@ const normalizeTask = (raw: UnknownMap): TaskRecord => ({
   can_assign: raw.can_assign === undefined ? true : Boolean(raw.can_assign),
 })
 
-export const getTasks = async (query: TaskQuery = {}) => {
+export const getTaskPage = async (query: TaskQuery = {}, signal?: AbortSignal): Promise<TaskListResponse> => {
   const searchParams = new URLSearchParams()
   if (query.status) searchParams.set('status', query.status)
   if (query.excludeStatus) searchParams.set('status_ne', query.excludeStatus)
+  if (query.section) searchParams.set('section', query.section)
+  if (query.page) searchParams.set('page', String(query.page))
+  if (query.pageSize) searchParams.set('page_size', String(query.pageSize))
+  if (query.search) searchParams.set('search', query.search)
+  if (query.companyId) searchParams.set('company_id', String(query.companyId))
+  if (query.candidateId) searchParams.set('candidate_id', String(query.candidateId))
+  if (query.taskTypeId) searchParams.set('task_type_id', String(query.taskTypeId))
+  if (query.assignedTo) searchParams.set('assigned_to', String(query.assignedTo))
+  if (query.dateFrom) searchParams.set('date_from', query.dateFrom)
+  if (query.dateTo) searchParams.set('date_to', query.dateTo)
+  if (query.sort) searchParams.set('sort', query.sort)
+  if (query.direction) searchParams.set('direction', query.direction)
   const endpoint = searchParams.toString() ? `/tasks/list?${searchParams.toString()}` : '/tasks/list'
-  const response = await apiRequest<unknown>(endpoint)
+  const response = await apiRequest<unknown>(endpoint, { signal })
 
-  return getList(response)
+  const tasks = getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
     .filter((item): item is TaskRecord => Boolean(item?.id))
+  const root = response as UnknownMap
+  const pagination = (root.pagination ?? {}) as UnknownMap
+  return { tasks, pagination: { page: asNumber(pagination.page) || 1, page_size: asNumber(pagination.page_size) || query.pageSize || 10, total: asNumber(pagination.total) || tasks.length, total_pages: asNumber(pagination.total_pages), has_next: Boolean(pagination.has_next), has_previous: Boolean(pagination.has_previous) } }
+}
+
+/** Backward-compatible helper for reports that intentionally consume the full list. */
+export const getTasks = async (query: TaskQuery = {}) => {
+  const first = await getTaskPage({ ...query, page: 1, pageSize: 100 })
+  if (first.pagination.total_pages <= 1) return first.tasks
+  const remaining = await Promise.all(Array.from({ length: first.pagination.total_pages - 1 }, (_, index) => getTaskPage({ ...query, page: index + 2, pageSize: 100 })))
+  return [first, ...remaining].flatMap((page) => page.tasks)
+}
+
+const buildGlobalParams = (query: TaskQuery) => {
+  const params = new URLSearchParams()
+  if (query.search) params.set('search', query.search)
+  if (query.companyId) params.set('company_id', String(query.companyId))
+  if (query.candidateId) params.set('candidate_id', String(query.candidateId))
+  if (query.taskTypeId) params.set('task_type_id', String(query.taskTypeId))
+  if (query.assignedTo) params.set('assigned_to', String(query.assignedTo))
+  if (query.dateFrom) params.set('date_from', query.dateFrom)
+  if (query.dateTo) params.set('date_to', query.dateTo)
+  return params
+}
+
+export const getTaskSummary = async (query: TaskQuery, signal?: AbortSignal): Promise<TaskSummary> => {
+  const response = await apiRequest<UnknownMap>(`/tasks/summary?${buildGlobalParams(query)}`, { signal })
+  const data = (response.data ?? response) as UnknownMap
+  return { pending: asNumber(data.pending), in_progress: asNumber(data.in_progress), assigned: asNumber(data.assigned), completed: asNumber(data.completed), cancelled: asNumber(data.cancelled) }
+}
+
+export const getTaskDetail = async (id: number, signal?: AbortSignal): Promise<TaskRecord> => {
+  const response = await apiRequest<UnknownMap>(`/tasks/${id}`, { signal })
+  return normalizeTask((response.data ?? response) as UnknownMap)
+}
+
+export const searchCandidates = async (companyId: number | null, query = '', signal?: AbortSignal): Promise<CandidateOption[]> => {
+  const params = new URLSearchParams({ q: query, limit: '20' })
+  if (companyId) params.set('company_id', String(companyId))
+  const response = await apiRequest<unknown>(`/candidates/search?${params}`, { signal })
+  return getList(response).map((row) => ({ id: asNumber((row as UnknownMap).id), name: String((row as UnknownMap).name) })).filter((row) => row.id > 0)
 }
 
 export const checkTaskUpdates = async (sinceId = 0, windowMinutes = 30): Promise<TaskUpdateCheck> => {

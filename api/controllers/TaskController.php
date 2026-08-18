@@ -29,20 +29,19 @@ class TaskController {
                 $companiesSql = "SELECT DISTINCT TRIM({$companyValueExpr}) AS value FROM clients c WHERE TRIM({$companyValueExpr}) <> '' ORDER BY value ASC";
             }
 
-            $companies = $conn->query($companiesSql)->fetchAll(PDO::FETCH_COLUMN);
+            $companyRows = $conn->query("SELECT c.id, TRIM({$companyValueExpr}) AS name FROM clients c WHERE TRIM({$companyValueExpr}) <> '' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
             $statuses = $conn->query("SELECT DISTINCT TRIM(COALESCE(ts.name, '')) AS value FROM task_status_master ts WHERE TRIM(COALESCE(ts.name, '')) <> '' ORDER BY value ASC")->fetchAll(PDO::FETCH_COLUMN);
             $assignees = $conn->query("SELECT DISTINCT u.id, TRIM(u.name) AS name FROM users u INNER JOIN task_assignments ta ON ta.user_id = u.id WHERE TRIM(COALESCE(u.name, '')) <> '' AND (u.status = 1 OR u.status = 'active' OR u.status = '1' OR u.status IS NULL) ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
             $taskTypes = $conn->query("SELECT DISTINCT id, TRIM(name) AS name FROM task_types WHERE TRIM(COALESCE(name, '')) <> '' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
-            $candidates = $conn->query("SELECT DISTINCT id, TRIM(name) AS name FROM candidates WHERE TRIM(COALESCE(name, '')) <> '' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
             echo json_encode([
                 'success' => true,
                 'data' => [
-                    'companies' => array_values(array_filter($companies, fn($v) => is_string($v) && trim($v) !== '')),
+                    'companies' => $companyRows,
                     'statuses' => array_values(array_filter($statuses, fn($v) => is_string($v) && trim($v) !== '')),
                     'assignees' => $assignees,
                     'task_types' => $taskTypes,
-                    'candidates' => $candidates,
+                    'candidates' => [],
                 ],
             ]);
         } catch (Throwable $e) {
@@ -757,87 +756,147 @@ public function downloadFile() {
         $db = new Database();
         $conn = $db->connect();
 
-        $status = $_GET['status'] ?? null;
-        $client_id = $_GET['client_id'] ?? null;
-        $date = $_GET['date'] ?? null;
+        $status = trim((string)($_GET['section'] ?? $_GET['status'] ?? ''));
+        $excludeStatus = trim((string)($_GET['status_ne'] ?? ''));
+        $client_id = filter_var($_GET['company_id'] ?? $_GET['client_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        $candidateId = filter_var($_GET['candidate_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        $taskTypeId = filter_var($_GET['task_type_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        $assignedTo = filter_var($_GET['assigned_to'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        $dateFrom = trim((string)($_GET['date_from'] ?? $_GET['date'] ?? ''));
+        $dateTo = trim((string)($_GET['date_to'] ?? $_GET['date'] ?? ''));
+        $search = trim((string)($_GET['search'] ?? ''));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $pageSize = min(100, max(1, (int)($_GET['page_size'] ?? 10)));
+        $offset = ($page - 1) * $pageSize;
 
         $query = "
-            SELECT 
+            SELECT
                 t.id,
                 t.client_id,
                 t.candidate_id,
                 t.poc_id,
                 t.task_type_id,
                 t.title,
-                t.description,
                 t.due_date,
                 t.start_time,
                 t.end_time,
                 t.duration,
-                t.total_amount,
-
-                c.name AS client_name,
+                COALESCE(c.company_name, c.name) AS client_name,
                 cand.name AS candidate_name,
-                p.name AS poc_name,
-
                 ts.name AS status,
                 tt.name AS task_type,
-                ps.name AS payment_status,
                 ta.user_id AS assigned_to_id,
                 u.name AS assigned_to_name,
-
-                tf.file_url
+                CASE WHEN tf.id IS NULL THEN 0 ELSE 1 END AS has_attachment
 
             FROM tasks t
             LEFT JOIN clients c ON t.client_id = c.id
             LEFT JOIN candidates cand ON t.candidate_id = cand.id
-            LEFT JOIN client_pocs p ON t.poc_id = p.id
             LEFT JOIN task_status_master ts ON t.status_id = ts.id
             LEFT JOIN task_types tt ON t.task_type_id = tt.id
-            LEFT JOIN payment_status_master ps ON t.payment_status_id = ps.id
             LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
             LEFT JOIN users u ON ta.user_id = u.id
-
-            LEFT JOIN task_files tf 
-            ON tf.id = (
-                SELECT id FROM task_files 
-                WHERE task_id = t.id 
-                ORDER BY id DESC LIMIT 1
-            )
+            LEFT JOIN (SELECT task_id, MAX(id) AS id FROM task_files GROUP BY task_id) tf ON tf.task_id = t.id
 
             WHERE 1=1
         ";
 
         $params = [];
 
-        if ($status) {
-            $query .= " AND LOWER(ts.name) = LOWER(?)";
-            $params[] = $status;
+        if ($status !== '') {
+            $normalizedStatus = str_replace('_', ' ', strtolower($status));
+            if ($normalizedStatus === 'assigned') {
+                // A small number of legacy rows remained Pending after an active
+                // assignment was created. Treat only those rows as Assigned; an
+                // active assignment must not pull In Progress/Completed tasks into
+                // the Assigned section.
+                $query .= " AND (LOWER(ts.name) = 'assigned' OR (LOWER(ts.name) = 'pending' AND ta.user_id IS NOT NULL))";
+            } elseif ($normalizedStatus === 'pending') {
+                $query .= " AND LOWER(ts.name) = 'pending' AND ta.user_id IS NULL";
+            } elseif ($normalizedStatus === 'in progress') {
+                $query .= " AND LOWER(ts.name) IN ('active', 'in progress')";
+            } else {
+                $query .= " AND LOWER(ts.name) = ?";
+                $params[] = $normalizedStatus;
+            }
         }
+        if ($excludeStatus !== '') { $query .= " AND LOWER(ts.name) <> LOWER(?)"; $params[] = $excludeStatus; }
 
         if ($client_id) {
             $query .= " AND t.client_id = ?";
             $params[] = $client_id;
         }
 
-        if ($date) {
-            $query .= " AND DATE(t.due_date) = ?";
-            $params[] = $date;
+        if ($candidateId) { $query .= " AND t.candidate_id = ?"; $params[] = $candidateId; }
+        if ($taskTypeId) { $query .= " AND t.task_type_id = ?"; $params[] = $taskTypeId; }
+        if ($assignedTo) { $query .= " AND ta.user_id = ?"; $params[] = $assignedTo; }
+        if ($dateFrom !== '') { $query .= " AND t.due_date >= ?"; $params[] = $dateFrom; }
+        if ($dateTo !== '') { $query .= " AND t.due_date < DATE_ADD(?, INTERVAL 1 DAY)"; $params[] = $dateTo; }
+        if ($search !== '') {
+            $query .= " AND (CAST(t.id AS CHAR) LIKE ? OR t.title LIKE ? OR cand.name LIKE ? OR COALESCE(c.company_name,c.name) LIKE ?)";
+            $term = '%' . $search . '%';
+            array_push($params, $term, $term, $term, $term);
         }
 
-        $query .= " ORDER BY t.due_date DESC, t.start_time DESC, t.id DESC";
+        $sortColumns = ['id' => 't.id', 'due_date' => 't.due_date', 'candidate' => 'cand.name', 'client' => 'c.name', 'status' => 'ts.name', 'assigned_to_name' => 'u.name', 'time_start' => 't.start_time'];
+        $sort = $sortColumns[$_GET['sort'] ?? 'due_date'] ?? 't.due_date';
+        $direction = strtolower((string)($_GET['direction'] ?? 'desc')) === 'asc' ? 'ASC' : 'DESC';
+        $fromPosition = stripos($query, ' FROM tasks');
+        $countSql = 'SELECT COUNT(DISTINCT t.id)' . substr($query, $fromPosition);
+        $countStmt = $conn->prepare($countSql);
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
+        $query .= " ORDER BY {$sort} {$direction}, t.id DESC LIMIT {$pageSize} OFFSET {$offset}";
 
         $stmt = $conn->prepare($query);
         $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        error_log("[TaskController::list] input_status={$status}; input_date={$date}; rows=" . count($rows));
-        error_log("[TaskController::list] sql=" . preg_replace('/\s+/', ' ', trim($query)));
-
         echo json_encode([
             "success" => true,
-            "data" => $rows
+            "data" => $rows,
+            "pagination" => [
+                'page' => $page, 'page_size' => $pageSize, 'total' => $total,
+                'total_pages' => $total ? (int)ceil($total / $pageSize) : 0,
+                'has_next' => $offset + count($rows) < $total, 'has_previous' => $page > 1,
+            ],
         ]);
+    }
+
+    public function summary(): void {
+        $db = new Database(); $conn = $db->connect();
+        $where = ['1=1']; $params = [];
+        if ($id = filter_var($_GET['company_id'] ?? null, FILTER_VALIDATE_INT)) { $where[] = 't.client_id = ?'; $params[] = $id; }
+        if ($id = filter_var($_GET['candidate_id'] ?? null, FILTER_VALIDATE_INT)) { $where[] = 't.candidate_id = ?'; $params[] = $id; }
+        if ($id = filter_var($_GET['task_type_id'] ?? null, FILTER_VALIDATE_INT)) { $where[] = 't.task_type_id = ?'; $params[] = $id; }
+        if ($id = filter_var($_GET['assigned_to'] ?? null, FILTER_VALIDATE_INT)) { $where[] = 'ta.user_id = ?'; $params[] = $id; }
+        foreach (['date_from' => '>=', 'date_to' => '<='] as $key => $operator) if (!empty($_GET[$key])) { $where[] = "t.due_date {$operator} ?"; $params[] = $_GET[$key]; }
+        if (($search = trim((string)($_GET['search'] ?? ''))) !== '') { $where[] = '(CAST(t.id AS CHAR) LIKE ? OR t.title LIKE ? OR cand.name LIKE ? OR COALESCE(c.company_name,c.name) LIKE ?)'; $term = "%{$search}%"; array_push($params, $term, $term, $term, $term); }
+        $statusExpr = "CASE WHEN LOWER(COALESCE(ts.name,'pending'))='pending' AND ta.user_id IS NOT NULL THEN 'assigned' WHEN LOWER(COALESCE(ts.name,'pending'))='active' THEN 'in_progress' ELSE REPLACE(LOWER(COALESCE(ts.name,'pending')),' ','_') END";
+        $sql = "SELECT {$statusExpr} status, COUNT(DISTINCT t.id) total FROM tasks t LEFT JOIN task_status_master ts ON ts.id=t.status_id LEFT JOIN clients c ON c.id=t.client_id LEFT JOIN candidates cand ON cand.id=t.candidate_id LEFT JOIN task_assignments ta ON ta.task_id=t.id AND ta.is_active=1 WHERE " . implode(' AND ', $where) . " GROUP BY {$statusExpr}";
+        $stmt = $conn->prepare($sql); $stmt->execute($params);
+        $counts = ['pending'=>0,'in_progress'=>0,'assigned'=>0,'completed'=>0,'cancelled'=>0];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) { $key = strtolower(str_replace(' ', '_', $row['status'])); if ($key === 'active') $key = 'in_progress'; if (array_key_exists($key, $counts)) $counts[$key] += (int)$row['total']; }
+        echo json_encode(['success'=>true,'data'=>$counts]);
+    }
+
+    public function detail(int $taskId): void {
+        $db = new Database(); $conn = $db->connect();
+        $stmt = $conn->prepare("SELECT t.*, COALESCE(c.company_name,c.name) client_name, cand.name candidate_name, p.name poc_name, ts.name status, tt.name task_type, ps.name payment_status, ta.user_id assigned_to_id, u.name assigned_to_name, tf.file_url FROM tasks t LEFT JOIN clients c ON c.id=t.client_id LEFT JOIN candidates cand ON cand.id=t.candidate_id LEFT JOIN client_pocs p ON p.id=t.poc_id LEFT JOIN task_status_master ts ON ts.id=t.status_id LEFT JOIN task_types tt ON tt.id=t.task_type_id LEFT JOIN payment_status_master ps ON ps.id=t.payment_status_id LEFT JOIN task_assignments ta ON ta.task_id=t.id AND ta.is_active=1 LEFT JOIN users u ON u.id=ta.user_id LEFT JOIN task_files tf ON tf.id=(SELECT MAX(tf2.id) FROM task_files tf2 WHERE tf2.task_id=t.id) WHERE t.id=? LIMIT 1");
+        $stmt->execute([$taskId]); $task = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$task) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Task not found']); return; }
+        echo json_encode(['success'=>true,'data'=>$task]);
+    }
+
+    public function searchCandidates(): void {
+        $db = new Database(); $conn = $db->connect();
+        $companyId = filter_var($_GET['company_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        $query = trim((string)($_GET['q'] ?? '')); $limit = min(50, max(1, (int)($_GET['limit'] ?? 20)));
+        $sql = 'SELECT id, name FROM candidates WHERE TRIM(COALESCE(name,\'\')) <> \'\''; $params=[];
+        if ($companyId) { $sql .= ' AND client_id = ?'; $params[]=$companyId; }
+        if ($query !== '') { $sql .= ' AND name LIKE ?'; $params[]="%{$query}%"; }
+        $sql .= " ORDER BY name ASC LIMIT {$limit}"; $stmt=$conn->prepare($sql); $stmt->execute($params);
+        echo json_encode(['success'=>true,'data'=>$stmt->fetchAll(PDO::FETCH_ASSOC)]);
     }
 
     public function bulkPriceList(): void {
