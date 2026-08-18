@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BsDownload, BsEye, BsPencil, BsPersonPlus, BsSearch, BsCalendarCheck, BsClock, BsCheckCircle, BsXCircle, BsHourglassSplit, BsPaperclip } from 'react-icons/bs'
+import { BsDownload, BsEye, BsPencil, BsPersonPlus, BsSearch, BsCalendarCheck, BsClock, BsCheckCircle, BsXCircle, BsHourglassSplit, BsPaperclip, BsFunnel } from 'react-icons/bs'
 import './TasksPage.css'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { useAuth } from '../../../context/AuthContext'
@@ -17,9 +17,10 @@ import {
   getCandidatesByClient,
   getExperts,
   getPocsByClient,
-  getTaskTypes,
   getTaskFilterOptions,
-  getTasks,
+  getTaskDetail,
+  getTaskSummary,
+  getTaskPage,
   getTasksLastUpdate,
   moveTaskToPending,
   updateTask,
@@ -29,6 +30,8 @@ import {
   type TaskPayload,
   type TaskRecord,
   type TaskTypeOption,
+  type TaskSummary,
+  searchCandidates,
 } from '../api/tasksApi'
 
 type Option = { id: number; label: string }
@@ -232,12 +235,6 @@ const calcEndTime = (start: string, duration: number) => {
 
 const SORT_STORAGE_KEY = 'tasks_sort_config'
 
-const toSortTimestamp = (task: TaskRecord) => {
-  const combined = `${task.due_date || ''} ${task.time_start || '00:00'}`
-  const parsed = new Date(combined).getTime()
-  return Number.isFinite(parsed) ? parsed : task.id
-}
-
 const toApiPayload = (state: TaskFormState): TaskPayload => ({
   client_id: state.client_id ?? 0,
   poc_id: state.poc_id ?? 0,
@@ -277,21 +274,30 @@ const TasksPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const [candidateFilter, setCandidateFilter] = useState('')
-  const [companyFilter, setCompanyFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [candidateFilter, setCandidateFilter] = useState<number | null>(null)
+  const [companyFilter, setCompanyFilter] = useState<number | null>(null)
+  const [taskTypeFilter, setTaskTypeFilter] = useState<number | null>(null)
+  const [assigneeFilter, setAssigneeFilter] = useState<number | null>(null)
+  // Managers land on actionable assigned work, matching the legacy workspace and
+  // avoiding an empty first view when there are no currently pending tasks.
+  const [activeSection, setActiveSection] = useState('assigned')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [showMoreFilters, setShowMoreFilters] = useState(false)
   const [taskIdFilter, setTaskIdFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [detailsTask, setDetailsTask] = useState<TaskRecord | null>(null)
   const [filterOptionsError, setFilterOptionsError] = useState<string | null>(null)
-  const [filterCompanies, setFilterCompanies] = useState<string[]>([])
-  const [filterStatuses, setFilterStatuses] = useState<string[]>([])
+  const [filterCompanies, setFilterCompanies] = useState<Array<{id:number;name:string}>>([])
   const [filterAssignees, setFilterAssignees] = useState<Array<{ id: number; name: string }>>([])
   const [filterCandidates, setFilterCandidates] = useState<Array<{ id: number; name: string }>>([])
+  const [summary, setSummary] = useState<TaskSummary>({pending:0,in_progress:0,assigned:0,completed:0,cancelled:0})
+  const [totalTasks, setTotalTasks] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const listAbortRef = useRef<AbortController | null>(null)
+  const detailCache = useRef(new Map<number, { task: TaskRecord; cachedAt: number }>())
+  const [detailLoading, setDetailLoading] = useState(false)
 
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
@@ -306,7 +312,6 @@ const TasksPage = () => {
   const [actionTaskId, setActionTaskId] = useState<number | null>(null)
   const [selectedTaskIds, setSelectedTaskIds] = useState<number[]>([])
   const [currentPage, setCurrentPage] = useState(1)
-  const rowsPerPage = 10
   const [sortConfig, setSortConfig] = useState<SortConfig>(() => {
     try {
       const stored = localStorage.getItem(SORT_STORAGE_KEY)
@@ -343,43 +348,43 @@ const TasksPage = () => {
   }, [showToast])
 
   const loadPage = useCallback(async () => {
+    listAbortRef.current?.abort()
+    const controller = new AbortController()
+    listAbortRef.current = controller
     setLoading(true)
     setError(null)
     try {
-      const [tasksData, cancelledTasksData, clientsData, taskTypeData] = await Promise.all([
-        getTasks({ excludeStatus: 'cancelled' }),
-        getTasks({ status: 'cancelled' }),
-        getClients(),
-        getTaskTypes(),
-      ])
-      const visibleStatuses = new Set(['active', 'pending', 'assigned'])
-      setTasks(tasksData.filter((task) => visibleStatuses.has(task.status)))
-      setCancelledTasks(cancelledTasksData.filter((task) => task.status === 'cancelled'))
-      const latestTaskId = tasksData.reduce((max, task) => (task.id > max ? task.id : max), 0)
+      const result = await getTaskPage({ section: activeSection, page: currentPage, pageSize: rowsPerPage, search: taskIdFilter.trim() || debouncedSearch, companyId: companyFilter, candidateId: candidateFilter, taskTypeId: taskTypeFilter, assignedTo: assigneeFilter, dateFrom, dateTo, sort: sortConfig.key, direction: sortConfig.direction }, controller.signal)
+      if (listAbortRef.current !== controller) return
+      setTasks(result.tasks)
+      setTotalTasks(result.pagination.total)
+      const latestTaskId = result.tasks.reduce((max, task) => (task.id > max ? task.id : max), 0)
       setLastSeenTaskId((prev) => Math.max(prev, latestTaskId))
-      setClients(clientsData)
-      setTaskTypes(taskTypeData)
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
       setError(normalizeError(err, 'Failed to load tasks.'))
     } finally {
-      setLoading(false)
+      if (listAbortRef.current === controller) setLoading(false)
     }
-  }, [])
+  }, [activeSection, assigneeFilter, candidateFilter, companyFilter, currentPage, dateFrom, dateTo, debouncedSearch, rowsPerPage, sortConfig.direction, sortConfig.key, taskIdFilter, taskTypeFilter])
 
   useEffect(() => {
     void loadPage()
+    return () => listAbortRef.current?.abort()
   }, [loadPage])
+
+  useEffect(() => { const id = window.setTimeout(() => setDebouncedSearch(search.trim()), 300); return () => window.clearTimeout(id) }, [search])
 
   useEffect(() => {
     const loadFilterOptions = async () => {
       setLoadingFilters(true)
       setFilterOptionsError(null)
       try {
-        const data = await getTaskFilterOptions()
+        const [data, clientsData] = await Promise.all([getTaskFilterOptions(), getClients()])
         setFilterCompanies(data.companies)
-        setFilterStatuses(data.statuses)
         setFilterAssignees(data.assignees)
-        setFilterCandidates(data.candidates)
+        setTaskTypes(data.task_types)
+        setClients(clientsData)
       } catch (err) {
         setFilterOptionsError(normalizeError(err, 'Failed to load filter options.'))
       } finally {
@@ -388,6 +393,18 @@ const TasksPage = () => {
     }
     void loadFilterOptions()
   }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void getTaskSummary({ search: taskIdFilter.trim() || debouncedSearch, companyId: companyFilter, candidateId: candidateFilter, taskTypeId: taskTypeFilter, assignedTo: assigneeFilter, dateFrom, dateTo }, controller.signal).then(setSummary).catch(() => undefined)
+    return () => controller.abort()
+  }, [assigneeFilter, candidateFilter, companyFilter, dateFrom, dateTo, debouncedSearch, taskIdFilter, taskTypeFilter])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const id = window.setTimeout(() => void searchCandidates(companyFilter, '', controller.signal).then(setFilterCandidates).catch(() => undefined), 300)
+    return () => { window.clearTimeout(id); controller.abort() }
+  }, [companyFilter])
 
   useEffect(() => {
     const nextEnd = calcEndTime(formState.start_time, formState.duration)
@@ -403,19 +420,6 @@ const TasksPage = () => {
     localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(sortConfig))
   }, [sortConfig])
 
-  const compareTasks = useCallback((a: TaskRecord, b: TaskRecord, key: SortableTaskKey) => {
-    if (key === 'due_date') {
-      return toSortTimestamp(a) - toSortTimestamp(b)
-    }
-    if (key === 'description') {
-      return (a.description || '').localeCompare(b.description || '')
-    }
-    const left = a[key]
-    const right = b[key]
-    if (typeof left === 'number' && typeof right === 'number') return left - right
-    return String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true, sensitivity: 'base' })
-  }, [])
-
   const handleSort = useCallback((key: SortableTaskKey) => {
     setSortConfig((prev) => ({
       key,
@@ -428,45 +432,22 @@ const TasksPage = () => {
     return sortConfig.direction === 'asc' ? '↑' : '↓'
   }, [sortConfig.direction, sortConfig.key])
 
-  const filteredTasks = useMemo(
-    () =>
-      tasks.filter((task) => {
-        const query = search.trim().toLowerCase()
-        if (query && ![task.id, task.candidate, task.client, task.assigned_to_name, task.title].some((value) => String(value ?? '').toLowerCase().includes(query))) return false
-        if (taskIdFilter && !String(task.id).includes(taskIdFilter.replace(/\D/g, ''))) return false
-        const due = task.due_date.slice(0, 10)
-        if (dateFrom && due < dateFrom) return false
-        if (dateTo && due > dateTo) return false
-        if (candidateFilter && !task.candidate.toLowerCase().includes(candidateFilter.toLowerCase())) return false
-        if (companyFilter && task.client !== companyFilter) return false
-        if (statusFilter && getTaskDisplayStatus(task) !== statusFilter.replace(' ', '_').toLowerCase()) return false
-        if (assigneeFilter && (task.assigned_to_name || '') !== assigneeFilter) return false
-        return true
-      }),
-    [assigneeFilter, candidateFilter, companyFilter, statusFilter, search, taskIdFilter, dateFrom, dateTo, tasks],
-  )
-  const sortedTasks = useMemo(() => {
-    return [...filteredTasks].sort((a, b) => {
-      const result = compareTasks(a, b, sortConfig.key)
-      return sortConfig.direction === 'asc' ? result : -result
-    })
-  }, [compareTasks, filteredTasks, sortConfig.direction, sortConfig.key])
-
-  const totalPages = Math.max(1, Math.ceil(sortedTasks.length / rowsPerPage))
-  const paginatedTasks = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage
-    return sortedTasks.slice(start, start + rowsPerPage)
-  }, [currentPage, sortedTasks])
+  const sortedTasks = tasks
+  const totalPages = Math.ceil(totalTasks / rowsPerPage)
+  // The active list total comes from the exact same filtered query as its rows,
+  // making it authoritative while the independent aggregate request reconciles.
+  const effectiveSummary = { ...summary, [activeSection]: totalTasks } as TaskSummary
+  const paginatedTasks = tasks
   const pageTaskIds = paginatedTasks.map((task) => task.id)
   const isAllPageSelected = pageTaskIds.length > 0 && pageTaskIds.every((id) => selectedTaskIds.includes(id))
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [candidateFilter, companyFilter, statusFilter, assigneeFilter])
+  }, [activeSection, assigneeFilter, candidateFilter, companyFilter, dateFrom, dateTo, debouncedSearch, rowsPerPage, taskIdFilter, taskTypeFilter])
 
   useEffect(() => {
     if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
+      setCurrentPage(Math.max(1, totalPages))
     }
   }, [currentPage, totalPages])
 
@@ -798,6 +779,27 @@ const TasksPage = () => {
     setFormState((prev) => ({ ...prev, description: editorRef.current?.innerHTML ?? '' }))
   }
 
+  const openDetails = (task: TaskRecord) => {
+    setDetailsTask(task)
+    const cached = detailCache.current.get(task.id)
+    if (cached && Date.now() - cached.cachedAt < 5 * 60_000) { setDetailsTask(cached.task); return }
+    setDetailLoading(true)
+    void getTaskDetail(task.id).then((detail) => { detailCache.current.set(task.id, { task: detail, cachedAt: Date.now() }); setDetailsTask((current) => current?.id === task.id ? detail : current) }).catch(() => showToast({type:'error',message:'Unable to load task details.'})).finally(() => setDetailLoading(false))
+  }
+
+  const openCancelled = async () => {
+    setIsCancelledModalOpen(true)
+    try { setCancelledTasks((await getTaskPage({section:'cancelled',page:1,pageSize:100})).tasks) } catch { showToast({type:'error',message:'Unable to load cancelled tasks.'}) }
+  }
+
+  const clearFilters = () => { setCandidateFilter(null);setCompanyFilter(null);setTaskTypeFilter(null);setAssigneeFilter(null);setTaskIdFilter('');setDateFrom('');setDateTo('');setSearch('') }
+  const activeFilterCount = [candidateFilter, companyFilter, taskTypeFilter, assigneeFilter, taskIdFilter, dateFrom, dateTo].filter(Boolean).length
+  const handleSectionChange = (section: string) => {
+    setCurrentPage(1)
+    setSelectedTaskIds([])
+    setActiveSection(section)
+  }
+
   return (
     <section className="task-workspace">
       {user?.role === 'manager' ? (
@@ -806,7 +808,7 @@ const TasksPage = () => {
           subtitle="Track task progress, monitor schedules, and ensure timely delivery across all coordinators and experts."
           actions={(
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="button" onClick={() => setIsCancelledModalOpen(true)}>
+              <button className="button" onClick={() => void openCancelled()}>
                 Cancelled Tasks
               </button>
               {canManage ? (
@@ -821,7 +823,7 @@ const TasksPage = () => {
         <div className="users-page__header">
           <h2 className="page-title">Task Management</h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button className="button" onClick={() => setIsCancelledModalOpen(true)}>
+            <button className="button" onClick={() => void openCancelled()}>
               Cancelled Tasks
             </button>
             {canManage ? (
@@ -835,43 +837,25 @@ const TasksPage = () => {
 
       {success ? <p className="roles-success roles-feedback">{success}</p> : null}
 
+      <nav className="task-status-tabs" aria-label="Task status sections">
+        {([['pending','Pending',BsHourglassSplit],['in_progress','In Progress',BsClock],['assigned','Assigned',BsCalendarCheck],['completed','Completed',BsCheckCircle]] as const).map(([key,label,Icon]) => <button type="button" key={key} className={activeSection === key ? 'active' : ''} aria-current={activeSection === key ? 'page' : undefined} onClick={() => handleSectionChange(key)}><Icon/><span>{label}</span><strong>{effectiveSummary[key]}</strong></button>)}
+      </nav>
+
       <div className="card tasks-filters task-filter-card">
-        <div className="task-search"><BsSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." aria-label="Search tasks" /></div>
+        <div className="task-filter-toolbar">
+          <div className="task-search"><BsSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." aria-label="Search task, candidate, company or Task ID" /></div>
+          <button type="button" className={`task-filter-trigger ${showMoreFilters ? 'is-open' : ''}`} aria-expanded={showMoreFilters} onClick={() => setShowMoreFilters((value) => !value)}><BsFunnel/> Filter {activeFilterCount > 0 ? <strong>{activeFilterCount}</strong> : null}<span>⌄</span></button>
+          <button type="button" className="task-toolbar-control" onClick={() => setShowMoreFilters(true)}>Company</button>
+          <button type="button" className="task-toolbar-control" onClick={() => setShowMoreFilters(true)}>Candidate</button>
+          <button type="button" className="task-toolbar-control" onClick={() => setShowMoreFilters(true)}>Task Type</button>
+          {activeFilterCount > 0 || search ? <button type="button" className="task-clear-toolbar" onClick={clearFilters}>Clear all</button> : null}
+        </div>
         {filterOptionsError ? <small className="auth-card__error">{filterOptionsError}</small> : null}
-        <label className="auth-card__field">
-          Candidate
-          <select value={candidateFilter} onChange={(event) => setCandidateFilter(event.target.value)} disabled={loadingFilters}>
-            <option value="">All</option>
-            {filterCandidates.map((candidate) => <option key={candidate.id} value={candidate.name}>{candidate.name}</option>)}
-          </select>
-        </label>
-        <label className="auth-card__field">
-          Company
-          <select value={companyFilter} onChange={(event) => setCompanyFilter(event.target.value)} disabled={loadingFilters}>
-            <option value="">All</option>
-            {filterCompanies.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-        </label>
-        <label className="auth-card__field">
-          Status
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} disabled={loadingFilters}>
-            <option value="">All</option>
-            {filterStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
-          </select>
-        </label>
-        <label className="auth-card__field">
-          Assign To
-          <select value={assigneeFilter} onChange={(event) => setAssigneeFilter(event.target.value)} disabled={loadingFilters}>
-            <option value="">All</option>
-            {assigneeOptions.map((assignee) => <option key={assignee.id} value={assignee.name}>{assignee.name}</option>)}
-          </select>
-        </label>
-        <button type="button" className="task-more-filters" onClick={() => setShowMoreFilters((value) => !value)}>More Filters {showMoreFilters ? '⌃' : '⌄'}</button>
-        {showMoreFilters ? <div className="task-advanced"><label className="auth-card__field">Task ID<input value={taskIdFilter} onChange={(event) => setTaskIdFilter(event.target.value)} placeholder="TAS-2589" /></label><label className="auth-card__field">Date From<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label className="auth-card__field">Date To<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label></div> : null}
-        {(candidateFilter || companyFilter || statusFilter || assigneeFilter || taskIdFilter || dateFrom || dateTo) ? <div className="task-chips"><strong>Active filters</strong>{candidateFilter && <button onClick={() => setCandidateFilter('')}>Candidate: {candidateFilter} ×</button>}{companyFilter && <button onClick={() => setCompanyFilter('')}>Company: {companyFilter} ×</button>}{statusFilter && <button onClick={() => setStatusFilter('')}>Status: {statusFilter} ×</button>}{assigneeFilter && <button onClick={() => setAssigneeFilter('')}>Expert: {assigneeFilter} ×</button>}<button className="task-clear" onClick={() => {setCandidateFilter('');setCompanyFilter('');setStatusFilter('');setAssigneeFilter('');setTaskIdFilter('');setDateFrom('');setDateTo('')}}>Clear all</button></div> : null}
+        {showMoreFilters ? <div className="task-filter-popover"><header><div><strong>Quick filters</strong><span>Showing {totalTasks} {activeSection.replace('_',' ')} tasks</span></div><button type="button" onClick={() => setShowMoreFilters(false)} aria-label="Close filters">×</button></header><div className="task-filter-grid"><label>Company<select value={companyFilter ?? ''} onChange={(event) => {setCandidateFilter(null);setCompanyFilter(event.target.value ? Number(event.target.value) : null)}} disabled={loadingFilters}><option value="">All Companies</option>{filterCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label><label>Candidate<select value={candidateFilter ?? ''} onChange={(event) => setCandidateFilter(event.target.value ? Number(event.target.value) : null)} disabled={loadingFilters}><option value="">All Candidates</option>{filterCandidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select></label><label>Task Type<select value={taskTypeFilter ?? ''} onChange={(event) => setTaskTypeFilter(event.target.value ? Number(event.target.value) : null)} disabled={loadingFilters}><option value="">All Task Types</option>{taskTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label><label>Assigned To<select value={assigneeFilter ?? ''} onChange={(event) => setAssigneeFilter(event.target.value ? Number(event.target.value) : null)} disabled={loadingFilters}><option value="">All Experts</option>{assigneeOptions.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}</select></label><label>Task ID<input value={taskIdFilter} onChange={(event) => setTaskIdFilter(event.target.value)} placeholder="TAS-2589" /></label><label>Date From<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label>Date To<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label></div><footer><button type="button" onClick={clearFilters}>Clear all</button><button type="button" className="button button--primary" onClick={() => setShowMoreFilters(false)}>Done</button></footer></div> : null}
+        {(candidateFilter || companyFilter || taskTypeFilter || assigneeFilter || taskIdFilter || dateFrom || dateTo) ? <div className="task-chips"><strong>Active filters</strong>{candidateFilter && <button onClick={() => setCandidateFilter(null)}>Candidate: {filterCandidates.find(v=>v.id===candidateFilter)?.name} ×</button>}{companyFilter && <button onClick={() => {setCompanyFilter(null);setCandidateFilter(null)}}>Company: {filterCompanies.find(v=>v.id===companyFilter)?.name} ×</button>}{taskTypeFilter && <button onClick={() => setTaskTypeFilter(null)}>Task Type: {taskTypes.find(v=>v.id===taskTypeFilter)?.name} ×</button>}{assigneeFilter && <button onClick={() => setAssigneeFilter(null)}>Expert: {assigneeOptions.find(v=>v.id===assigneeFilter)?.name} ×</button>}<button className="task-clear" onClick={clearFilters}>Clear all</button></div> : null}
       </div>
 
-      <div className="task-summary"><div><BsHourglassSplit/><span>Total Tasks<strong>{tasks.length + cancelledTasks.length}</strong></span></div><div><BsCalendarCheck/><span>Assigned<strong>{tasks.filter((task) => getTaskDisplayStatus(task) === 'assigned').length}</strong></span></div><div><BsClock/><span>In Progress<strong>{tasks.filter((task) => ['active','in_progress'].includes(getTaskDisplayStatus(task))).length}</strong></span></div><div><BsCheckCircle/><span>Completed<strong>{tasks.filter((task) => task.status === 'completed').length}</strong></span></div><div><BsXCircle/><span>Cancelled<strong>{cancelledTasks.length}</strong></span></div></div>
+      <div className="task-summary"><div><BsHourglassSplit/><span>Total Tasks<strong>{effectiveSummary.pending+effectiveSummary.assigned+effectiveSummary.in_progress+effectiveSummary.completed}</strong></span></div><div><BsCalendarCheck/><span>Assigned<strong>{effectiveSummary.assigned}</strong></span></div><div><BsClock/><span>In Progress<strong>{effectiveSummary.in_progress}</strong></span></div><div><BsCheckCircle/><span>Completed<strong>{effectiveSummary.completed}</strong></span></div><div><BsXCircle/><span>Cancelled<strong>{effectiveSummary.cancelled}</strong></span></div></div>
 
       <div className="card tasks-bulk-actions task-bulk-bar">
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -899,9 +883,10 @@ const TasksPage = () => {
 
 
       <div className="card table-container tasks-table__wrapper task-list-card">
-        {loading ? <div className="task-skeleton">{Array.from({length: 7}, (_, index) => <div key={index}><span/><span/><span/><span/><span/></div>)}</div> : null}
-        {!loading && sortedTasks.length === 0 ? <div className="task-empty"><BsSearch/><h3>{search || candidateFilter || companyFilter || statusFilter ? 'No tasks match these filters.' : 'No tasks yet.'}</h3><p>{search || candidateFilter || companyFilter || statusFilter ? 'Try changing or clearing your filters.' : 'Create the first task to start managing assignments.'}</p></div> : null}
-        {!loading && sortedTasks.length > 0 ? (
+        {loading && tasks.length === 0 ? <div className="task-skeleton">{Array.from({length: 7}, (_, index) => <div key={index}><span/><span/><span/><span/><span/></div>)}</div> : null}
+        {loading && tasks.length > 0 ? <div className="task-table-progress" role="status">Updating tasks…</div> : null}
+        {!loading && sortedTasks.length === 0 ? <div className="task-empty"><BsSearch/><h3>No tasks match your current filters.</h3><p>Try changing the section or clearing your filters.</p><button className="button" onClick={clearFilters}>Clear Filters</button></div> : null}
+        {sortedTasks.length > 0 ? (
           <div className="tasks-table-scroll">
             <table className="roles-table users-table tasks-table">
               <thead>
@@ -914,8 +899,8 @@ const TasksPage = () => {
                   <th><button type="button" className="table-sort" onClick={() => handleSort('client')}>Company {sortIndicator('client')}</button></th>
                   <th><button type="button" className="table-sort" onClick={() => handleSort('status')}>Status {sortIndicator('status')}</button></th>
                   <th><button type="button" className="table-sort" onClick={() => handleSort('assigned_to_name')}>Assign To {sortIndicator('assigned_to_name')}</button></th>
-                  <th><button type="button" className="table-sort" onClick={() => handleSort('time_start')}>Time Start {sortIndicator('time_start')}</button></th>
-                  <th><button type="button" className="table-sort" onClick={() => handleSort('time_end')}>Time End {sortIndicator('time_end')}</button></th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('due_date')}>Due Date {sortIndicator('due_date')}</button></th>
+                  <th><button type="button" className="table-sort" onClick={() => handleSort('time_start')}>Time {sortIndicator('time_start')}</button></th>
                   <th>File</th>
                 </tr>
               </thead>
@@ -938,7 +923,7 @@ const TasksPage = () => {
                       </td>
                       <td>
                         <div className="roles-table__actions users-actions">
-                          <button className="task-action" title="View details" onClick={() => setDetailsTask(task)}><BsEye /></button>
+                          <button className="task-action" aria-label="View task details" title="View details" onClick={() => openDetails(task)}><BsEye /></button>
                           <button className="task-action" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}><BsPencil /></button>
                           <button className="button users-icon-btn action-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
                           <button
@@ -970,28 +955,29 @@ const TasksPage = () => {
                       </td>
 
                       <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
-                      <td><button className="task-id-link" onClick={() => setDetailsTask(task)}>TAS-{task.id}</button></td>
+                      <td><button className="task-id-link" onClick={() => openDetails(task)}>TAS-{task.id}</button></td>
                       <td>{task.candidate || '—'}</td>
                       <td>{task.client || '—'}</td>
                       <td>{(() => {
                         const displayStatus = getTaskDisplayStatus(task)
                         return (
-                          <span className={`task-status task-status--${displayStatus}`} title="Task status">
+                          <span className={`task-status task-status--${displayStatus}`} title={`Status: ${displayStatus.replace('_', ' ')}`} aria-label={`Status: ${displayStatus.replace('_', ' ')}`}>
                             {displayStatus === 'assigned' ? <BsCalendarCheck /> : displayStatus === 'completed' ? <BsCheckCircle /> : displayStatus === 'cancelled' ? <BsXCircle /> : ['active', 'in_progress'].includes(displayStatus) ? <BsClock /> : <BsHourglassSplit />}
                             {displayStatus.replace('_', ' ')}
                           </span>
                         )
                       })()}</td>
                       <td>{task.assigned_to_name || '—'}</td>
-                      <td>{formatTime(task.time_start)}</td>
-                      <td>{formatTime(task.time_end)}</td>
+                      <td>{formatDisplayDate(task.due_date)}</td>
+                      <td>{formatTime(task.time_start)} – {formatTime(task.time_end)}</td>
                       <td>
-                        {task.file_url ? (
+                        {task.file_url || task.has_attachment ? (
                           <button
                             className="button users-icon-btn action-btn"
                             type="button"
-                            title="Download file"
-                            onClick={() => void handleDownloadFile(task.file_url)}
+                            title={task.file_url ? 'Download file' : 'View attachment details'}
+                            aria-label={task.file_url ? 'Download task attachment' : 'View task attachment details'}
+                            onClick={() => task.file_url ? void handleDownloadFile(task.file_url) : openDetails(task)}
                           >
                             📎
                           </button>
@@ -1006,23 +992,9 @@ const TasksPage = () => {
         ) : null}
       </div>
 
-      <div className="users-pagination">
-        <button className="button" disabled={currentPage === 1} onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}>
-          Prev
-        </button>
-        <div className="users-pagination__pages">
-          {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
-            <button key={page} className={`button ${page === currentPage ? 'button--primary' : ''}`} onClick={() => setCurrentPage(page)}>
-              {page}
-            </button>
-          ))}
-        </div>
-        <button className="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}>
-          Next
-        </button>
-      </div>
+      {totalTasks > 0 ? <footer className="task-pagination" aria-label="Task pagination"><span>Showing {(currentPage-1)*rowsPerPage+1}–{Math.min(currentPage*rowsPerPage,totalTasks)} of {totalTasks} tasks</span><label>Rows per page <select value={rowsPerPage} onChange={(event)=>setRowsPerPage(Number(event.target.value))}>{[10,25,50,100].map(size=><option key={size}>{size}</option>)}</select></label>{totalPages > 1 ? <nav><button title="Previous page" aria-label="Previous page" disabled={currentPage===1} onClick={()=>setCurrentPage(v=>v-1)}>‹</button>{Array.from(new Set([1,currentPage-1,currentPage,currentPage+1,totalPages]).values()).filter(v=>v>0&&v<=totalPages).sort((a,b)=>a-b).map((page,index,array)=><span key={page}>{index>0&&page-array[index-1]>1?<i>…</i>:null}<button aria-current={page===currentPage?'page':undefined} className={page===currentPage?'active':''} onClick={()=>setCurrentPage(page)}>{page}</button></span>)}<button title="Next page" aria-label="Next page" disabled={currentPage===totalPages} onClick={()=>setCurrentPage(v=>v+1)}>›</button></nav>:null}</footer> : null}
 
-      {detailsTask ? <div className="task-drawer-overlay" onMouseDown={() => setDetailsTask(null)}><aside className="task-drawer" onMouseDown={(event) => event.stopPropagation()}><header><div><small>Task Details</small><h2>TAS-{detailsTask.id}</h2></div><button onClick={() => setDetailsTask(null)}>×</button></header><div className="task-drawer-body"><section><h3>Task overview</h3><dl><dt>Status</dt><dd>{detailsTask.status.replace('_', ' ')}</dd><dt>Task Type</dt><dd>{detailsTask.task_type || '—'}</dd><dt>Candidate</dt><dd>{detailsTask.candidate || '—'}</dd><dt>Company / Client</dt><dd>{detailsTask.client || '—'}</dd><dt>Point of Contact</dt><dd>{detailsTask.poc || '—'}</dd><dt>Assigned To</dt><dd>{detailsTask.assigned_to_name || 'Unassigned'}</dd><dt>Due Date</dt><dd>{formatDisplayDate(detailsTask.due_date)}</dd><dt>Start Time</dt><dd>{formatTime(detailsTask.time_start)}</dd><dt>End Time</dt><dd>{formatTime(detailsTask.time_end)}</dd><dt>Duration</dt><dd>{detailsTask.duration ? `${detailsTask.duration} minutes` : '—'}</dd></dl></section><section><h3>Description</h3><div className="task-description" dangerouslySetInnerHTML={{__html: detailsTask.description || '<p>No description provided.</p>'}} /></section><section><h3>Attachments ({detailsTask.file_url ? 1 : 0})</h3>{detailsTask.file_url ? <div className="task-attachment"><BsPaperclip/><strong>{detailsTask.file_url.split('/').pop()}</strong><button onClick={() => void handleDownloadFile(detailsTask.file_url)}><BsDownload/> Download</button></div> : <p>No attachments.</p>}</section></div><footer><button className="button" onClick={() => void openAssign(detailsTask)}><BsPersonPlus/> Assign</button><button className="button button--primary" onClick={() => {setDetailsTask(null);void openEdit(detailsTask)}}><BsPencil/> Edit Task</button></footer></aside></div> : null}
+      {detailsTask ? <div className="task-drawer-overlay" onMouseDown={() => setDetailsTask(null)}><aside className="task-drawer" aria-label="Task details" onMouseDown={(event) => event.stopPropagation()}><header><div><small>Task Details</small><h2>TAS-{detailsTask.id}</h2></div><button aria-label="Close task details" onClick={() => setDetailsTask(null)}>×</button></header><div className="task-drawer-body">{detailLoading ? <div className="task-detail-skeleton"><span/><span/><span/><span/></div> : <><section><h3>Task overview</h3><dl><dt>Status</dt><dd>{detailsTask.status.replace('_', ' ')}</dd><dt>Task Type</dt><dd>{detailsTask.task_type || '—'}</dd><dt>Candidate</dt><dd>{detailsTask.candidate || '—'}</dd><dt>Company / Client</dt><dd>{detailsTask.client || '—'}</dd><dt>Point of Contact</dt><dd>{detailsTask.poc || '—'}</dd><dt>Assigned To</dt><dd>{detailsTask.assigned_to_name || 'Unassigned'}</dd><dt>Due Date</dt><dd>{formatDisplayDate(detailsTask.due_date)}</dd><dt>Start Time</dt><dd>{formatTime(detailsTask.time_start)}</dd><dt>End Time</dt><dd>{formatTime(detailsTask.time_end)}</dd><dt>Duration</dt><dd>{detailsTask.duration ? `${detailsTask.duration} minutes` : '—'}</dd></dl></section><section><h3>Description</h3><div className="task-description" dangerouslySetInnerHTML={{__html: detailsTask.description || '<p>No description provided.</p>'}} /></section><section><h3>Attachments ({detailsTask.file_url ? 1 : 0})</h3>{detailsTask.file_url ? <div className="task-attachment"><BsPaperclip/><strong>{detailsTask.file_url.split('/').pop()}</strong><button onClick={() => void handleDownloadFile(detailsTask.file_url)}><BsDownload/> Download</button></div> : <p>No attachments.</p>}</section></>}</div><footer><button className="button" onClick={() => void openAssign(detailsTask)}><BsPersonPlus/> Assign</button><button className="button button--primary" onClick={() => {setDetailsTask(null);void openEdit(detailsTask)}}><BsPencil/> Edit Task</button></footer></aside></div> : null}
 
       {isFormOpen ? (
         <div className="modal-overlay">
