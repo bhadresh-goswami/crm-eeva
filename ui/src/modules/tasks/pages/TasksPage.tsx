@@ -278,7 +278,9 @@ const TasksPage = () => {
   const [companyFilter, setCompanyFilter] = useState<number | null>(null)
   const [taskTypeFilter, setTaskTypeFilter] = useState<number | null>(null)
   const [assigneeFilter, setAssigneeFilter] = useState<number | null>(null)
-  const [activeSection, setActiveSection] = useState('pending')
+  // Managers land on actionable assigned work, matching the legacy workspace and
+  // avoiding an empty first view when there are no currently pending tasks.
+  const [activeSection, setActiveSection] = useState('assigned')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [showMoreFilters, setShowMoreFilters] = useState(false)
@@ -980,12 +982,13 @@ const TasksPage = () => {
                       <td>{formatDisplayDate(task.due_date)}</td>
                       <td>{formatTime(task.time_start)} – {formatTime(task.time_end)}</td>
                       <td>
-                        {task.file_url ? (
+                        {task.file_url || task.has_attachment ? (
                           <button
                             className="button users-icon-btn action-btn"
                             type="button"
-                            title="Download file"
-                            onClick={() => void handleDownloadFile(task.file_url)}
+                            title={task.file_url ? 'Download file' : 'View attachment details'}
+                            aria-label={task.file_url ? 'Download task attachment' : 'View task attachment details'}
+                            onClick={() => task.file_url ? void handleDownloadFile(task.file_url) : openDetails(task)}
                           >
                             📎
                           </button>
