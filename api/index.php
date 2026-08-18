@@ -376,6 +376,18 @@ elseif (preg_match('#^/feedback/(\d+)$#', $uri, $matches) === 1 && $method === "
     $actorRole = is_array($user) ? (string)($user['role'] ?? '') : (string)($user->role ?? '');
     (new FeedbackController())->viewByTaskId((int)$matches[1], $actorUserId, $actorRole);
 }
+elseif ($uri === "/tasks/summary" && $method === "GET") {
+    authorizeRoles(['admin', 'manager', 'coordinator']);
+    (new TaskController())->summary();
+}
+elseif ($uri === "/candidates/search" && $method === "GET") {
+    authorizeRoles(['admin', 'manager', 'coordinator']);
+    (new TaskController())->searchCandidates();
+}
+elseif (preg_match('#^/tasks/(\d+)$#', $uri, $matches) && $method === "GET") {
+    authorizeRoles(['admin', 'manager', 'coordinator']);
+    (new TaskController())->detail((int)$matches[1]);
+}
 elseif ($uri === "/expert/daily-report" && $method === "GET") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
     (new ExpertReportsController())->daily($user);
