@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/env.php';
+
 $env = static function (string $name, $default = null) {
     $value = getenv($name);
     return $value === false || $value === '' ? $default : $value;
