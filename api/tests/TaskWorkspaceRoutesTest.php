@@ -32,4 +32,9 @@ if (str_contains($controller, "LOWER(ts.name) = 'assigned' OR ta.user_id IS NOT 
     exit(1);
 }
 
+if (!str_contains($controller, "COUNT(DISTINCT CASE WHEN LOWER(ts.name) = 'assigned' OR (LOWER(ts.name) = 'pending' AND ta.user_id IS NOT NULL) THEN t.id END) assigned")) {
+    fwrite(STDERR, "Assigned summary does not use the list section predicate\n");
+    exit(1);
+}
+
 echo "Task workspace route tests passed\n";

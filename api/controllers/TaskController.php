@@ -753,6 +753,8 @@ public function downloadFile() {
     // ================= LIST =================
     public function list() {
 
+        header('Cache-Control: no-store, max-age=0');
+
         $db = new Database();
         $conn = $db->connect();
 
@@ -864,19 +866,40 @@ public function downloadFile() {
     }
 
     public function summary(): void {
+        header('Cache-Control: no-store, max-age=0');
         $db = new Database(); $conn = $db->connect();
         $where = ['1=1']; $params = [];
         if ($id = filter_var($_GET['company_id'] ?? null, FILTER_VALIDATE_INT)) { $where[] = 't.client_id = ?'; $params[] = $id; }
         if ($id = filter_var($_GET['candidate_id'] ?? null, FILTER_VALIDATE_INT)) { $where[] = 't.candidate_id = ?'; $params[] = $id; }
         if ($id = filter_var($_GET['task_type_id'] ?? null, FILTER_VALIDATE_INT)) { $where[] = 't.task_type_id = ?'; $params[] = $id; }
         if ($id = filter_var($_GET['assigned_to'] ?? null, FILTER_VALIDATE_INT)) { $where[] = 'ta.user_id = ?'; $params[] = $id; }
-        foreach (['date_from' => '>=', 'date_to' => '<='] as $key => $operator) if (!empty($_GET[$key])) { $where[] = "t.due_date {$operator} ?"; $params[] = $_GET[$key]; }
+        if (!empty($_GET['date_from'])) { $where[] = 't.due_date >= ?'; $params[] = $_GET['date_from']; }
+        if (!empty($_GET['date_to'])) { $where[] = 't.due_date < DATE_ADD(?, INTERVAL 1 DAY)'; $params[] = $_GET['date_to']; }
         if (($search = trim((string)($_GET['search'] ?? ''))) !== '') { $where[] = '(CAST(t.id AS CHAR) LIKE ? OR t.title LIKE ? OR cand.name LIKE ? OR COALESCE(c.company_name,c.name) LIKE ?)'; $term = "%{$search}%"; array_push($params, $term, $term, $term, $term); }
-        $statusExpr = "CASE WHEN LOWER(COALESCE(ts.name,'pending'))='pending' AND ta.user_id IS NOT NULL THEN 'assigned' WHEN LOWER(COALESCE(ts.name,'pending'))='active' THEN 'in_progress' ELSE REPLACE(LOWER(COALESCE(ts.name,'pending')),' ','_') END";
-        $sql = "SELECT {$statusExpr} status, COUNT(DISTINCT t.id) total FROM tasks t LEFT JOIN task_status_master ts ON ts.id=t.status_id LEFT JOIN clients c ON c.id=t.client_id LEFT JOIN candidates cand ON cand.id=t.candidate_id LEFT JOIN task_assignments ta ON ta.task_id=t.id AND ta.is_active=1 WHERE " . implode(' AND ', $where) . " GROUP BY {$statusExpr}";
+        // Keep these predicates identical to list(). Conditional distinct counts
+        // avoid assignment-join duplicates and guarantee that every task belongs
+        // to the same section in both the summary and paginated list queries.
+        $sql = "SELECT
+            COUNT(DISTINCT CASE WHEN LOWER(ts.name) = 'pending' AND ta.user_id IS NULL THEN t.id END) pending,
+            COUNT(DISTINCT CASE WHEN LOWER(ts.name) IN ('active', 'in progress') THEN t.id END) in_progress,
+            COUNT(DISTINCT CASE WHEN LOWER(ts.name) = 'assigned' OR (LOWER(ts.name) = 'pending' AND ta.user_id IS NOT NULL) THEN t.id END) assigned,
+            COUNT(DISTINCT CASE WHEN LOWER(ts.name) = 'completed' THEN t.id END) completed,
+            COUNT(DISTINCT CASE WHEN LOWER(ts.name) = 'cancelled' THEN t.id END) cancelled
+            FROM tasks t
+            LEFT JOIN task_status_master ts ON ts.id=t.status_id
+            LEFT JOIN clients c ON c.id=t.client_id
+            LEFT JOIN candidates cand ON cand.id=t.candidate_id
+            LEFT JOIN task_assignments ta ON ta.task_id=t.id AND ta.is_active=1
+            WHERE " . implode(' AND ', $where);
         $stmt = $conn->prepare($sql); $stmt->execute($params);
-        $counts = ['pending'=>0,'in_progress'=>0,'assigned'=>0,'completed'=>0,'cancelled'=>0];
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) { $key = strtolower(str_replace(' ', '_', $row['status'])); if ($key === 'active') $key = 'in_progress'; if (array_key_exists($key, $counts)) $counts[$key] += (int)$row['total']; }
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $counts = [
+            'pending' => (int)($row['pending'] ?? 0),
+            'in_progress' => (int)($row['in_progress'] ?? 0),
+            'assigned' => (int)($row['assigned'] ?? 0),
+            'completed' => (int)($row['completed'] ?? 0),
+            'cancelled' => (int)($row['cancelled'] ?? 0),
+        ];
         echo json_encode(['success'=>true,'data'=>$counts]);
     }
 

@@ -434,6 +434,9 @@ const TasksPage = () => {
 
   const sortedTasks = tasks
   const totalPages = Math.ceil(totalTasks / rowsPerPage)
+  // The active list total comes from the exact same filtered query as its rows,
+  // making it authoritative while the independent aggregate request reconciles.
+  const effectiveSummary = { ...summary, [activeSection]: totalTasks } as TaskSummary
   const paginatedTasks = tasks
   const pageTaskIds = paginatedTasks.map((task) => task.id)
   const isAllPageSelected = pageTaskIds.length > 0 && pageTaskIds.every((id) => selectedTaskIds.includes(id))
@@ -835,7 +838,7 @@ const TasksPage = () => {
       {success ? <p className="roles-success roles-feedback">{success}</p> : null}
 
       <nav className="task-status-tabs" aria-label="Task status sections">
-        {([['pending','Pending',BsHourglassSplit],['in_progress','In Progress',BsClock],['assigned','Assigned',BsCalendarCheck],['completed','Completed',BsCheckCircle]] as const).map(([key,label,Icon]) => <button type="button" key={key} className={activeSection === key ? 'active' : ''} aria-current={activeSection === key ? 'page' : undefined} onClick={() => handleSectionChange(key)}><Icon/><span>{label}</span><strong>{summary[key]}</strong></button>)}
+        {([['pending','Pending',BsHourglassSplit],['in_progress','In Progress',BsClock],['assigned','Assigned',BsCalendarCheck],['completed','Completed',BsCheckCircle]] as const).map(([key,label,Icon]) => <button type="button" key={key} className={activeSection === key ? 'active' : ''} aria-current={activeSection === key ? 'page' : undefined} onClick={() => handleSectionChange(key)}><Icon/><span>{label}</span><strong>{effectiveSummary[key]}</strong></button>)}
       </nav>
 
       <div className="card tasks-filters task-filter-card">
@@ -852,7 +855,7 @@ const TasksPage = () => {
         {(candidateFilter || companyFilter || taskTypeFilter || assigneeFilter || taskIdFilter || dateFrom || dateTo) ? <div className="task-chips"><strong>Active filters</strong>{candidateFilter && <button onClick={() => setCandidateFilter(null)}>Candidate: {filterCandidates.find(v=>v.id===candidateFilter)?.name} ×</button>}{companyFilter && <button onClick={() => {setCompanyFilter(null);setCandidateFilter(null)}}>Company: {filterCompanies.find(v=>v.id===companyFilter)?.name} ×</button>}{taskTypeFilter && <button onClick={() => setTaskTypeFilter(null)}>Task Type: {taskTypes.find(v=>v.id===taskTypeFilter)?.name} ×</button>}{assigneeFilter && <button onClick={() => setAssigneeFilter(null)}>Expert: {assigneeOptions.find(v=>v.id===assigneeFilter)?.name} ×</button>}<button className="task-clear" onClick={clearFilters}>Clear all</button></div> : null}
       </div>
 
-      <div className="task-summary"><div><BsHourglassSplit/><span>Total Tasks<strong>{summary.pending+summary.assigned+summary.in_progress+summary.completed}</strong></span></div><div><BsCalendarCheck/><span>Assigned<strong>{summary.assigned}</strong></span></div><div><BsClock/><span>In Progress<strong>{summary.in_progress}</strong></span></div><div><BsCheckCircle/><span>Completed<strong>{summary.completed}</strong></span></div><div><BsXCircle/><span>Cancelled<strong>{summary.cancelled}</strong></span></div></div>
+      <div className="task-summary"><div><BsHourglassSplit/><span>Total Tasks<strong>{effectiveSummary.pending+effectiveSummary.assigned+effectiveSummary.in_progress+effectiveSummary.completed}</strong></span></div><div><BsCalendarCheck/><span>Assigned<strong>{effectiveSummary.assigned}</strong></span></div><div><BsClock/><span>In Progress<strong>{effectiveSummary.in_progress}</strong></span></div><div><BsCheckCircle/><span>Completed<strong>{effectiveSummary.completed}</strong></span></div><div><BsXCircle/><span>Cancelled<strong>{effectiveSummary.cancelled}</strong></span></div></div>
 
       <div className="card tasks-bulk-actions task-bulk-bar">
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

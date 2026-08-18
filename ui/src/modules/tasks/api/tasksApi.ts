@@ -265,7 +265,7 @@ export const getTaskPage = async (query: TaskQuery = {}, signal?: AbortSignal): 
   if (query.sort) searchParams.set('sort', query.sort)
   if (query.direction) searchParams.set('direction', query.direction)
   const endpoint = searchParams.toString() ? `/tasks/list?${searchParams.toString()}` : '/tasks/list'
-  const response = await apiRequest<unknown>(endpoint, { signal })
+  const response = await apiRequest<unknown>(endpoint, { signal, cache: 'no-store' })
 
   const tasks = getList(response)
     .map((item) => (item && typeof item === 'object' ? normalizeTask(item as UnknownMap) : null))
@@ -296,7 +296,7 @@ const buildGlobalParams = (query: TaskQuery) => {
 }
 
 export const getTaskSummary = async (query: TaskQuery, signal?: AbortSignal): Promise<TaskSummary> => {
-  const response = await apiRequest<UnknownMap>(`/tasks/summary?${buildGlobalParams(query)}`, { signal })
+  const response = await apiRequest<UnknownMap>(`/tasks/summary?${buildGlobalParams(query)}`, { signal, cache: 'no-store' })
   const data = (response.data ?? response) as UnknownMap
   return { pending: asNumber(data.pending), in_progress: asNumber(data.in_progress), assigned: asNumber(data.assigned), completed: asNumber(data.completed), cancelled: asNumber(data.cancelled) }
 }
