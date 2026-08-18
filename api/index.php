@@ -376,8 +376,12 @@ elseif (preg_match('#^/feedback/(\d+)$#', $uri, $matches) === 1 && $method === "
     $actorRole = is_array($user) ? (string)($user['role'] ?? '') : (string)($user->role ?? '');
     (new FeedbackController())->viewByTaskId((int)$matches[1], $actorUserId, $actorRole);
 }
-elseif ($uri === "/expert/send-daily-report" && $method === "POST") {
+elseif ($uri === "/expert/daily-report" && $method === "GET") {
     authorize($user,['expert','technical expert','expertlead','technical lead']);
+    (new ExpertReportsController())->daily($user);
+}
+elseif ($uri === "/expert/send-daily-report" && $method === "POST") {
+    authorize($user,['technical expert']);
     $expertUserId = is_array($user) ? ($user['id'] ?? null) : ($user->id ?? null);
     (new TaskController())->sendDailyReport($expertUserId);
 }
@@ -492,6 +496,11 @@ elseif ($uri === "/tasks/cancel" && $method === "POST") {
     (new TaskController())->cancelTask();
 }
 elseif ($uri === "/test-email" && $method === "POST") {
+    if (strtolower((string)(getenv('APP_ENV') ?: 'production')) !== 'development') {
+        http_response_code(404);
+        echo json_encode(["success" => false, "message" => "Not found"]);
+        exit;
+    }
     authorize($user,['admin','manager','coordinator']);
     $data = json_decode(file_get_contents("php://input"));
     $to = is_object($data) && isset($data->to) ? (string)$data->to : 'support@bsquareg-developers.com';
