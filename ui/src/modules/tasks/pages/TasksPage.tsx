@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BsDownload } from 'react-icons/bs'
+import { BsDownload, BsEye, BsPencil, BsPersonPlus, BsSearch, BsCalendarCheck, BsClock, BsCheckCircle, BsXCircle, BsHourglassSplit, BsPaperclip } from 'react-icons/bs'
+import './TasksPage.css'
 import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { useAuth } from '../../../context/AuthContext'
 import { apiFetch } from '../../../api/client'
@@ -270,6 +271,12 @@ const TasksPage = () => {
   const [companyFilter, setCompanyFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [showMoreFilters, setShowMoreFilters] = useState(false)
+  const [taskIdFilter, setTaskIdFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [detailsTask, setDetailsTask] = useState<TaskRecord | null>(null)
   const [filterOptionsError, setFilterOptionsError] = useState<string | null>(null)
   const [filterCompanies, setFilterCompanies] = useState<string[]>([])
   const [filterStatuses, setFilterStatuses] = useState<string[]>([])
@@ -414,13 +421,19 @@ const TasksPage = () => {
   const filteredTasks = useMemo(
     () =>
       tasks.filter((task) => {
+        const query = search.trim().toLowerCase()
+        if (query && ![task.id, task.candidate, task.client, task.assigned_to_name, task.title].some((value) => String(value ?? '').toLowerCase().includes(query))) return false
+        if (taskIdFilter && !String(task.id).includes(taskIdFilter.replace(/\D/g, ''))) return false
+        const due = task.due_date.slice(0, 10)
+        if (dateFrom && due < dateFrom) return false
+        if (dateTo && due > dateTo) return false
         if (candidateFilter && !task.candidate.toLowerCase().includes(candidateFilter.toLowerCase())) return false
         if (companyFilter && task.client !== companyFilter) return false
         if (statusFilter && task.status !== statusFilter) return false
         if (assigneeFilter && (task.assigned_to_name || '') !== assigneeFilter) return false
         return true
       }),
-    [assigneeFilter, candidateFilter, companyFilter, statusFilter, tasks],
+    [assigneeFilter, candidateFilter, companyFilter, statusFilter, search, taskIdFilter, dateFrom, dateTo, tasks],
   )
   const sortedTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
@@ -776,7 +789,7 @@ const TasksPage = () => {
   }
 
   return (
-    <section>
+    <section className="task-workspace">
       {user?.role === 'manager' ? (
         <ManagerWorkspaceHeader
           title="Manage assignments and task execution."
@@ -812,7 +825,8 @@ const TasksPage = () => {
 
       {success ? <p className="roles-success roles-feedback">{success}</p> : null}
 
-      <div className="card tasks-filters">
+      <div className="card tasks-filters task-filter-card">
+        <div className="task-search"><BsSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tasks..." aria-label="Search tasks" /></div>
         {filterOptionsError ? <small className="auth-card__error">{filterOptionsError}</small> : null}
         <label className="auth-card__field">
           Candidate
@@ -842,9 +856,14 @@ const TasksPage = () => {
             {assigneeOptions.map((assignee) => <option key={assignee.id} value={assignee.name}>{assignee.name}</option>)}
           </select>
         </label>
+        <button type="button" className="task-more-filters" onClick={() => setShowMoreFilters((value) => !value)}>More Filters {showMoreFilters ? '⌃' : '⌄'}</button>
+        {showMoreFilters ? <div className="task-advanced"><label className="auth-card__field">Task ID<input value={taskIdFilter} onChange={(event) => setTaskIdFilter(event.target.value)} placeholder="TAS-2589" /></label><label className="auth-card__field">Date From<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label className="auth-card__field">Date To<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label></div> : null}
+        {(candidateFilter || companyFilter || statusFilter || assigneeFilter || taskIdFilter || dateFrom || dateTo) ? <div className="task-chips"><strong>Active filters</strong>{candidateFilter && <button onClick={() => setCandidateFilter('')}>Candidate: {candidateFilter} ×</button>}{companyFilter && <button onClick={() => setCompanyFilter('')}>Company: {companyFilter} ×</button>}{statusFilter && <button onClick={() => setStatusFilter('')}>Status: {statusFilter} ×</button>}{assigneeFilter && <button onClick={() => setAssigneeFilter('')}>Expert: {assigneeFilter} ×</button>}<button className="task-clear" onClick={() => {setCandidateFilter('');setCompanyFilter('');setStatusFilter('');setAssigneeFilter('');setTaskIdFilter('');setDateFrom('');setDateTo('')}}>Clear all</button></div> : null}
       </div>
 
-      <div className="card tasks-bulk-actions">
+      <div className="task-summary"><div><BsHourglassSplit/><span>Total Tasks<strong>{tasks.length + cancelledTasks.length}</strong></span></div><div><BsCalendarCheck/><span>Assigned<strong>{tasks.filter((task) => task.status === 'assigned').length}</strong></span></div><div><BsClock/><span>In Progress<strong>{tasks.filter((task) => ['active','in_progress'].includes(task.status)).length}</strong></span></div><div><BsCheckCircle/><span>Completed<strong>{tasks.filter((task) => task.status === 'completed').length}</strong></span></div><div><BsXCircle/><span>Cancelled<strong>{cancelledTasks.length}</strong></span></div></div>
+
+      <div className="card tasks-bulk-actions task-bulk-bar">
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <input
             type="checkbox"
@@ -857,7 +876,7 @@ const TasksPage = () => {
               }
             }}
           />
-          Select All
+          <strong>{selectedTaskIds.length}</strong> selected
         </label>
         <button className="button" disabled={!selectedTaskIds.length || !canManage} onClick={() => void openAssign()}>
           👤 Bulk Assign
@@ -869,9 +888,9 @@ const TasksPage = () => {
 
 
 
-      <div className="card table-container tasks-table__wrapper">
-        {loading ? <p className="users-loader">Loading tasks...</p> : null}
-        {!loading && sortedTasks.length === 0 ? <p className="users-empty">No tasks found.</p> : null}
+      <div className="card table-container tasks-table__wrapper task-list-card">
+        {loading ? <div className="task-skeleton">{Array.from({length: 7}, (_, index) => <div key={index}><span/><span/><span/><span/><span/></div>)}</div> : null}
+        {!loading && sortedTasks.length === 0 ? <div className="task-empty"><BsSearch/><h3>{search || candidateFilter || companyFilter || statusFilter ? 'No tasks match these filters.' : 'No tasks yet.'}</h3><p>{search || candidateFilter || companyFilter || statusFilter ? 'Try changing or clearing your filters.' : 'Create the first task to start managing assignments.'}</p></div> : null}
         {!loading && sortedTasks.length > 0 ? (
           <div className="tasks-table-scroll">
             <table className="roles-table users-table tasks-table">
@@ -879,9 +898,8 @@ const TasksPage = () => {
                 <tr>
                   <th>✓</th>
                   <th>Actions</th>
-                  <th><button type="button" className="table-sort" onClick={() => handleSort('description')}>Description {sortIndicator('description')}</button></th>
                   <th><button type="button" className="table-sort" onClick={() => handleSort('id')}>SR No {sortIndicator('id')}</button></th>
-                  <th><button type="button" className="table-sort" onClick={() => handleSort('due_date')}>Date {sortIndicator('due_date')}</button></th>
+                  <th>Task ID</th>
                   <th><button type="button" className="table-sort" onClick={() => handleSort('candidate')}>Candidate {sortIndicator('candidate')}</button></th>
                   <th><button type="button" className="table-sort" onClick={() => handleSort('client')}>Company {sortIndicator('client')}</button></th>
                   <th><button type="button" className="table-sort" onClick={() => handleSort('status')}>Status {sortIndicator('status')}</button></th>
@@ -910,8 +928,8 @@ const TasksPage = () => {
                       </td>
                       <td>
                         <div className="roles-table__actions users-actions">
-                          <button className="btn btn-sm btn-light users-icon-btn action-btn" title="View" onClick={() => void openEdit(task)}>👁️</button>
-                          <button className="btn btn-sm btn-light users-icon-btn action-btn" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}>✏️</button>
+                          <button className="task-action" title="View details" onClick={() => setDetailsTask(task)}><BsEye /></button>
+                          <button className="task-action" title="Edit" disabled={!canManage} onClick={() => void openEdit(task)}><BsPencil /></button>
                           <button className="button users-icon-btn action-btn button--danger" title="Cancel" disabled={!canManage} onClick={() => setDeleteTarget(task)}>🗑</button>
                           <button
                             className="button users-icon-btn action-btn"
@@ -940,18 +958,12 @@ const TasksPage = () => {
                           ) : null}
                         </div>
                       </td>
-                      <td>
-                        {task.description ? (
-                          <button className="button users-icon-btn action-btn" type="button" title="View full description" onClick={() => setDescriptionPreview(task.description)}>
-                            👁
-                          </button>
-                        ) : '—'}
-                      </td>
+
                       <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
-                      <td>{formatDisplayDate(task.due_date)}</td>
+                      <td><button className="task-id-link" onClick={() => setDetailsTask(task)}>TAS-{task.id}</button></td>
                       <td>{task.candidate || '—'}</td>
                       <td>{task.client || '—'}</td>
-                      <td><span className={`status-pill ${task.status === 'completed' ? 'status-pill--active' : ''}`}>{task.status}</span></td>
+                      <td><button className={`task-status task-status--${task.status.replace(' ', '_')}`} onClick={() => task.status === 'assigned' && canManage ? void handleMoveToPending(task.id) : undefined} disabled={statusActionTaskId === task.id || task.status !== 'assigned'}>{statusActionTaskId === task.id ? 'Updating...' : <><span>{task.status === 'assigned' ? <BsCalendarCheck/> : task.status === 'completed' ? <BsCheckCircle/> : task.status === 'cancelled' ? <BsXCircle/> : task.status === 'active' ? <BsClock/> : <BsHourglassSplit/>}</span>{task.status.replace('_',' ')}⌄</>}</button></td>
                       <td>{task.assigned_to_name || '—'}</td>
                       <td>{formatTime(task.time_start)}</td>
                       <td>{formatTime(task.time_end)}</td>
@@ -992,11 +1004,13 @@ const TasksPage = () => {
         </button>
       </div>
 
+      {detailsTask ? <div className="task-drawer-overlay" onMouseDown={() => setDetailsTask(null)}><aside className="task-drawer" onMouseDown={(event) => event.stopPropagation()}><header><div><small>Task Details</small><h2>TAS-{detailsTask.id}</h2></div><button onClick={() => setDetailsTask(null)}>×</button></header><div className="task-drawer-body"><section><h3>Task overview</h3><dl><dt>Status</dt><dd>{detailsTask.status.replace('_', ' ')}</dd><dt>Task Type</dt><dd>{detailsTask.task_type || '—'}</dd><dt>Candidate</dt><dd>{detailsTask.candidate || '—'}</dd><dt>Company / Client</dt><dd>{detailsTask.client || '—'}</dd><dt>Point of Contact</dt><dd>{detailsTask.poc || '—'}</dd><dt>Assigned To</dt><dd>{detailsTask.assigned_to_name || 'Unassigned'}</dd><dt>Due Date</dt><dd>{formatDisplayDate(detailsTask.due_date)}</dd><dt>Start Time</dt><dd>{formatTime(detailsTask.time_start)}</dd><dt>End Time</dt><dd>{formatTime(detailsTask.time_end)}</dd><dt>Duration</dt><dd>{detailsTask.duration ? `${detailsTask.duration} minutes` : '—'}</dd></dl></section><section><h3>Description</h3><div className="task-description" dangerouslySetInnerHTML={{__html: detailsTask.description || '<p>No description provided.</p>'}} /></section><section><h3>Attachments ({detailsTask.file_url ? 1 : 0})</h3>{detailsTask.file_url ? <div className="task-attachment"><BsPaperclip/><strong>{detailsTask.file_url.split('/').pop()}</strong><button onClick={() => void handleDownloadFile(detailsTask.file_url)}><BsDownload/> Download</button></div> : <p>No attachments.</p>}</section></div><footer><button className="button" onClick={() => void openAssign(detailsTask)}><BsPersonPlus/> Assign</button><button className="button button--primary" onClick={() => {setDetailsTask(null);void openEdit(detailsTask)}}><BsPencil/> Edit Task</button></footer></aside></div> : null}
+
       {isFormOpen ? (
         <div className="modal-overlay">
-          <div className="modal-card modal-card--xl" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-card modal-card--xl task-form-modal" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <h3 className="modal-title" style={{ marginBottom: 0 }}>{formMode === 'create' ? 'Create New Task' : 'Edit Task'}</h3>
+              <div><h3 className="modal-title" style={{ marginBottom: 0 }}>{formMode === 'create' ? 'Create New Task' : 'Edit Task'}</h3><p className="card-text">{formMode === 'create' ? 'Add task details, scheduling and assignment information.' : `TAS-${activeTask?.id}`}</p></div>
               <button className="button" type="button" onClick={() => setIsFormOpen(false)} aria-label="Close task modal">
                 ✕
               </button>
@@ -1129,14 +1143,14 @@ const TasksPage = () => {
             {formError ? <p className="auth-card__error">{formError}</p> : null}
             <div className="modal-actions">
               <button className="button" onClick={() => setIsFormOpen(false)}>Cancel</button>
-              <button className="button button--primary" disabled={isSubmitting} onClick={() => void handleSave()}>{isSubmitting ? 'Saving...' : 'Submit'}</button>
+              <button className="button button--primary" disabled={isSubmitting} onClick={() => void handleSave()}>{isSubmitting ? (formMode === 'create' ? 'Creating...' : 'Saving...') : (formMode === 'create' ? 'Create Task' : 'Update Task')}</button>
             </div>
           </div>
         </div>
       ) : null}
 
       {deleteTarget ? (
-        <div className="modal-overlay"><div className="modal-card"><h3 className="modal-title">Delete Task</h3><p className="card-text">Are you sure you want to delete this task?</p><div className="modal-actions"><button className="button" onClick={() => setDeleteTarget(null)}>Cancel</button><button className="button button--danger" onClick={() => void handleDelete()} disabled={actionTaskId === deleteTarget.id}>{actionTaskId === deleteTarget.id ? 'Deleting...' : 'Delete'}</button></div></div></div>
+        <div className="modal-overlay"><div className="modal-card"><h3 className="modal-title">Cancel Task?</h3><p className="card-text"><strong>TAS-{deleteTarget.id}</strong> will be moved to Cancelled.</p><p className="card-text">This action may affect assignment and reporting.</p><div className="modal-actions"><button className="button" onClick={() => setDeleteTarget(null)}>Cancel</button><button className="button button--danger" onClick={() => void handleDelete()} disabled={actionTaskId === deleteTarget.id}>{actionTaskId === deleteTarget.id ? 'Cancelling...' : 'Cancel Task'}</button></div></div></div>
       ) : null}
 
       <AssignTaskModal
