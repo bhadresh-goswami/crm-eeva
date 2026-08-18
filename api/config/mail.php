@@ -1,17 +1,25 @@
 <?php
 
+require_once __DIR__ . '/env.php';
+
 $env = static function (string $name, $default = null) {
     $value = getenv($name);
+    if (($value === false || $value === '') && isset($_ENV[$name])) {
+        $value = $_ENV[$name];
+    }
+    if (($value === false || $value === '') && isset($_SERVER[$name])) {
+        $value = $_SERVER[$name];
+    }
     return $value === false || $value === '' ? $default : $value;
 };
 
 return [
     'smtp' => [
-        'host' => $env('MAIL_HOST', ''),
-        'port' => (int) $env('MAIL_PORT', 587),
-        'username' => $env('MAIL_USERNAME', ''),
-        'password' => $env('MAIL_PASSWORD', ''),
-        'encryption' => $env('MAIL_ENCRYPTION', 'tls'),
+        'host' => $env('MAIL_HOST', 'smtp.hostinger.com'),
+        'port' => (int) $env('MAIL_PORT', 465),
+        'username' => $env('MAIL_USERNAME', 'no-reply@bedgetech-inc.com'),
+        'password' => $env('MAIL_PASSWORD', 'bEdgeTech@2026'),
+        'encryption' => $env('MAIL_ENCRYPTION', 'ssl'),
         'auth' => filter_var(
             $env('MAIL_AUTH', 'true'),
             FILTER_VALIDATE_BOOLEAN
@@ -24,8 +32,8 @@ return [
     ],
 
     'from' => [
-        'email' => $env('MAIL_FROM_ADDRESS', ''),
-        'name' => $env('MAIL_FROM_NAME', 'Support Team'),
+        'email' => $env('MAIL_FROM_ADDRESS', 'no-reply@bedgetech-inc.com'),
+        'name' => $env('MAIL_FROM_NAME', 'bEdge Tech Services'),
     ],
 
     'always_cc' => [
