@@ -377,15 +377,15 @@ elseif (preg_match('#^/feedback/(\d+)$#', $uri, $matches) === 1 && $method === "
     (new FeedbackController())->viewByTaskId((int)$matches[1], $actorUserId, $actorRole);
 }
 elseif ($uri === "/tasks/summary" && $method === "GET") {
-    authorizeRoles(['admin', 'manager', 'coordinator']);
+    authorize($user, ['admin', 'manager', 'coordinator', 'expert', 'expertlead', 'technical expert', 'technical lead']);
     (new TaskController())->summary();
 }
 elseif ($uri === "/candidates/search" && $method === "GET") {
-    authorizeRoles(['admin', 'manager', 'coordinator']);
+    authorize($user, ['admin', 'manager', 'coordinator', 'expert', 'expertlead', 'technical expert', 'technical lead']);
     (new TaskController())->searchCandidates();
 }
 elseif (preg_match('#^/tasks/(\d+)$#', $uri, $matches) && $method === "GET") {
-    authorizeRoles(['admin', 'manager', 'coordinator']);
+    authorize($user, ['admin', 'manager', 'coordinator', 'expert', 'expertlead', 'technical expert', 'technical lead']);
     (new TaskController())->detail((int)$matches[1]);
 }
 elseif ($uri === "/expert/daily-report" && $method === "GET") {

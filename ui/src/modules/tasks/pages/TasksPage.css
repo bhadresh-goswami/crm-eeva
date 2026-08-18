@@ -3,3 +3,10 @@
 
 /* Manager status is informational. Status transitions remain in their dedicated workflows. */
 .task-list-card .task-status{cursor:default;user-select:none}
+
+/* Keep the selection actions in the connected toolbar even when legacy responsive
+   rules are loaded after this module. */
+.task-workspace .task-bulk-bar{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:8px!important;min-height:48px!important;height:auto!important;flex-wrap:wrap!important}
+.task-workspace .task-bulk-bar>label{margin-right:auto}
+.task-workspace .task-bulk-bar>.button{width:auto!important;margin:0!important}
+.task-workspace .task-list-card{height:auto;min-height:260px;max-height:none}
