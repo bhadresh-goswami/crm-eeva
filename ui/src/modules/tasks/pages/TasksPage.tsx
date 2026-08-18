@@ -185,6 +185,16 @@ const formatTime = (value: string) => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 const normalizeTimeValue = (value: string) => (value ? value.slice(0, 5) : '')
+
+// Assignment is the source of truth for manager list presentation. Some legacy
+// task rows retain a Pending status_id after an assignment has been created.
+const getTaskDisplayStatus = (task: TaskRecord) => {
+  const status = task.status.replace(' ', '_').toLowerCase()
+  if (status === 'pending' && (task.assigned_to_id || task.assigned_to_name.trim())) {
+    return 'assigned'
+  }
+  return status
+}
 const toMinutes = (value: string) => {
   if (!value) return null
   const [hour, minute] = value.slice(0, 5).split(':').map(Number)
@@ -429,7 +439,7 @@ const TasksPage = () => {
         if (dateTo && due > dateTo) return false
         if (candidateFilter && !task.candidate.toLowerCase().includes(candidateFilter.toLowerCase())) return false
         if (companyFilter && task.client !== companyFilter) return false
-        if (statusFilter && task.status !== statusFilter) return false
+        if (statusFilter && getTaskDisplayStatus(task) !== statusFilter.replace(' ', '_').toLowerCase()) return false
         if (assigneeFilter && (task.assigned_to_name || '') !== assigneeFilter) return false
         return true
       }),
@@ -861,7 +871,7 @@ const TasksPage = () => {
         {(candidateFilter || companyFilter || statusFilter || assigneeFilter || taskIdFilter || dateFrom || dateTo) ? <div className="task-chips"><strong>Active filters</strong>{candidateFilter && <button onClick={() => setCandidateFilter('')}>Candidate: {candidateFilter} ×</button>}{companyFilter && <button onClick={() => setCompanyFilter('')}>Company: {companyFilter} ×</button>}{statusFilter && <button onClick={() => setStatusFilter('')}>Status: {statusFilter} ×</button>}{assigneeFilter && <button onClick={() => setAssigneeFilter('')}>Expert: {assigneeFilter} ×</button>}<button className="task-clear" onClick={() => {setCandidateFilter('');setCompanyFilter('');setStatusFilter('');setAssigneeFilter('');setTaskIdFilter('');setDateFrom('');setDateTo('')}}>Clear all</button></div> : null}
       </div>
 
-      <div className="task-summary"><div><BsHourglassSplit/><span>Total Tasks<strong>{tasks.length + cancelledTasks.length}</strong></span></div><div><BsCalendarCheck/><span>Assigned<strong>{tasks.filter((task) => task.status === 'assigned').length}</strong></span></div><div><BsClock/><span>In Progress<strong>{tasks.filter((task) => ['active','in_progress'].includes(task.status)).length}</strong></span></div><div><BsCheckCircle/><span>Completed<strong>{tasks.filter((task) => task.status === 'completed').length}</strong></span></div><div><BsXCircle/><span>Cancelled<strong>{cancelledTasks.length}</strong></span></div></div>
+      <div className="task-summary"><div><BsHourglassSplit/><span>Total Tasks<strong>{tasks.length + cancelledTasks.length}</strong></span></div><div><BsCalendarCheck/><span>Assigned<strong>{tasks.filter((task) => getTaskDisplayStatus(task) === 'assigned').length}</strong></span></div><div><BsClock/><span>In Progress<strong>{tasks.filter((task) => ['active','in_progress'].includes(getTaskDisplayStatus(task))).length}</strong></span></div><div><BsCheckCircle/><span>Completed<strong>{tasks.filter((task) => task.status === 'completed').length}</strong></span></div><div><BsXCircle/><span>Cancelled<strong>{cancelledTasks.length}</strong></span></div></div>
 
       <div className="card tasks-bulk-actions task-bulk-bar">
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -934,7 +944,7 @@ const TasksPage = () => {
                           <button
                             className="button users-icon-btn action-btn"
                             title={
-                              task.status === 'assigned'
+                              task.assigned_to_id || task.assigned_to_name
                                 ? 'Reassign'
                                 : task.status === 'pending'
                                   ? 'Assign'
@@ -963,7 +973,15 @@ const TasksPage = () => {
                       <td><button className="task-id-link" onClick={() => setDetailsTask(task)}>TAS-{task.id}</button></td>
                       <td>{task.candidate || '—'}</td>
                       <td>{task.client || '—'}</td>
-                      <td><button className={`task-status task-status--${task.status.replace(' ', '_')}`} onClick={() => task.status === 'assigned' && canManage ? void handleMoveToPending(task.id) : undefined} disabled={statusActionTaskId === task.id || task.status !== 'assigned'}>{statusActionTaskId === task.id ? 'Updating...' : <><span>{task.status === 'assigned' ? <BsCalendarCheck/> : task.status === 'completed' ? <BsCheckCircle/> : task.status === 'cancelled' ? <BsXCircle/> : task.status === 'active' ? <BsClock/> : <BsHourglassSplit/>}</span>{task.status.replace('_',' ')}⌄</>}</button></td>
+                      <td>{(() => {
+                        const displayStatus = getTaskDisplayStatus(task)
+                        return (
+                          <span className={`task-status task-status--${displayStatus}`} title="Task status">
+                            {displayStatus === 'assigned' ? <BsCalendarCheck /> : displayStatus === 'completed' ? <BsCheckCircle /> : displayStatus === 'cancelled' ? <BsXCircle /> : ['active', 'in_progress'].includes(displayStatus) ? <BsClock /> : <BsHourglassSplit />}
+                            {displayStatus.replace('_', ' ')}
+                          </span>
+                        )
+                      })()}</td>
                       <td>{task.assigned_to_name || '—'}</td>
                       <td>{formatTime(task.time_start)}</td>
                       <td>{formatTime(task.time_end)}</td>
@@ -1155,7 +1173,7 @@ const TasksPage = () => {
 
       <AssignTaskModal
         isOpen={Boolean(assignTarget || isBulkAssign)}
-        title={isBulkAssign ? 'Bulk Assign Tasks' : assignTarget?.status === 'assigned' ? 'Reassign Task' : 'Assign Task'}
+        title={isBulkAssign ? 'Bulk Assign Tasks' : assignTarget?.assigned_to_id || assignTarget?.assigned_to_name ? 'Reassign Task' : 'Assign Task'}
         experts={experts}
         loading={assignLoading}
         error={assignError}
@@ -1170,7 +1188,7 @@ const TasksPage = () => {
           setSelectedExpertId(null)
         }}
         onConfirm={() => void handleAssign()}
-        confirmLabel={isBulkAssign ? 'Assign Selected' : assignTarget?.status === 'assigned' ? 'Reassign' : 'Assign'}
+        confirmLabel={isBulkAssign ? 'Assign Selected' : assignTarget?.assigned_to_id || assignTarget?.assigned_to_name ? 'Reassign' : 'Assign'}
       />
 
       {descriptionPreview ? (

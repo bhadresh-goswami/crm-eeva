@@ -530,6 +530,9 @@ class TaskController {
             }
 
             if ($this->activateOnlyExistingAssignmentForSameUser($conn, $taskId, $userId)) {
+                // Repair stale Pending state when an active assignment already exists.
+                $conn->prepare("UPDATE tasks SET status_id = ? WHERE id = ?")
+                    ->execute([(int)$status_id, $taskId]);
                 $alreadyAssigned++;
                 continue;
             }
@@ -1443,8 +1446,11 @@ public function downloadFile() {
             }
 
             if ($this->activateOnlyExistingAssignmentForSameUser($conn, $taskId, $userId)) {
+                // Re-activation must keep the task status consistent with its assignment.
+                $conn->prepare("UPDATE tasks SET status_id = ? WHERE id = ?")
+                    ->execute([(int)$status_id, $taskId]);
                 $conn->commit();
-                echo json_encode(["success" => false, "message" => "Task is already assigned to selected expert."]);
+                echo json_encode(["success" => true, "message" => "Task is already assigned to selected expert."]);
                 return;
             }
 
