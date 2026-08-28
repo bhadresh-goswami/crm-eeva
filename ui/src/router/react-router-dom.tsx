@@ -181,28 +181,30 @@ type NavLinkProps = {
   className?: string | ((args: NavLinkClassNameArg) => string)
   end?: boolean
   to: string
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void
 }
 
-export const Link = ({ children, className, to }: Omit<NavLinkProps, 'end'>) => {
+export const Link = ({ children, className, to, onClick }: Omit<NavLinkProps, 'end'>) => {
   const router = useRouter()
-  const onClick = (event: MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); router.navigate(to) }
-  return <a href={to} className={typeof className === 'function' ? className({ isActive: router.pathname === to }) : className} onClick={onClick}>{children}</a>
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => { event.preventDefault(); onClick?.(event); router.navigate(to) }
+  return <a href={to} className={typeof className === 'function' ? className({ isActive: router.pathname === to }) : className} onClick={handleClick}>{children}</a>
 }
 
-export const NavLink = ({ children, className, end, to }: NavLinkProps) => {
+export const NavLink = ({ children, className, end, to, onClick }: NavLinkProps) => {
   const router = useRouter()
   const isActive = end ? router.pathname === to : router.pathname.startsWith(to)
 
   const resolvedClassName =
     typeof className === 'function' ? className({ isActive }) : className
 
-  const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
+    onClick?.(event)
     router.navigate(to)
   }
 
   return (
-    <a href={to} className={resolvedClassName} onClick={onClick}>
+    <a href={to} className={resolvedClassName} onClick={handleClick}>
       {children}
     </a>
   )

@@ -4,7 +4,7 @@ import Header from '../components/Header'
 import Sidebar from '../components/Sidebar'
 
 const MainLayout = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
     <div className={`app-layout ${isSidebarOpen ? 'app-layout--nav-open' : 'app-layout--nav-closed'}`}>
