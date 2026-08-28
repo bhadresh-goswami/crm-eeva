@@ -1,5 +1,8 @@
 <?php
 
+require_once dirname(__DIR__) . '/models/FeedbackModel.php';
+require_once dirname(__DIR__) . '/services/FeedbackEligibility.php';
+
 class ManagerReportsController {
     private PDO $conn;
 
@@ -89,7 +92,7 @@ class ManagerReportsController {
     }
 
     private function completedTaskWhere(): string {
-        return "LOWER(COALESCE(tsm.name, '')) = 'completed'";
+        return FeedbackEligibility::sql('tt.name', 'tsm.name');
     }
 
     private function scheduledTimeExpression(string $preferredColumn, string $fallbackColumn): string {
@@ -174,7 +177,11 @@ class ManagerReportsController {
                 COALESCE(tsm.name, 'N/A') AS status_name,
                 COALESCE(tsm.name, 'N/A') AS task_status,
                 COALESCE(assigned_by_user.name, 'N/A') AS assigned_by,
-                CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
+                CASE
+                    WHEN LOWER(COALESCE(tsm.name, '')) = 'completed' AND tf.id IS NOT NULL THEN 'Submitted'
+                    WHEN LOWER(COALESCE(tsm.name, '')) = 'completed' THEN 'Pending'
+                    ELSE 'Not Available'
+                END AS feedback_status,
                 DATE(tf.created_at) AS feedback_date{$scheduleSelect},
                 ROUND(((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) /
                     NULLIF(
@@ -263,6 +270,78 @@ class ManagerReportsController {
     public function tasksSummary(): void { $this->runListReport(); }
     public function feedbackReport(): void { $this->runListReport('tf.id IS NOT NULL', $this->completedTaskWhere(), true, true); }
 
+    public function feedbackForClient(): void {
+        try {
+            $params = [];
+            $where = $this->completedTaskWhere();
+            $filterWhere = $this->applyFilters($params);
+            if ($filterWhere !== '1=1') $where .= " AND {$filterWhere}";
+            $where .= " AND tf.id IS NOT NULL";
+
+            $page = max(1, (int)($_GET['page'] ?? 1));
+            $limit = max(1, min(200, (int)($_GET['limit'] ?? 20)));
+            $countStmt = $this->conn->prepare("SELECT COUNT(DISTINCT t.id) " . $this->baseSelect() . " WHERE {$where}");
+            $this->bindListParams($countStmt, $params);
+            $countStmt->execute();
+            $totalRecords = (int)$countStmt->fetchColumn();
+            $totalPages = max(1, (int)ceil($totalRecords / $limit));
+            if ($page > $totalPages) $page = $totalPages;
+            $params[':offset'] = ($page - 1) * $limit;
+            $params[':limit'] = $limit;
+
+            $taskStartExpr = "COALESCE(t.task_start_time, t.start_time)";
+            $sql = "SELECT DISTINCT
+                t.id AS task_id,
+                COALESCE(cd.name, 'N/A') AS candidate_name,
+                COALESCE(tsm.name, 'N/A') AS task_status,
+                CASE
+                    WHEN {$taskStartExpr} IS NULL THEN 'N/A'
+                    ELSE DATE_FORMAT({$taskStartExpr}, '%d-%m-%Y %H.%i')
+                END AS task_start_time,
+                CASE
+                    WHEN t.due_date IS NULL THEN 'N/A'
+                    ELSE DATE_FORMAT(t.due_date, '%d-%m-%Y')
+                END AS due_date,
+                COALESCE(c_task.company_name, c_candidate.company_name, c_client.company_name, 'N/A') AS client_name,
+                COALESCE(u.name, feedback_expert.name, 'N/A') AS expert_name,
+                tf.communication,
+                tf.technical,
+                tf.confidence,
+                tf.project_explanation,
+                tf.overall,
+                tf.area_of_improvements,
+                tf.strengths,
+                tf.recommendations,
+                tf.next_action,
+                tf.additional_feedback,
+                tf.custom_fields,
+                COALESCE(latest_task_comment.comment, '') AS comments
+                " . $this->baseSelect() . "
+                WHERE {$where}
+                ORDER BY t.due_date DESC, t.id DESC
+                LIMIT :offset, :limit";
+            $stmt = $this->conn->prepare($sql);
+            $this->bindListParams($stmt, $params);
+            $stmt->execute();
+            $rows = array_map(
+                static fn (array $row): array => FeedbackModel::map($row),
+                $stmt->fetchAll(PDO::FETCH_ASSOC)
+            );
+            echo json_encode([
+                'success' => true,
+                'data' => $rows,
+                'total_records' => $totalRecords,
+                'total_pages' => $totalPages,
+                'page' => $page,
+                'limit' => $limit,
+                'pagination' => ['total_records' => $totalRecords, 'total_pages' => $totalPages, 'page' => $page, 'limit' => $limit],
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }
+
     public function techVsTasks(): void {
         try {
             $params = [];
@@ -344,7 +423,11 @@ class ManagerReportsController {
                 DATE(t.due_date) AS task_date,
                 COALESCE(t.task_start_time, t.start_time) AS eastern_source_time,
                 {$durationExpr} AS duration,
-                CASE WHEN tf.id IS NULL THEN 'Pending' ELSE 'Submitted' END AS feedback_status,
+                CASE
+                    WHEN LOWER(COALESCE(tsm.name, '')) = 'completed' AND tf.id IS NOT NULL THEN 'Submitted'
+                    WHEN LOWER(COALESCE(tsm.name, '')) = 'completed' THEN 'Pending'
+                    ELSE 'Not Available'
+                END AS feedback_status,
                 COALESCE(tf.overall, 0) AS average_score,
                 COALESCE(assigned_by_user.name, 'N/A') AS assigned_by
                 " . $this->baseSelect() . "
@@ -391,6 +474,11 @@ class ManagerReportsController {
                 tf.project_explanation,
                 tf.overall,
                 tf.area_of_improvements,
+                tf.strengths,
+                tf.recommendations,
+                tf.next_action,
+                tf.additional_feedback,
+                tf.custom_fields,
                 DATE(tf.created_at) AS feedback_date,
                 ((COALESCE(tf.communication,0) + COALESCE(tf.technical,0) + COALESCE(tf.confidence,0) + COALESCE(tf.project_explanation,0)) / 4) AS average_score
                 " . $this->baseSelect() . "
@@ -401,7 +489,7 @@ class ManagerReportsController {
             $stmt->execute();
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if (!$row) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Task not found']); return; }
-            echo json_encode(['success' => true, 'data' => $row]);
+            echo json_encode(['success' => true, 'data' => FeedbackModel::map($row)]);
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);

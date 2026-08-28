@@ -58,10 +58,13 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           { label: 'Candidates', to: '/candidates', icon: 'candidates' },
         ] },
         { title: 'Reports', items: [
+          { label: 'Team Workload', to: '/manager/reports/team-workload', icon: 'reports' },
+          { label: 'Pending Payments Report', to: '/manager/reports/pending-payments', icon: 'reports' },
           { label: 'Feedback Pending Report', to: '/reports/feedback-pending', icon: 'reports' },
           { label: 'Tech Vs Tasks', to: '/reports/tech-vs-tasks', icon: 'reports' },
           { label: 'Tasks Summary', to: '/reports/tasks-summary', icon: 'reports' },
           { label: 'Feedback Report', to: '/reports/feedback-report', icon: 'reports' },
+          { label: 'Feedback For Client', to: '/reports/feedback-for-client', icon: 'reports' },
           { label: 'Candidate Performance Report', to: '/reports/candidate-performance', icon: 'reports' },
           { label: "Today's Expert Availability Report", to: '/reports/expert-availability', icon: 'reports' },
         ] },
@@ -140,7 +143,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   if (!user) return null
   const allItems = sections.flatMap((section) => section.items)
-  const reportsItems = allItems.filter((item) => item.to.startsWith('/reports'))
+  const reportsItems = allItems.filter((item) => item.to.startsWith('/reports') || item.to.startsWith('/manager/reports'))
   const orderedLabels = user.role === 'manager' ? ['Dashboard', 'Tasks', 'Invoice'] : ['Dashboard', 'Tasks', 'Task Feedback', 'Payment Correction', 'Invoices', 'Clients', 'POC', 'Candidates']
   const manageItems = user.role === 'manager' ? allItems.filter((item) => ['Client', 'POC', 'Candidates'].includes(item.label)) : []
   const invoiceItems = user.role === 'manager' ? allItems.filter((item) => ['Payment Correction', 'Invoice'].includes(item.label)) : []

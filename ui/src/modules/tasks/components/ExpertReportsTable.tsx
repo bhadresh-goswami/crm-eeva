@@ -54,6 +54,8 @@ const statusBadge = (statusName: string) => {
   if (n === 'completed') return 'bg-success'
   if (n === 'cancelled') return 'bg-secondary'
   if (n === 'pending') return 'bg-warning text-dark'
+  if (n === 'in progress') return 'bg-secondary'
+  if (n === 'rescheduled' || n === 'no show') return 'bg-info text-dark'
   return 'bg-secondary'
 }
 
@@ -97,11 +99,14 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
               const computedDuration = Number(row.duration) > 0
                 ? Number(row.duration)
                 : (startDateTime && endDateTime ? Math.max(0, Math.round((endDateTime.getTime() - startDateTime.getTime()) / 60000)) : 0)
+              const isCompleted = String(row.status_name || '').trim().toLowerCase() === 'completed'
+              const canAddFeedback = isCompleted && !row.has_feedback
+              const canViewFeedback = isCompleted && row.has_feedback && row.feedback_id != null
               return (
               <tr key={row.id}>
                 <td style={actionCellStyle}>
                   <div className="d-flex justify-content-center align-items-center">
-                    {!row.has_feedback ? (
+                    {canAddFeedback ? (
                       <button
                         type="button"
                         className="btn btn-sm d-inline-flex align-items-center justify-content-center"
@@ -120,7 +125,7 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
                       >
                         <BsChatSquareText size={17} />
                       </button>
-                    ) : (
+                    ) : canViewFeedback ? (
                       <button
                         type="button"
                         className="btn btn-sm d-inline-flex align-items-center justify-content-center"
@@ -139,6 +144,8 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
                       >
                         <BsEye size={17} />
                       </button>
+                    ) : (
+                      <span className="badge bg-light text-muted border">Not Eligible</span>
                     )}
                   </div>
                 </td>
@@ -148,7 +155,9 @@ const ExpertReportsTable = ({ items, loading, sortBy, onSort, onAddFeedback, onV
                 <td className="text-nowrap">{estTime}</td>
                 <td className="text-nowrap">{computedDuration > 0 ? `${computedDuration} min` : '--'}</td>
                 <td className="text-nowrap align-middle">
-                  {row.feedback_id == null ? (
+                  {!isCompleted ? (
+                    <span className="badge bg-secondary">Not Available</span>
+                  ) : row.feedback_id == null ? (
                     <span className="badge bg-warning text-dark">Pending</span>
                   ) : (
                     <span className="badge bg-success">Submitted</span>

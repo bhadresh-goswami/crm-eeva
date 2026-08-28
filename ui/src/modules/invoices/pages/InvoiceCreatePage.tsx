@@ -3,6 +3,8 @@ import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { createInvoice, getCompletedTasks, getNextInvoiceNumber, type CompletedTask } from '../api/invoicesApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import PageContainer from '../../../shared/components/PageContainer'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
+import { useAuth } from '../../../context/AuthContext'
 import '../invoices.css'
 
 type GroupedLineItem = {
@@ -34,6 +36,7 @@ const formatCurrency = (value: number, currency: string) => {
 }
 
 const InvoiceCreatePage = () => {
+  const { user } = useAuth()
   const { showToast } = useAlert()
 
   const [clients, setClients] = useState<ClientItem[]>([])
@@ -203,7 +206,8 @@ const InvoiceCreatePage = () => {
   }
 
   return (
-    <PageContainer title="Create Invoice" description="Design-ready invoice form for managers and admins.">
+    <PageContainer title={user?.role === 'manager' ? undefined : "Create Invoice"} description={user?.role === 'manager' ? undefined : "Design-ready invoice form for managers and admins."}>
+      {user?.role === 'manager' ? <ManagerWorkspaceHeader title="Monitor billing and payment activity." subtitle="Track invoices, pending payments, collections, and financial performance." /> : null}
       <div className="invoice-layout invoice-print-area">
         <section className="invoice-surface">
           <div className="invoice-toolbar-grid">

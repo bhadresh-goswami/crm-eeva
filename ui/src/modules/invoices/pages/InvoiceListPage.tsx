@@ -4,6 +4,8 @@ import { getClients, type ClientItem } from '../../clients/api/clientsApi'
 import { getInvoiceById, getInvoices, recalculateInvoice, type InvoiceDetailRecord, type InvoiceRecord } from '../api/invoicesApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import PageContainer from '../../../shared/components/PageContainer'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
+import { useAuth } from '../../../context/AuthContext'
 import '../invoices.css'
 
 type InvoiceStatusFilter = 'all' | 'pending' | 'partial' | 'paid'
@@ -43,6 +45,7 @@ const getStatusClass = (status: string) => {
 }
 
 const InvoiceListPage = () => {
+  const { user } = useAuth()
   const { showToast } = useAlert()
   const invoicePrintRef = useRef<HTMLDivElement | null>(null)
 
@@ -194,14 +197,25 @@ const InvoiceListPage = () => {
 
   return (
     <PageContainer
-      title="Invoices"
-      description="Track generated invoices and open each invoice for detailed management."
-      actions={
+      title={user?.role === 'manager' ? undefined : 'Invoices'}
+      description={user?.role === 'manager' ? undefined : 'Track generated invoices and open each invoice for detailed management.'}
+      actions={user?.role === 'manager' ? undefined : (
         <NavLink to="/invoices/create" className="button button--primary invoice-link">
           Create Invoice
         </NavLink>
-      }
+      )}
     >
+      {user?.role === 'manager' ? (
+        <ManagerWorkspaceHeader
+          title="Monitor billing and payment activity."
+          subtitle="Track invoices, pending payments, collections, and financial performance."
+          actions={(
+            <NavLink to="/invoices/create" className="button button--primary invoice-link">
+              Create Invoice
+            </NavLink>
+          )}
+        />
+      ) : null}
       <div className="invoice-layout">
         <section className="invoice-surface">
           <div className="invoice-toolbar-grid invoice-toolbar-grid--list">

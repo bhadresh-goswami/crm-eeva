@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import { getInvoiceById, updateInvoiceStatus, type InvoiceItemRecord } from '../api/invoicesApi'
 import PageContainer from '../../../shared/components/PageContainer'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
+import { useAuth } from '../../../context/AuthContext'
 import '../invoices.css'
 
 type TaskStatus = InvoiceItemRecord['status']
@@ -37,6 +39,7 @@ const toInvoiceStatus = (tasks: EditableTask[]) => {
 }
 
 const InvoiceDetailPage = () => {
+  const { user } = useAuth()
   const { showToast } = useAlert()
   const params = new URLSearchParams(window.location.search)
   const invoiceId = Number(params.get('invoiceId') ?? 0)
@@ -102,7 +105,8 @@ const InvoiceDetailPage = () => {
   }
 
   return (
-    <PageContainer title="Invoice Detail" description="Invoice header and task-level payment management.">
+    <PageContainer title={user?.role === 'manager' ? undefined : "Invoice Detail"} description={user?.role === 'manager' ? undefined : "Invoice header and task-level payment management."}>
+      {user?.role === 'manager' ? <ManagerWorkspaceHeader title="Monitor billing and payment activity." subtitle="Track invoices, pending payments, collections, and financial performance." /> : null}
       <div className="invoice-layout">
         <section className="invoice-surface invoice-header-strip">
           <div>

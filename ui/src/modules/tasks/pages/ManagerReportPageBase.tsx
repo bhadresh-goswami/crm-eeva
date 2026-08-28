@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { BsArrowClockwise, BsArrowDownUp, BsEye } from 'react-icons/bs'
 import { getTaskFilterOptions, getManagerReportList, getManagerReportTaskDetails, recalculateTaskDuration, type ManagerReportFilters } from '../api/tasksApi'
 import { useAlert } from '../../../shared/alerts/useAlert'
 import { getClients } from '../../clients/api/clientsApi'
 import { formatEastern, formatIST, parseISTDateTime } from '../../../utils/timezone'
 import { useAuth } from '../../../context/AuthContext'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
+import PendingFeedbackOverview, { FEEDBACK_PENDING_ENDPOINT } from '../components/PendingFeedbackOverview'
+import { FeedbackDetailsContent } from '../components/FeedbackDetailModal'
 
 export type ReportColumn = { key: string; label: string }
 
@@ -13,13 +17,13 @@ type ReportPageProps = {
   subtitle?: string
   columns: ReportColumn[]
   endpoint: string
+  showTitleCard?: boolean
 }
 
 type SortConfig = { key: string; direction: 'asc' | 'desc' }
 
 type Option = { id: number; name: string }
 type PaginationState = { totalRecords: number; totalPages: number; page: number; limit: number }
-
 const normalizeReportValue = (value: unknown) => value === undefined || value === null ? '' : String(value).trim()
 
 const getReportScheduleDate = (row: Record<string, unknown>) => {
@@ -61,11 +65,13 @@ const renderReportSchedule = (row: Record<string, unknown>) => {
   )
 }
 
-const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPageProps) => {
+const ManagerReportPageBase = ({ title, subtitle, columns, endpoint, showTitleCard = false }: ReportPageProps) => {
   const { showToast } = useAlert()
   const { user } = useAuth()
+  const location = useLocation()
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'task_id', direction: 'asc' })
   const [filters, setFilters] = useState<ManagerReportFilters>({ page: 1, limit: 10 })
+  const [summaryFilters, setSummaryFilters] = useState<ManagerReportFilters>({ page: 1, limit: 10 })
   const [options, setOptions] = useState<{ candidates: Option[]; assignees: Option[]; taskTypes: Option[]; clients: Option[] }>({ candidates: [], assignees: [], taskTypes: [], clients: [] })
   const [rows, setRows] = useState<Record<string, unknown>[]>([])
   const [pagination, setPagination] = useState<PaginationState>({ totalRecords: 0, totalPages: 0, page: 1, limit: 10 })
@@ -77,11 +83,13 @@ const ManagerReportPageBase = ({ title, subtitle, columns, endpoint }: ReportPag
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
+
   const load = async (override?: ManagerReportFilters) => {
     setLoading(true)
     setError(null)
     try {
       const payload = { ...filters, ...override }
+      if (endpoint === FEEDBACK_PENDING_ENDPOINT) setSummaryFilters(payload)
       const result = await getManagerReportList(endpoint, payload)
       const requestedPage = Number(payload.page ?? 1)
       if (result.items.length === 0 && requestedPage > 1 && result.total_pages > 0) {
@@ -125,11 +133,24 @@ Skipped: ${result.skipped} tasks`,
 
   useEffect(() => {
     void Promise.all([getTaskFilterOptions(), getClients()]).then(([data, clients]) => {
-      setOptions({ candidates: data.candidates, assignees: data.assignees, taskTypes: data.task_types, clients: clients.map((c) => ({ id: c.id, name: c.company_name })) })
+      const nextOptions = { candidates: data.candidates, assignees: data.assignees, taskTypes: data.task_types, clients: clients.map((c) => ({ id: c.id, name: c.company_name })) }
+      setOptions(nextOptions)
+
+      const expertName = new URLSearchParams(window.location.search).get('expert')?.trim().toLowerCase()
+      const matchedExpert = endpoint === FEEDBACK_PENDING_ENDPOINT && expertName
+        ? nextOptions.assignees.find((assignee) => assignee.name.trim().toLowerCase() === expertName)
+        : undefined
+      if (matchedExpert) {
+        const nextFilters = { ...filters, page: 1, expert_id: String(matchedExpert.id) }
+        setFilters(nextFilters)
+        void load(nextFilters)
+        return
+      }
+
+      void load()
     })
-    void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint])
+  }, [endpoint, location.pathname])
 
   const sortedRows = useMemo(() => {
     const rowsCopy = [...rows]
@@ -166,6 +187,16 @@ Skipped: ${result.skipped} tasks`,
       estTime: ['est_time'],
       schedule: ['scheduled_start_time', 'scheduled_end_time'],
       duration: ['duration'],
+      taskStartTime: ['task_start_time', 'start_time'],
+      clientName: ['client_name', 'company_name', 'client_company'],
+      expertName: ['expert_name', 'technical_expert'],
+      communication: ['communication'],
+      technical: ['technical'],
+      confidence: ['confidence'],
+      projectExplanation: ['project_explanation'],
+      overall: ['overall'],
+      areaOfImprovements: ['area_of_improvements'],
+      comments: ['comments', 'initial_comment'],
     }
     const aliases = mapping[key] ?? [key]
     for (const alias of aliases) if (row[alias] !== undefined && row[alias] !== null && row[alias] !== '') return row[alias]
@@ -183,7 +214,8 @@ Skipped: ${result.skipped} tasks`,
 
   return (
     <div className="page-container">
-      <div className="page-container__header"><div><h1 className="page-title mb-1">{title}</h1><p className="page-description mb-0">{subtitle ?? 'Live manager reporting dashboard.'}</p></div><div className="d-flex gap-2">{user?.role === 'admin' ? <button className="btn btn-warning btn-sm d-inline-flex align-items-center gap-1" type="button" onClick={() => void handleRecalculateDuration()} disabled={recalculatingDuration}>{recalculatingDuration ? <span className="spinner-border spinner-border-sm" aria-hidden="true" /> : <BsArrowClockwise size={15} />}<span>{recalculatingDuration ? 'Recalculating...' : 'Recalculate Duration'}</span></button> : null}<button className="btn btn-outline-secondary btn-sm" onClick={() => void load()}>Refresh</button></div></div>
+      {user?.role === 'manager' ? <ManagerWorkspaceHeader title="Business insights and operational analytics." subtitle="Analyze workload, productivity, task trends, and performance metrics." actions={<button className="btn btn-outline-secondary btn-sm" onClick={() => void load()}>Refresh</button>} /> : <div className="page-container__header"><div><h1 className="page-title mb-1">{title}</h1><p className="page-description mb-0">{subtitle ?? 'Live manager reporting dashboard.'}</p></div><div className="d-flex gap-2">{user?.role === 'admin' ? <button className="btn btn-warning btn-sm d-inline-flex align-items-center gap-1" type="button" onClick={() => void handleRecalculateDuration()} disabled={recalculatingDuration}>{recalculatingDuration ? <span className="spinner-border spinner-border-sm" aria-hidden="true" /> : <BsArrowClockwise size={15} />}<span>{recalculatingDuration ? 'Recalculating...' : 'Recalculate Duration'}</span></button> : null}<button className="btn btn-outline-secondary btn-sm" onClick={() => void load()}>Refresh</button></div></div>}
+      {showTitleCard ? <div className="card"><h1 className="page-title mb-1">{title}</h1>{subtitle ? <p className="page-description mb-0">{subtitle}</p> : null}</div> : null}
       <small className="text-muted">{lastUpdated ? `Last updated: ${lastUpdated.toLocaleString()}` : 'Last updated: --'}</small>
       <div className="card"><h3 className="card-title mb-3">Filters</h3><div className="row g-2 g-md-3">
         <div className="col-12 col-sm-6 col-lg-3"><label className="form-label">Candidate</label><select className="form-select" value={filters.candidate_id ?? ''} onChange={(e) => setFilters((p) => ({ ...p, page: 1, candidate_id: e.target.value }))}><option value="">All Candidate</option>{options.candidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
@@ -195,6 +227,8 @@ Skipped: ${result.skipped} tasks`,
         <div className="col-12 d-flex gap-2 justify-content-end mt-2"><button className="btn btn-primary btn-sm" type="button" onClick={() => { setFilters((p) => ({ ...p, page: 1 })); void load({ page: 1 }) }}>Apply Filter</button><button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => { setFilters({ page: 1, limit: 10 }); void load({ page: 1, limit: 10 }) }}>Reset</button></div>
       </div></div>
 
+      {endpoint === FEEDBACK_PENDING_ENDPOINT ? <PendingFeedbackOverview filters={summaryFilters} /> : null}
+
       <div className="table-card"><div className="d-flex justify-content-end p-2"><button className="btn btn-success btn-sm" onClick={() => {
         const head = columns.filter((c) => c.key !== 'action').map((c) => c.label).join(',')
         const body = sortedRows.map((r) => columns.filter((c) => c.key !== 'action').map((c) => `\"${String(mapValue(r, c.key)).replaceAll('\"', '\"\"')}\"`).join(',')).join('\n')
@@ -204,7 +238,7 @@ Skipped: ${result.skipped} tasks`,
       <div className="card py-2 px-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2"><div className="d-flex align-items-center gap-2"><small className="text-muted">Rows:</small><select className="form-select form-select-sm" style={{ width: 90 }} value={String(filters.limit ?? 10)} onChange={(e) => { const limit = Number(e.target.value); setFilters((p) => ({ ...p, page: 1, limit })); void load({ page: 1, limit }) }}><option value="10">10</option><option value="50">50</option><option value="100">100</option><option value="200">200</option></select><small className="text-muted">Page {currentPage}{serverPagination ? ` of ${pagination.totalPages} (${pagination.totalRecords} records)` : ''}</small></div><nav><ul className="pagination mb-0"><li className={`page-item ${currentPage <= 1 ? 'disabled' : ''}`}><button className="page-link" onClick={() => { const page = Math.max(1, currentPage - 1); setFilters((p) => ({ ...p, page })); void load({ page }) }}>Previous</button></li>{pageNumbers.map((pageNo) => <li key={pageNo} className={`page-item ${pageNo === currentPage ? 'active' : ''}`}><button className="page-link" onClick={() => { setFilters((p) => ({ ...p, page: pageNo })); void load({ page: pageNo }) }}>{pageNo}</button></li>)}<li className={`page-item ${nextDisabled ? 'disabled' : ''}`}><button className="page-link" onClick={() => { const page = currentPage + 1; setFilters((p) => ({ ...p, page })); void load({ page }) }}>Next</button></li></ul></nav></div>
       {error ? <div className="alert alert-danger">{error} <button className="btn btn-link btn-sm" onClick={() => void load()}>Retry</button></div> : null}
 
-      <div className={`modal fade ${selectedTaskId ? 'show d-block' : ''}`} tabIndex={-1} role="dialog" aria-modal={selectedTaskId ? 'true' : 'false'}><div className="modal-dialog modal-xl modal-dialog-scrollable"><div className="modal-content"><div className="modal-header"><h5 className="modal-title">Task Details: {String(details.task_id ?? selectedTaskId ?? '')}</h5><button type="button" className="btn-close" onClick={() => setSelectedTaskId(null)} aria-label="Close" /></div><div className="modal-body">{detailsLoading ? <div className="placeholder-glow"><span className="placeholder col-12" /><span className="placeholder col-10" /><span className="placeholder col-8" /></div> : <div className="row g-3"><div className="col-12 col-lg-6"><div className="card h-100"><h6>Candidate Details</h6><p className="mb-1"><strong>Name:</strong> {String(details.candidate_name ?? details.candidate ?? '—')}</p><p className="mb-1"><strong>Email:</strong> {String(details.candidate_email ?? '—')}</p><p className="mb-1"><strong>Contact:</strong> {String(details.contact_number ?? '—')}</p><p className="mb-0"><strong>Company:</strong> {String(details.company_name ?? details.client_company ?? '—')}</p></div></div><div className="col-12 col-lg-6"><div className="card h-100"><h6>Task Details</h6><p className="mb-1"><strong>Task ID:</strong> {String(details.task_id ?? '—')}</p><p className="mb-1"><strong>Type:</strong> {String(details.task_type ?? '—')}</p><p className="mb-1"><strong>Status:</strong> {String(details.task_status ?? details.status ?? '—')}</p><p className="mb-1"><strong>Due Date:</strong> {String(details.due_date ?? '—')}</p><p className="mb-1"><strong>Start:</strong> {String(details.task_start_time ?? details.start_time ?? '—')}</p><p className="mb-1"><strong>End:</strong> {String(details.task_end_time ?? details.end_time ?? '—')}</p><p className="mb-0"><strong>Duration:</strong> {String(details.duration ?? '—')}</p></div></div><div className="col-12"><div className="card"><h6>Initial Comment</h6><p className="mb-0">{String(details.initial_comment ?? '—')}</p></div></div><div className="col-12"><div className="card"><h6>Detailed Feedback</h6><p className="mb-1"><strong>Communication:</strong> {String(details.communication ?? '—')}</p><p className="mb-1"><strong>Technical:</strong> {String(details.technical ?? '—')}</p><p className="mb-1"><strong>Confidence:</strong> {String(details.confidence ?? '—')}</p><p className="mb-1"><strong>Project Explanation:</strong> {String(details.project_explanation ?? '—')}</p><p className="mb-1"><strong>Overall:</strong> {String(details.overall ?? '—')}</p><p className="mb-1"><strong>Area of Improvements:</strong> {String(details.area_of_improvements ?? '—')}</p><p className="mb-1"><strong>Average Score:</strong> {String(details.average_score ?? '—')}</p><p className="mb-0"><strong>Feedback Date:</strong> {String(details.feedback_date ?? '—')}</p></div></div></div>}</div></div></div></div>
+      <div className={`modal fade ${selectedTaskId ? 'show d-block' : ''}`} tabIndex={-1} role="dialog" aria-modal={selectedTaskId ? 'true' : 'false'}><div className="modal-dialog modal-xl modal-dialog-scrollable"><div className="modal-content"><div className="modal-header"><h5 className="modal-title">Task Details: {String(details.task_id ?? selectedTaskId ?? '')}</h5><button type="button" className="btn-close" onClick={() => setSelectedTaskId(null)} aria-label="Close" /></div><div className="modal-body">{detailsLoading ? <div className="placeholder-glow"><span className="placeholder col-12" /><span className="placeholder col-10" /><span className="placeholder col-8" /></div> : <div className="row g-3"><div className="col-12 col-lg-6"><div className="card h-100"><h6>Candidate Details</h6><p className="mb-1"><strong>Name:</strong> {String(details.candidate_name ?? details.candidate ?? '—')}</p><p className="mb-1"><strong>Email:</strong> {String(details.candidate_email ?? '—')}</p><p className="mb-1"><strong>Contact:</strong> {String(details.contact_number ?? '—')}</p><p className="mb-0"><strong>Company:</strong> {String(details.company_name ?? details.client_company ?? '—')}</p></div></div><div className="col-12 col-lg-6"><div className="card h-100"><h6>Task Details</h6><p className="mb-1"><strong>Task ID:</strong> {String(details.task_id ?? '—')}</p><p className="mb-1"><strong>Type:</strong> {String(details.task_type ?? '—')}</p><p className="mb-1"><strong>Status:</strong> {String(details.task_status ?? details.status ?? '—')}</p><p className="mb-1"><strong>Due Date:</strong> {String(details.due_date ?? '—')}</p><p className="mb-1"><strong>Start:</strong> {String(details.task_start_time ?? details.start_time ?? '—')}</p><p className="mb-1"><strong>End:</strong> {String(details.task_end_time ?? details.end_time ?? '—')}</p><p className="mb-0"><strong>Duration:</strong> {String(details.duration ?? '—')}</p></div></div><div className="col-12"><div className="card"><h6>Initial Comment</h6><p className="mb-0">{String(details.initial_comment ?? '—')}</p></div></div><div className="col-12"><FeedbackDetailsContent data={details} /></div></div>}</div></div></div></div>
       {selectedTaskId ? <div className="modal-backdrop fade show" /> : null}
     </div>
   )

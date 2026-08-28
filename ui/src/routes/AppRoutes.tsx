@@ -17,8 +17,11 @@ import FeedbackPendingReport from '../modules/tasks/pages/FeedbackPendingReport'
 import TechVsTasksReport from '../modules/tasks/pages/TechVsTasksReport'
 import TasksSummaryReport from '../modules/tasks/pages/TasksSummaryReport'
 import FeedbackReport from '../modules/tasks/pages/FeedbackReport'
+import FeedbackForClientReport from '../modules/tasks/pages/FeedbackForClientReport'
 import CandidatePerformanceReport from '../modules/tasks/pages/CandidatePerformanceReport'
 import ExpertAvailabilityMatrixReportPage from '../modules/tasks/pages/ExpertAvailabilityMatrixReportPage'
+import TeamWorkloadReport from '../modules/tasks/pages/TeamWorkloadReport'
+import PendingPaymentsReport from '../modules/tasks/pages/PendingPaymentsReport'
 
 import UsersPage from '../modules/users/pages/UsersPage'
 import InvoiceListPage from '../modules/invoices/pages/InvoiceListPage'
@@ -75,6 +78,8 @@ const AppRoutes = () => {
           <Route element={<ProtectedRoute allowedRoles={['admin', 'manager']} />}>
             <Route path="/tasks/bulk-price" element={<BulkPriceUpdatePage />} />
             <Route path="/tasks/payment-correction" element={<BulkPriceUpdatePage />} />
+            <Route path="/manager/reports/team-workload" element={<TeamWorkloadReport />} />
+            <Route path="/manager/reports/pending-payments" element={<PendingPaymentsReport />} />
           </Route>
           <Route element={<ProtectedRoute allowedRoles={['admin', 'manager', 'coordinator', 'expert', 'expertlead']} />}>
             <Route path="/reports/tasks" element={<ReportsTasksPage />} />
@@ -84,6 +89,7 @@ const AppRoutes = () => {
             <Route path="/reports/tech-vs-tasks" element={<TechVsTasksReport />} />
             <Route path="/reports/tasks-summary" element={<TasksSummaryReport />} />
             <Route path="/reports/feedback-report" element={<FeedbackReport />} />
+            <Route path="/reports/feedback-for-client" element={<FeedbackForClientReport />} />
             <Route path="/reports/candidate-performance" element={<CandidatePerformanceReport />} />
             <Route path="/reports/expert-availability" element={<ExpertAvailabilityMatrixReportPage />} />
           </Route>

@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../../../shared/components/PageContainer'
+import ManagerWorkspaceHeader from '../../../shared/components/ManagerWorkspaceHeader'
+import ExpertWorkspaceHeader from '../../../shared/components/ExpertWorkspaceHeader'
+import { useAuth } from '../../../context/AuthContext'
 import { getTaskAssignmentReport, getTaskReport, getTaskTypes, type TaskRecord, type TaskTypeOption } from '../api/tasksApi'
 import { getExpertTasks } from '../api/expertTasksApi'
-import { useAuth } from '../../../context/AuthContext'
+import ExpertDailyReportPage from './ExpertDailyReportPage'
 
 const ReportsTasksPage = () => {
+  const { user } = useAuth()
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -13,7 +17,6 @@ const ReportsTasksPage = () => {
   const [toDate, setToDate] = useState('')
   const [taskTypeId, setTaskTypeId] = useState('')
   const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([])
-  const { user } = useAuth()
   const role = String(user?.role ?? '').toLowerCase()
   const isExpertRole = ['expert', 'technical expert', 'expertlead', 'technical lead'].includes(role)
 
@@ -127,8 +130,12 @@ const ReportsTasksPage = () => {
     return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
   }
 
+  if (isExpertRole) return <ExpertDailyReportPage />
+
   return (
-    <PageContainer title="Task Reports" description="Role-based reporting across task status, schedule and assignments.">
+    <PageContainer title={user?.role === 'manager' || isExpertRole ? undefined : "Task Reports"} description={user?.role === 'manager' || isExpertRole ? undefined : "Role-based reporting across task status, schedule and assignments."}>
+      {user?.role === 'manager' ? <ManagerWorkspaceHeader title="Business insights and operational analytics." subtitle="Analyze workload, productivity, task trends, and performance metrics." /> : null}
+      {isExpertRole ? <ExpertWorkspaceHeader title="Reports" /> : null}
       <div className="card shadow-sm mb-4">
         <div className="card-body">
           <div className="row g-3 align-items-end">

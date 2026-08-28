@@ -2,58 +2,103 @@
 
 require_once dirname(__DIR__) . "/config/database.php";
 require_once dirname(__DIR__) . "/services/LoggerService.php";
+require_once dirname(__DIR__) . "/models/FeedbackModel.php";
+require_once dirname(__DIR__) . "/repositories/FeedbackRepository.php";
+require_once dirname(__DIR__) . "/services/FeedbackService.php";
+require_once dirname(__DIR__) . "/services/FeedbackEligibility.php";
 
 class FeedbackController {
-    private function getTableColumns(PDO $conn, string $tableName): array {
-        $stmt = $conn->prepare("SHOW COLUMNS FROM {$tableName}");
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        return array_map(static fn ($row) => (string)$row['Field'], $rows);
+    private function getStatusIdByName(PDO $conn, string $name): ?int {
+        $stmt = $conn->prepare("SELECT id FROM task_status_master WHERE LOWER(name) = LOWER(?) LIMIT 1");
+        $stmt->execute([$name]);
+        $id = (int)$stmt->fetchColumn();
+
+        return $id > 0 ? $id : null;
     }
 
-    public function create($createdByUserId = null): void {
-        $data = json_decode(file_get_contents("php://input"));
+    private function markInProgressTaskCompleted(PDO $conn, int $taskId, ?string $completedAt = null): void {
+        $completedStatusId = $this->getStatusIdByName($conn, 'Completed');
+        $inProgressStatusId = $this->getStatusIdByName($conn, 'In Progress');
 
-        $taskId = (int)($data->task_id ?? 0);
-        $companyName = trim((string)($data->company_name ?? ''));
-        $interviewerName = trim((string)($data->interviewer_name ?? ''));
-
-        if ($taskId <= 0 || $companyName === '' || $interviewerName === '') {
-            http_response_code(422);
-            echo json_encode([
-                'success' => false,
-                'message' => 'task_id, company_name and interviewer_name are required'
-            ]);
+        if ($completedStatusId === null || $inProgressStatusId === null) {
             return;
         }
 
-        $communication = isset($data->communication) ? (float)$data->communication : null;
-        $technical = isset($data->technical) ? (float)$data->technical : null;
-        $confidence = isset($data->confidence) ? (float)$data->confidence : null;
-        $projectExplanation = isset($data->project_explanation) ? (float)$data->project_explanation : null;
+        $taskStmt = $conn->prepare("SELECT status_id FROM tasks WHERE id = ? LIMIT 1 FOR UPDATE");
+        $taskStmt->execute([$taskId]);
+        $task = $taskStmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($communication === null || $technical === null || $confidence === null || $projectExplanation === null) {
-            http_response_code(422);
-            echo json_encode([
-                'success' => false,
-                'message' => 'communication, technical, confidence, and project_explanation are required'
-            ]);
+        if (!$task || (int)($task['status_id'] ?? 0) !== $inProgressStatusId) {
             return;
         }
 
-        $overall = round(($communication + $technical + $confidence + $projectExplanation) / 4, 2);
+        $completionTime = trim((string)$completedAt) !== '' ? $completedAt : null;
+        $updateStmt = $conn->prepare("
+            UPDATE tasks
+            SET status_id = ?,
+                task_end_time = COALESCE(task_end_time, COALESCE(?, NOW())),
+                duration = CASE
+                    WHEN task_start_time IS NOT NULL THEN GREATEST(TIMESTAMPDIFF(MINUTE, task_start_time, COALESCE(task_end_time, COALESCE(?, NOW()))), 0)
+                    ELSE duration
+                END
+            WHERE id = ?
+        ");
+        $updateStmt->execute([$completedStatusId, $completionTime, $completionTime, $taskId]);
+    }
+    public function create($createdByUserId = null, string $role = ''): void {
+        $data = json_decode(file_get_contents("php://input"), true);
+        $data = is_array($data) ? $data : [];
+        $taskId = (int)($data['task_id'] ?? 0);
+
+        if ($taskId <= 0) {
+            http_response_code(422);
+            echo json_encode([
+                'success' => false,
+                'message' => 'task_id is required'
+            ]);
+            return;
+        }
 
         $db = new Database();
         $conn = $db->connect();
 
         try {
             $conn->beginTransaction();
-
-            $duplicateStmt = $conn->prepare("SELECT id FROM task_feedback WHERE task_id = ? LIMIT 1 FOR UPDATE");
-            $duplicateStmt->execute([$taskId]);
-            if ((int)$duplicateStmt->fetchColumn() > 0) {
+            $repository = new FeedbackRepository($conn);
+            $service = new FeedbackService($repository);
+            $taskContext = $service->getTaskContext($taskId, true);
+            if ($taskContext === null) {
                 $conn->rollBack();
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Task not found'
+                ]);
+                return;
+            }
+
+            if (FeedbackRepository::isExpertRole($role) && (int)($taskContext['active_assignee_id'] ?? 0) !== (int)$createdByUserId) {
+                $conn->rollBack();
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'You are not assigned to this task']);
+                return;
+            }
+
+            if (!FeedbackEligibility::isEligible((string)$taskContext['task_type'], (string)$taskContext['status_name'])) {
+                $conn->rollBack();
+                http_response_code(422);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Feedback can only be submitted for completed tasks that require feedback.'
+                ]);
+                return;
+            }
+
+            $existingFeedback = $repository->findIdByTaskForUpdate($taskId);
+            if ($existingFeedback) {
+                $this->markInProgressTaskCompleted($conn, $taskId, (string)($existingFeedback['created_at'] ?? ''));
+                $conn->commit();
                 http_response_code(409);
                 echo json_encode([
                     'success' => false,
@@ -62,59 +107,14 @@ class FeedbackController {
                 return;
             }
 
-            $tableColumns = $this->getTableColumns($conn, 'task_feedback');
-            $insertData = [
-                'task_id' => $taskId,
-                'company_name' => $companyName,
-                'interviewer_name' => $interviewerName,
-                'interview_round' => trim((string)($data->interview_round ?? '')),
-                'communication' => $communication,
-                'technical' => $technical,
-                'confidence' => $confidence,
-                'project_explanation' => $projectExplanation,
-                'read_proper' => trim((string)($data->read_proper ?? '')),
-                'area_of_improvements' => trim((string)($data->area_of_improvements ?? '')),
-                'recording_url' => trim((string)($data->recording_url ?? '')),
-                'overall' => $overall,
-            ];
+            $insertData = $service->prepareCreate($data, (string)$taskContext['task_type']);
+            $insertData['task_id'] = $taskId;
+            $insertData['created_by'] = $createdByUserId;
+            $insertData['created_by_id'] = $createdByUserId;
+            $feedbackId = $repository->create($insertData);
+            $feedbackCreatedAt = $repository->getCreatedAt($feedbackId);
 
-            if (in_array('created_by', $tableColumns, true)) {
-                $insertData['created_by'] = $createdByUserId;
-            }
-
-            if (in_array('created_by_id', $tableColumns, true)) {
-                $insertData['created_by_id'] = $createdByUserId;
-            }
-
-            $columns = [];
-            $placeholders = [];
-            $values = [];
-            foreach ($insertData as $column => $value) {
-                if (!in_array($column, $tableColumns, true)) {
-                    continue;
-                }
-                $columns[] = $column;
-                $placeholders[] = '?';
-                $values[] = $value;
-            }
-
-            if (in_array('created_at', $tableColumns, true)) {
-                $columns[] = 'created_at';
-                $placeholders[] = 'NOW()';
-            }
-
-            if (count($columns) === 0) {
-                throw new RuntimeException('No compatible columns found in task_feedback table');
-            }
-
-            $insertSql = sprintf(
-                'INSERT INTO task_feedback (%s) VALUES (%s)',
-                implode(', ', $columns),
-                implode(', ', $placeholders)
-            );
-
-            $insertStmt = $conn->prepare($insertSql);
-            $insertStmt->execute($values);
+            $this->markInProgressTaskCompleted($conn, $taskId, $feedbackCreatedAt);
 
             $conn->commit();
 
@@ -123,8 +123,18 @@ class FeedbackController {
                 'message' => 'Feedback added successfully',
                 'data' => [
                     'task_id' => $taskId,
-                    'overall' => $overall,
+                    'overall' => $insertData['overall'],
                 ]
+            ]);
+        } catch (InvalidArgumentException $e) {
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
+
+            http_response_code(422);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
             ]);
         } catch (Throwable $e) {
             if ($conn->inTransaction()) {
@@ -145,7 +155,7 @@ class FeedbackController {
         }
     }
 
-    public function viewByTaskId(int $taskId): void {
+    public function viewByTaskId(int $taskId, $requestUserId = null, string $role = ''): void {
         if ($taskId <= 0) {
             http_response_code(422);
             echo json_encode([
@@ -159,9 +169,9 @@ class FeedbackController {
         $conn = $db->connect();
 
         try {
-            $stmt = $conn->prepare("SELECT * FROM task_feedback WHERE task_id = ? LIMIT 1");
-            $stmt->execute([$taskId]);
-            $feedback = $stmt->fetch(PDO::FETCH_ASSOC);
+            $repository = new FeedbackRepository($conn);
+            $service = new FeedbackService($repository);
+            $feedback = $repository->getByTask($taskId, $requestUserId === null ? null : (int)$requestUserId, $role);
 
             if (!$feedback) {
                 http_response_code(404);
@@ -174,7 +184,7 @@ class FeedbackController {
 
             echo json_encode([
                 'success' => true,
-                'data' => $feedback
+                'data' => $service->formatFeedback($feedback)
             ]);
         } catch (Throwable $e) {
             LoggerService::logError('Feedback fetch failed', [
@@ -195,34 +205,13 @@ class FeedbackController {
         $conn = $db->connect();
 
         try {
-            $query = "
-                SELECT
-                    tf.*,
-                    t.due_date,
-                    COALESCE(cand.name, '') AS candidate_name,
-                    COALESCE(tt.name, '') AS task_type,
-                    COALESCE(ts.name, '') AS task_status,
-                    COALESCE(u.name, '') AS assigned_to_name
-                FROM task_feedback tf
-                LEFT JOIN tasks t ON t.id = tf.task_id
-                LEFT JOIN candidates cand ON cand.id = t.candidate_id
-                LEFT JOIN task_types tt ON tt.id = t.task_type_id
-                LEFT JOIN task_status_master ts ON ts.id = t.status_id
-                LEFT JOIN task_assignments ta ON ta.task_id = t.id AND ta.is_active = 1
-                LEFT JOIN users u ON u.id = ta.user_id
-            ";
-
-            $params = [];
-            if (in_array(strtolower($role), ['expert', 'technical expert', 'expertlead', 'technical lead'], true)) {
-                $query .= " WHERE ta.user_id = ? ";
-                $params[] = (int)$requestUserId;
-            }
-
-            $query .= " ORDER BY tf.id DESC";
-
-            $stmt = $conn->prepare($query);
-            $stmt->execute($params);
-            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $repository = new FeedbackRepository($conn);
+            $service = new FeedbackService($repository);
+            $rows = $repository->list(
+                $requestUserId === null ? null : (int)$requestUserId,
+                $role
+            );
+            $rows = array_map(static fn (array $row): array => $service->formatFeedback($row), $rows);
 
             echo json_encode([
                 'success' => true,
@@ -241,4 +230,5 @@ class FeedbackController {
             ]);
         }
     }
+
 }
